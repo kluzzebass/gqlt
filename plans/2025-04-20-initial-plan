@@ -1,0 +1,285 @@
+================================================================
+IMPLEMENTATION PLAN — GraphQL CLI Tool (gqlt)
+Language: Go
+Goal: Minimal, composable command‑line client for running GraphQL ops
+================================================================
+
+---------------------------------------------------------------
+PHASE 1 | PROJECT INITIALIZATION
+---------------------------------------------------------------
+
+[ ] 1. Initialize "gqlt"
+    go mod init github.com/kluzzebass/gqlt
+
+[ ] 2. Add module dependencies
+    go get github.com/spf13/cobra@latest
+    go get github.com/machinebox/graphql@latest
+    go get github.com/fatih/color@latest (optional pretty output)
+
+[ ] 3. Base layout
+    /cmd
+      root.go
+      run.go
+      introspect.go
+      describe.go
+      test.go
+      schema_diff.go
+    /internal
+      /config
+      /io
+      /output
+    /main.go
+
+[ ] 4. main.go content:
+    package main
+    import "github.com/kluzzebass/gqlt/cmd"
+    func main() { cmd.Execute() }
+
+[ ] 5. cmd/root.go
+    Define the root Cobra command "gqlt"
+    Version: 0.1.x
+    PersistentFlags: (e.g. global --config)
+    Example:
+      var rootCmd = &cobra.Command{Use: "gqlt"}
+      func Execute() { cobra.CheckErr(rootCmd.Execute()) }
+
+---------------------------------------------------------------
+PHASE 2 | RUN COMMAND (core)
+---------------------------------------------------------------
+
+Purpose: Execute GraphQL operation (query or mutation)
+
+[ ] 6. cmd/run.go
+    Use: "run"
+    Short: "Execute a GraphQL operation against an endpoint"
+
+[ ] 7. Define flags:
+    --url string                 (GraphQL endpoint; required if not in config)
+    --query string               (inline GraphQL document)
+    --query-file string          (path to .graphql file)
+    --operation string           (operationName)
+    --vars string                (JSON object)
+    --vars-file string           (path to JSON file)
+    --header key=value           (repeatable)
+    --file name=path             (file uploads; repeatable)
+    --config path                (optional; override default)
+    --out json|pretty|raw        (output mode; default json)
+
+[ ] 8. Input validation rules:
+    - if both --query and --query-file => error
+    - if neither => read full stdin as query
+    - if both --vars and --vars-file => error
+    - headers accumulate across occurrences
+    - files accumulate across occurrences
+    - if --config given, merge config values before network call
+
+[ ] 9. Implement helper resolution:
+
+    // loadQuery: returns string
+    if runFlags.query != "" return runFlags.query
+    else if runFlags.queryFile != "" => read file
+    else => read stdin until EOF
+
+    // loadVars: returns map[string]interface{}
+    if --vars => json.Unmarshal
+    if --vars-file => read + Unmarshal
+    else => empty map
+
+    // parseHeaders: split by first '='
+    result[k] = v for each --header occurrence
+
+    // parseFiles: map[name] = path for each --file occurrence
+
+[ ] 10. Run GraphQL call:
+    client := graphql.NewClient(url)
+    req := graphql.NewRequest(query)
+    if operationName != "" => req.OperationName = operationName
+    for key, value := range vars => req.Var(key, value)
+    for k,v := range headers => req.Header.Set(k,v)
+    for name,path := range files => req.File(name, path)
+    var result map[string]interface{}
+    err := client.Run(context.Background(), req, &result)
+
+[ ] 11. Error handling:
+    if err != nil => print to stderr, exit 1
+    if result["errors"] exists and non-empty => exit 2
+
+[ ] 12. Output handler:
+    switch outMode:
+      "json": json.NewEncoder(os.Stdout).Encode(result)
+      "pretty":
+          indent JSON + colorize keys "data","errors"
+      "raw":
+          if obj, ok := result["data"]; ok => encode obj only
+
+---------------------------------------------------------------
+PHASE 3 | CONFIG FILES
+---------------------------------------------------------------
+
+Config location search order:
+1. --config flag
+2. ./.gqlt/config.json
+3. $HOME/.config/gqlt/config.json
+
+[ ] 13. internal/config/config.go:
+    type Config struct {
+        Endpoint string            `json:"endpoint"`
+        Headers  map[string]string `json:"headers"`
+        Defaults struct {
+            Out string `json:"out"`
+        } `json:"defaults"`
+    }
+
+[ ] 14. Load(path):
+    reads JSON, returns *Config
+    if path empty => search in standard paths
+    fallback = nil if not found
+
+[ ] 15. Merge(cli *Config, cfg *Config):
+    - CLI values override
+    - headers merge (CLI overwrites)
+    - default Out fallback from cfg if not set
+    return merged *Config
+
+[ ] 16. cmd/config.go (optional)
+    subcommands:
+      gqlt config show
+      gqlt config set key value
+      gqlt config clear
+    reads/updates JSON file on disk
+
+---------------------------------------------------------------
+PHASE 4 | INTROSPECTION AND DESCRIBE
+---------------------------------------------------------------
+
+[ ] 17. cmd/introspect.go
+    - endpoint via flag/config
+    - issue introspection query:
+      query IntrospectionQuery { __schema { types { name kind fields { name type { name kind } } } } }
+    - save to .gqlt/schema.json or user-specified path
+    - flags:
+       --refresh (ignore cache)
+       --out path
+       --summary (stdout short)
+
+[ ] 18. cmd/describe.go
+    - read schema JSON file
+    - build index:
+        map[TypeName]TypeMetadata
+        map[Query|Mutation|Subscription]FieldSummary
+    - arguments:
+        gqlt describe Query
+        gqlt describe Query.product
+        gqlt describe Type.Product
+    - options:
+        --json  (exact node JSON)
+        --summary (plain text)
+    - typical output:
+        TYPE Query
+        ├── product(id: ID!): Product
+        └── search(q: String!): [Product]
+
+---------------------------------------------------------------
+PHASE 5 | TEST AND SCHEMA DIFF
+---------------------------------------------------------------
+
+[ ] 19. cmd/test.go
+    Purpose: load YAML/JSON suite of operations + expected matches
+    TestSpec structure:
+        - name string
+        - query string or file
+        - vars  map[string]interface{}
+        - expect map[string]interface{}
+    Execution:
+        for each test:
+            runGraphQL()
+            validate: each expect key -> check via JSONPath or simple dotted traversal
+            count passes/fails
+    Exit codes: 0 all pass, 2 failures.
+
+[ ] 20. cmd/schema_diff.go
+    Inputs: two file paths
+    Compare type/field maps.
+    Diff struct:
+       AddedTypes, RemovedTypes
+       AddedFields, RemovedFields
+    Output options: default text table, or --json
+    Typical:
+       TYPE+ Order
+       FIELD- Product.oldField
+
+---------------------------------------------------------------
+PHASE 6 | INTERNAL UTILITIES
+---------------------------------------------------------------
+
+[ ] 21. internal/io/io.go
+    Func ReadFileOrStdin(path string) (string, error)
+    Func ParseJSONFile(path string, v any) error
+    Func WriteJSON(path string, data any) error
+
+[ ] 22. internal/output/output.go
+    Func PrintJSON(obj any)
+    Func PrintPretty(obj any)
+    Func PrintRaw(data map[string]any)
+
+[ ] 23. internal/errors
+    Central error helper for consistent exit codes.
+
+---------------------------------------------------------------
+PHASE 7 | BUILD / VALIDATION
+---------------------------------------------------------------
+
+[ ] 24. Build command:
+    go build -o bin/gqlt main.go
+    verify binary size < 15MB static
+    test: ./bin/gqlt --help
+
+[ ] 25. Manual tests:
+    ./gqlt run --url <endpoint> --query '{__typename}'
+    ./gqlt run --query-file q.graphql --vars '{"id":"1"}'
+    ./gqlt introspect
+    ./gqlt describe Query
+
+[ ] 26. CI / Testing:
+    Write unit tests for config merge, IO helpers
+    run: go test ./...
+
+[ ] 27. Release binaries:
+    for os in linux darwin windows; do GOOS=$os go build -o dist/gqlt-$os main.go; done
+    checksum + tag v0.1.0
+
+---------------------------------------------------------------
+PHASE 8 | HANDLING FILE UPLOADS
+---------------------------------------------------------------
+
+[ ] 28. Support --file flags parsed as "name=path"
+    Loop:
+        fields := strings.SplitN(flagvalue, "=", 2)
+        req.File(fields[0], fields[1])
+    Validate file existence before attach.
+
+[ ] 29. Example use in shell:
+    gqlt run \
+      --query-file upload.graphql \
+      --vars '{"file": null}' \
+      --file file=./photo.jpg \
+      --url https://api.example.com/graphql
+
+    The client auto‑detects multipart form; response remains JSON.
+
+---------------------------------------------------------------
+PHASE 9 | EXIT CODES SUMMARY
+---------------------------------------------------------------
+0  success, no errors
+1  system/CLI/network error
+2  GraphQL response contained "errors" or test/schema diff failures
+
+---------------------------------------------------------------
+COMPLETE WHEN:
+---------------------------------------------------------------
+[ ] gqlt buildable single binary (Linux, macOS, Windows)
+[ ] run, introspect, describe functional
+[ ] supports headers, bearer tokens, file uploads
+[ ] outputs consistent JSON or colorized pretty form
+[ ] uses exit codes appropriately
+[ ] minimal third‑party dependencies

@@ -1,0 +1,20 @@
+---
+description: How to create and follow plans
+alwaysApply: false
+---
+
+- Sufficiently large tasks should not be started without a plan. If need be, ask to create a plan.
+- A plan must contain at least
+  - A description of the purpose of the feature in question.
+  - High level phases that end up with testable/verifiable functionality or artifacts.
+  - Low level numbered steps that describe implementation details, and possibly even sample code. Step numbering MUST not be reset for each phase, but kept unique for the plan in its entirety.
+  - Checkboxes for each phase and step so that progress can be recorded. This will make it easier to resume a plan at a later point.
+- Before implementing a plan, analyze the plan for logical errors and make sure the order of operations makes sense.
+- Each phase MUST be testable, or at least manually verifyable.
+- Within reason, implement tests.
+- A plan is not a race to the finish line. It is more important to do each step correctly than to finish all steps.
+- Unless explicitly told not to, ask before proceeding with the next step.
+- After each step has been approved, mark it as completed in the plan.
+- If you're uncertain about a step, STOP and ask for clarification.
+- Look for eestablished patterns in the existing codebase, and try to replicate where possible.
+- If you encounter steps that seem complex, offer to split it into multiple steps, especially if those steps would make it easier to test.
