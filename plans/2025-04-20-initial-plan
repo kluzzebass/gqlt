@@ -2,21 +2,29 @@
 IMPLEMENTATION PLAN — GraphQL CLI Tool (gqlt)
 Language: Go
 Goal: Minimal, composable command‑line client for running GraphQL ops
+
+CURRENT APPROACH: Using native HTTP client instead of GraphQL libraries
+- Full control over request/response handling
+- Native operation name support
+- Authentication via standard HTTP headers
+- No external GraphQL library dependencies
+- Minimal dependencies (just cobra and color)
 ================================================================
 
 ---------------------------------------------------------------
 PHASE 1 | PROJECT INITIALIZATION
 ---------------------------------------------------------------
 
-[ ] 1. Initialize "gqlt"
+[x] 1. Initialize "gqlt"
     go mod init github.com/kluzzebass/gqlt
 
-[ ] 2. Add module dependencies
+[x] 2. Add module dependencies
     go get github.com/spf13/cobra@latest
-    go get github.com/machinebox/graphql@latest
     go get github.com/fatih/color@latest (optional pretty output)
+    Note: Using native HTTP client instead of GraphQL library for full control
+    Note: Authentication handled via headers, no OAuth2 library needed
 
-[ ] 3. Base layout
+[x] 3. Base layout
     /cmd
       root.go
       run.go
@@ -30,12 +38,12 @@ PHASE 1 | PROJECT INITIALIZATION
       /output
     /main.go
 
-[ ] 4. main.go content:
+[x] 4. main.go content:
     package main
     import "github.com/kluzzebass/gqlt/cmd"
     func main() { cmd.Execute() }
 
-[ ] 5. cmd/root.go
+[x] 5. cmd/root.go
     Define the root Cobra command "gqlt"
     Version: 0.1.x
     PersistentFlags: (e.g. global --config)
@@ -49,23 +57,27 @@ PHASE 2 | RUN COMMAND (core)
 
 Purpose: Execute GraphQL operation (query or mutation)
 
-[ ] 6. cmd/run.go
+[x] 6. cmd/run.go
     Use: "run"
     Short: "Execute a GraphQL operation against an endpoint"
 
-[ ] 7. Define flags:
-    --url string                 (GraphQL endpoint; required if not in config)
-    --query string               (inline GraphQL document)
-    --query-file string          (path to .graphql file)
-    --operation string           (operationName)
-    --vars string                (JSON object)
-    --vars-file string           (path to JSON file)
-    --header key=value           (repeatable)
-    --file name=path             (file uploads; repeatable)
-    --config path                (optional; override default)
-    --out json|pretty|raw        (output mode; default json)
+[x] 7. Define flags with short options:
+    -u, --url string                 (GraphQL endpoint; required if not in config)
+    -q, --query string               (inline GraphQL document)
+    -Q, --query-file string          (path to .graphql file)
+    -o, --operation string           (operationName)
+    -v, --vars string                (JSON object)
+    -V, --vars-file string           (path to JSON file)
+    -H, --header key=value           (repeatable)
+    -f, --file name=path             (file uploads; repeatable)
+    -F, --files-list string          (file containing list of files to upload)
+    -c, --config path                (optional; override default)
+    -O, --out json|pretty|raw        (output mode: json=formatted, pretty=colored, raw=compact; default json)
+    -U, --username string            (username for basic authentication)
+    -p, --password string            (password for basic authentication)
+    Note: Bearer tokens handled via -H "Authorization: Bearer <token>"
 
-[ ] 8. Input validation rules:
+[x] 8. Input validation rules:
     - if both --query and --query-file => error
     - if neither => read full stdin as query
     - if both --vars and --vars-file => error
@@ -73,7 +85,7 @@ Purpose: Execute GraphQL operation (query or mutation)
     - files accumulate across occurrences
     - if --config given, merge config values before network call
 
-[ ] 9. Implement helper resolution:
+[x] 9. Implement helper resolution:
 
     // loadQuery: returns string
     if runFlags.query != "" return runFlags.query
@@ -90,27 +102,23 @@ Purpose: Execute GraphQL operation (query or mutation)
 
     // parseFiles: map[name] = path for each --file occurrence
 
-[ ] 10. Run GraphQL call:
-    client := graphql.NewClient(url)
-    req := graphql.NewRequest(query)
-    if operationName != "" => req.OperationName = operationName
-    for key, value := range vars => req.Var(key, value)
-    for k,v := range headers => req.Header.Set(k,v)
-    for name,path := range files => req.File(name, path)
-    var result map[string]interface{}
-    err := client.Run(context.Background(), req, &result)
+[x] 10. Run GraphQL call using native HTTP client:
+    - Build GraphQL payload with query, operationName, variables
+    - Create HTTP POST request to GraphQL endpoint
+    - Set Content-Type: application/json
+    - Add custom headers
+    - Execute request with authenticated HTTP client
+    - Parse JSON response into map[string]interface{}
 
-[ ] 11. Error handling:
+[x] 11. Error handling:
     if err != nil => print to stderr, exit 1
     if result["errors"] exists and non-empty => exit 2
 
-[ ] 12. Output handler:
+[x] 12. Output handler:
     switch outMode:
-      "json": json.NewEncoder(os.Stdout).Encode(result)
-      "pretty":
-          indent JSON + colorize keys "data","errors"
-      "raw":
-          if obj, ok := result["data"]; ok => encode obj only
+      "json": formatted JSON with indentation (default)
+      "pretty": colorized formatted JSON with syntax highlighting
+      "raw": unformatted JSON (no indentation, compact)
 
 ---------------------------------------------------------------
 PHASE 3 | CONFIG FILES
@@ -209,66 +217,106 @@ PHASE 5 | TEST AND SCHEMA DIFF
        FIELD- Product.oldField
 
 ---------------------------------------------------------------
-PHASE 6 | INTERNAL UTILITIES
+PHASE 6 | AUTHENTICATION SUPPORT
 ---------------------------------------------------------------
 
-[ ] 21. internal/io/io.go
+[x] 30. Add simple authentication support to run command:
+    -U, --username string              (basic auth username)
+    -p, --password string          (basic auth password)
+    Note: Bearer tokens handled via -H "Authorization: Bearer <token>"
+
+[x] 31. Implement simple authentication:
+    - Bearer: Use -H "Authorization: Bearer <token>" header
+    - Basic: Custom http.RoundTripper with Authorization header
+    - None: No authentication (default)
+
+[ ] 32. Update config structure for simple auth:
+    type Config struct {
+        Endpoint string            `json:"endpoint"`
+        Token    string            `json:"token"`
+        Username string            `json:"username"`
+        Password string            `json:"password"`
+        Headers  map[string]string `json:"headers"`
+        Defaults struct {
+            Out string `json:"out"`
+        } `json:"defaults"`
+    }
+
+---------------------------------------------------------------
+PHASE 7 | INTERNAL UTILITIES
+---------------------------------------------------------------
+
+[ ] 34. internal/io/io.go
     Func ReadFileOrStdin(path string) (string, error)
     Func ParseJSONFile(path string, v any) error
     Func WriteJSON(path string, data any) error
 
-[ ] 22. internal/output/output.go
+[ ] 35. internal/output/output.go
     Func PrintJSON(obj any)
     Func PrintPretty(obj any)
     Func PrintRaw(data map[string]any)
 
-[ ] 23. internal/errors
+[ ] 36. internal/errors
     Central error helper for consistent exit codes.
 
 ---------------------------------------------------------------
-PHASE 7 | BUILD / VALIDATION
+PHASE 8 | BUILD / VALIDATION
 ---------------------------------------------------------------
 
-[ ] 24. Build command:
+[ ] 37. Build command:
     go build -o bin/gqlt main.go
     verify binary size < 15MB static
     test: ./bin/gqlt --help
 
-[ ] 25. Manual tests:
+[ ] 38. Manual tests:
     ./gqlt run --url <endpoint> --query '{__typename}'
     ./gqlt run --query-file q.graphql --vars '{"id":"1"}'
     ./gqlt introspect
     ./gqlt describe Query
 
-[ ] 26. CI / Testing:
+[ ] 39. CI / Testing:
     Write unit tests for config merge, IO helpers
     run: go test ./...
 
-[ ] 27. Release binaries:
+[ ] 40. Release binaries:
     for os in linux darwin windows; do GOOS=$os go build -o dist/gqlt-$os main.go; done
     checksum + tag v0.1.0
 
 ---------------------------------------------------------------
-PHASE 8 | HANDLING FILE UPLOADS
+PHASE 9 | HANDLING FILE UPLOADS
 ---------------------------------------------------------------
 
-[ ] 28. Support --file flags parsed as "name=path"
-    Loop:
-        fields := strings.SplitN(flagvalue, "=", 2)
-        req.File(fields[0], fields[1])
-    Validate file existence before attach.
+[ ] 41. Support file uploads:
+    -f, --file flags parsed as "name=path" (repeatable)
+    -F, --files-list string (file containing list of files to upload)
+    - Parse file flags into map[name]path
+    - Validate file existence before attach
+    - Note: File uploads require multipart/form-data implementation
+    - For now, file uploads are parsed but not yet implemented
 
-[ ] 29. Example use in shell:
-    gqlt run \
-      --query-file upload.graphql \
-      --vars '{"file": null}' \
-      --file file=./photo.jpg \
-      --url https://api.example.com/graphql
+[ ] 42. Example use in shell:
+    # Simple query (formatted JSON)
+    gqlt run -u https://api.example.com/graphql -q '{ __typename }'
+    
+    # Query with variables (colored output)
+    gqlt run -u https://api.example.com/graphql -Q query.graphql -v '{"id": "123"}' -O pretty
+    
+    # Compact output for scripting
+    gqlt run -u https://api.example.com/graphql -q '{ me { name } }' -O raw | jq '.data.me.name'
+    
+    # With authentication
+    gqlt run -u https://api.example.com/graphql -q '{ me { name } }' -H "Authorization: Bearer <token>"
+    
+    # File upload (when implemented)
+    gqlt run -u https://api.example.com/graphql -Q upload.graphql -f file=./photo.jpg
 
-    The client auto‑detects multipart form; response remains JSON.
+    Output modes:
+    - json: formatted JSON with indentation (default)
+    - pretty: colorized formatted JSON for development
+    - raw: compact unformatted JSON for scripting
 
 ---------------------------------------------------------------
-PHASE 9 | EXIT CODES SUMMARY
+PHASE 10 | EXIT CODES SUMMARY
 ---------------------------------------------------------------
 0  success, no errors
 1  system/CLI/network error
