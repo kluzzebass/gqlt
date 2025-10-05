@@ -81,8 +81,8 @@ var defaultRegistry = NewFormatterRegistry()
 func NewFormatter(format string) Formatter {
 	formatter, err := defaultRegistry.Get(format)
 	if err != nil {
-		// Fall back to JSON formatter for unknown formats
-		formatter, _ = defaultRegistry.Get("json")
+		// Return nil for unknown formats
+		return nil
 	}
 	return formatter
 }
@@ -99,7 +99,7 @@ func GetAvailableFormatters() []string {
 
 // JSONFormatter implements Formatter for JSON output
 type JSONFormatter struct {
-	output io.Writer
+	output      io.Writer
 	errorOutput io.Writer
 }
 
@@ -131,7 +131,7 @@ func (f *JSONFormatter) getErrorOutput() io.Writer {
 
 // TableFormatter implements Formatter for table output
 type TableFormatter struct {
-	output io.Writer
+	output      io.Writer
 	errorOutput io.Writer
 }
 
@@ -163,7 +163,7 @@ func (f *TableFormatter) getErrorOutput() io.Writer {
 
 // YAMLFormatter implements Formatter for YAML output
 type YAMLFormatter struct {
-	output io.Writer
+	output      io.Writer
 	errorOutput io.Writer
 }
 
@@ -268,28 +268,38 @@ func (f *JSONFormatter) FormatStructured(data interface{}, quiet bool) error {
 
 // FormatStructuredError formats an error as structured output
 func (f *JSONFormatter) FormatStructuredError(err error, code string, quiet bool) error {
+	message := ""
+	if err != nil {
+		message = err.Error()
+	}
+	
 	output := &StructuredOutput{
 		Success: false,
 		Error: &ErrorInfo{
 			Code:    code,
-			Message: err.Error(),
+			Message: message,
 		},
 	}
-	return f.formatStructuredJSON(output)
+	return f.formatStructuredJSONToError(output)
 }
 
 // FormatStructuredErrorWithContext formats an error with additional context
 func (f *JSONFormatter) FormatStructuredErrorWithContext(err error, code string, errorType string, context map[string]interface{}, quiet bool) error {
+	message := ""
+	if err != nil {
+		message = err.Error()
+	}
+	
 	output := &StructuredOutput{
 		Success: false,
 		Error: &ErrorInfo{
 			Code:    code,
-			Message: err.Error(),
+			Message: message,
 			Type:    errorType,
 			Context: context,
 		},
 	}
-	return f.formatStructuredJSON(output)
+	return f.formatStructuredJSONToError(output)
 }
 
 // FormatResponse formats a GraphQL response
@@ -312,6 +322,12 @@ func (f *JSONFormatter) formatStructuredJSON(output *StructuredOutput) error {
 	return encoder.Encode(output)
 }
 
+func (f *JSONFormatter) formatStructuredJSONToError(output *StructuredOutput) error {
+	encoder := json.NewEncoder(f.getErrorOutput())
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(output)
+}
+
 // TableFormatter implementation
 
 // FormatStructured formats data as structured table output
@@ -325,34 +341,46 @@ func (f *TableFormatter) FormatStructured(data interface{}, quiet bool) error {
 
 // FormatStructuredError formats an error as structured table output
 func (f *TableFormatter) FormatStructuredError(err error, code string, quiet bool) error {
+	message := ""
+	if err != nil {
+		message = err.Error()
+	}
+	
 	output := &StructuredOutput{
 		Success: false,
 		Error: &ErrorInfo{
 			Code:    code,
-			Message: err.Error(),
+			Message: message,
 		},
 	}
-	return f.formatStructuredTable(output, quiet)
+	return f.formatStructuredTableToError(output, quiet)
 }
 
 // FormatStructuredErrorWithContext formats an error with additional context
 func (f *TableFormatter) FormatStructuredErrorWithContext(err error, code string, errorType string, context map[string]interface{}, quiet bool) error {
+	message := ""
+	if err != nil {
+		message = err.Error()
+	}
+	
 	output := &StructuredOutput{
 		Success: false,
 		Error: &ErrorInfo{
 			Code:    code,
-			Message: err.Error(),
+			Message: message,
 			Type:    errorType,
 			Context: context,
 		},
 	}
-	return f.formatStructuredTable(output, quiet)
+	return f.formatStructuredTableToError(output, quiet)
 }
 
 // FormatResponse formats a GraphQL response
 func (f *TableFormatter) FormatResponse(response *Response, mode string) error {
 	// Table formatter doesn't support GraphQL response modes, fall back to JSON
 	jsonFormatter := &JSONFormatter{}
+	jsonFormatter.SetOutput(f.getOutput())
+	jsonFormatter.SetErrorOutput(f.getErrorOutput())
 	return jsonFormatter.FormatResponse(response, mode)
 }
 
@@ -412,6 +440,53 @@ func (f *TableFormatter) formatStructuredTable(output *StructuredOutput, quiet b
 	return nil
 }
 
+func (f *TableFormatter) formatStructuredTableToError(output *StructuredOutput, quiet bool) error {
+	if quiet {
+		// In quiet mode, just show the error message to error output
+		if !output.Success {
+			fmt.Fprintf(f.getErrorOutput(), "Error: %s\n", output.Error.Message)
+		}
+		return nil
+	}
+
+	// Full table output to error stream
+	if !output.Success {
+		fmt.Fprintln(f.getErrorOutput(), "✗ Error")
+		fmt.Fprintf(f.getErrorOutput(), "Code: %s\n", output.Error.Code)
+		if output.Error.Type != "" {
+			fmt.Fprintf(f.getErrorOutput(), "Type: %s\n", output.Error.Type)
+		}
+		fmt.Fprintf(f.getErrorOutput(), "Message: %s\n", output.Error.Message)
+		if output.Error.Details != "" {
+			fmt.Fprintf(f.getErrorOutput(), "Details: %s\n", output.Error.Details)
+		}
+		if len(output.Error.Context) > 0 {
+			fmt.Fprintf(f.getErrorOutput(), "Context:\n")
+			for key, value := range output.Error.Context {
+				fmt.Fprintf(f.getErrorOutput(), "  %s: %v\n", key, value)
+			}
+		}
+	}
+
+	if output.Meta != nil {
+		fmt.Fprintln(f.getErrorOutput(), "\nMetadata:")
+		if output.Meta.Command != "" {
+			fmt.Fprintf(f.getErrorOutput(), "  Command: %s\n", output.Meta.Command)
+		}
+		if output.Meta.Config != "" {
+			fmt.Fprintf(f.getErrorOutput(), "  Config: %s\n", output.Meta.Config)
+		}
+		if output.Meta.Endpoint != "" {
+			fmt.Fprintf(f.getErrorOutput(), "  Endpoint: %s\n", output.Meta.Endpoint)
+		}
+		if output.Meta.Operation != "" {
+			fmt.Fprintf(f.getErrorOutput(), "  Operation: %s\n", output.Meta.Operation)
+		}
+	}
+
+	return nil
+}
+
 // YAMLFormatter implementation
 
 // FormatStructured formats data as structured YAML output
@@ -425,34 +500,46 @@ func (f *YAMLFormatter) FormatStructured(data interface{}, quiet bool) error {
 
 // FormatStructuredError formats an error as structured YAML output
 func (f *YAMLFormatter) FormatStructuredError(err error, code string, quiet bool) error {
+	message := ""
+	if err != nil {
+		message = err.Error()
+	}
+	
 	output := &StructuredOutput{
 		Success: false,
 		Error: &ErrorInfo{
 			Code:    code,
-			Message: err.Error(),
+			Message: message,
 		},
 	}
-	return f.formatStructuredYAML(output)
+	return f.formatStructuredYAMLToError(output)
 }
 
 // FormatStructuredErrorWithContext formats an error with additional context
 func (f *YAMLFormatter) FormatStructuredErrorWithContext(err error, code string, errorType string, context map[string]interface{}, quiet bool) error {
+	message := ""
+	if err != nil {
+		message = err.Error()
+	}
+	
 	output := &StructuredOutput{
 		Success: false,
 		Error: &ErrorInfo{
 			Code:    code,
-			Message: err.Error(),
+			Message: message,
 			Type:    errorType,
 			Context: context,
 		},
 	}
-	return f.formatStructuredYAML(output)
+	return f.formatStructuredYAMLToError(output)
 }
 
 // FormatResponse formats a GraphQL response
 func (f *YAMLFormatter) FormatResponse(response *Response, mode string) error {
 	// YAML formatter doesn't support GraphQL response modes, fall back to JSON
 	jsonFormatter := &JSONFormatter{}
+	jsonFormatter.SetOutput(f.getOutput())
+	jsonFormatter.SetErrorOutput(f.getErrorOutput())
 	return jsonFormatter.FormatResponse(response, mode)
 }
 
@@ -501,12 +588,52 @@ func (f *YAMLFormatter) formatStructuredYAML(output *StructuredOutput) error {
 	return nil
 }
 
+func (f *YAMLFormatter) formatStructuredYAMLToError(output *StructuredOutput) error {
+	// Simple YAML-like output to error stream
+	if !output.Success {
+		fmt.Fprintln(f.getErrorOutput(), "success: false")
+		fmt.Fprintf(f.getErrorOutput(), "error:\n")
+		fmt.Fprintf(f.getErrorOutput(), "  code: %s\n", output.Error.Code)
+		if output.Error.Type != "" {
+			fmt.Fprintf(f.getErrorOutput(), "  type: %s\n", output.Error.Type)
+		}
+		fmt.Fprintf(f.getErrorOutput(), "  message: %s\n", output.Error.Message)
+		if output.Error.Details != "" {
+			fmt.Fprintf(f.getErrorOutput(), "  details: %s\n", output.Error.Details)
+		}
+		if len(output.Error.Context) > 0 {
+			fmt.Fprintf(f.getErrorOutput(), "  context:\n")
+			for key, value := range output.Error.Context {
+				fmt.Fprintf(f.getErrorOutput(), "    %s: %v\n", key, value)
+			}
+		}
+	}
+
+	if output.Meta != nil {
+		fmt.Fprintln(f.getErrorOutput(), "meta:")
+		if output.Meta.Command != "" {
+			fmt.Fprintf(f.getErrorOutput(), "  command: %s\n", output.Meta.Command)
+		}
+		if output.Meta.Config != "" {
+			fmt.Fprintf(f.getErrorOutput(), "  config: %s\n", output.Meta.Config)
+		}
+		if output.Meta.Endpoint != "" {
+			fmt.Fprintf(f.getErrorOutput(), "  endpoint: %s\n", output.Meta.Endpoint)
+		}
+		if output.Meta.Operation != "" {
+			fmt.Fprintf(f.getErrorOutput(), "  operation: %s\n", output.Meta.Operation)
+		}
+	}
+
+	return nil
+}
+
 // FormatResponse formats and prints the GraphQL response
 // This old FormatResponse method is no longer needed - it's been moved to JSONFormatter
 
 // formatJSON outputs formatted JSON
 func (f *JSONFormatter) formatJSON(response *Response) error {
-	encoder := json.NewEncoder(os.Stdout)
+	encoder := json.NewEncoder(f.getOutput())
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(response)
 }

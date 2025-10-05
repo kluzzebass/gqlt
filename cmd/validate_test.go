@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -235,6 +236,13 @@ func TestValidateOutputFormats(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			formatter := gqlt.NewFormatter(tt.format)
+			if tt.format == "unknown" {
+				// Unknown formats should return nil
+				if formatter != nil {
+					t.Errorf("Expected nil formatter for unknown format %s", tt.format)
+				}
+				return
+			}
 			if formatter == nil {
 				t.Errorf("Expected non-nil formatter for format %s", tt.format)
 			}
@@ -294,11 +302,8 @@ func TestValidateErrorCodes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			formatter := gqlt.NewFormatter("json")
-
-			// Redirect stdout to capture output
-			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
+			errorBuf := &bytes.Buffer{}
+			formatter.SetErrorOutput(errorBuf)
 
 			err := formatter.FormatStructuredError(
 				os.ErrNotExist,
@@ -306,18 +311,11 @@ func TestValidateErrorCodes(t *testing.T) {
 				false,
 			)
 
-			w.Close()
-			os.Stdout = oldStdout
-
 			if err != nil {
 				t.Errorf("FormatStructuredError failed: %v", err)
 			}
 
-			// Read captured output
-			var buf []byte
-			buf = make([]byte, 4096)
-			n, _ := r.Read(buf)
-			output := string(buf[:n])
+			output := errorBuf.String()
 
 			// Verify JSON output contains error code
 			var result map[string]interface{}

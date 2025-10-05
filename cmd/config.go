@@ -271,7 +271,7 @@ func configCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	quietMode := cmd.Flag("quiet").Value.String() == "true"
-	
+
 	if !quietMode {
 		fmt.Printf("Created configuration '%s'\n", name)
 	}
@@ -512,7 +512,7 @@ func configSetToken(cmd *cobra.Command, args []string) error {
 	}
 
 	quietMode := cmd.Flag("quiet").Value.String() == "true"
-	
+
 	if !quietMode {
 		fmt.Printf("Set bearer token for configuration '%s'\n", name)
 	}
@@ -554,7 +554,7 @@ func configSetUsername(cmd *cobra.Command, args []string) error {
 	}
 
 	quietMode := cmd.Flag("quiet").Value.String() == "true"
-	
+
 	if !quietMode {
 		fmt.Printf("Set username for configuration '%s'\n", name)
 	}
@@ -596,7 +596,7 @@ func configSetPassword(cmd *cobra.Command, args []string) error {
 	}
 
 	quietMode := cmd.Flag("quiet").Value.String() == "true"
-	
+
 	if !quietMode {
 		fmt.Printf("Set password for configuration '%s'\n", name)
 	}
