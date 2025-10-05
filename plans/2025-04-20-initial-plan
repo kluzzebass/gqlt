@@ -131,12 +131,22 @@ Config location search order:
 
 [ ] 13. internal/config/config.go:
     type Config struct {
+        Current   string                    `json:"current"`   // active config name (defaults to "default")
+        Configs   map[string]ConfigEntry    `json:"configs"`   // named configurations
+    }
+    
+    type ConfigEntry struct {
         Endpoint string            `json:"endpoint"`
         Headers  map[string]string `json:"headers"`
         Defaults struct {
             Out string `json:"out"`
         } `json:"defaults"`
     }
+    
+    // Default configuration is always available and used when:
+    // - No config file exists
+    // - Current config doesn't exist
+    // - No specific config is specified
 
 [ ] 14. Load(path):
     reads JSON, returns *Config
@@ -151,10 +161,129 @@ Config location search order:
 
 [ ] 16. cmd/config.go (optional)
     subcommands:
-      gqlt config show
-      gqlt config set key value
-      gqlt config clear
+      gqlt config show [name]           (show current or named config)
+      gqlt config list                  (list all configurations)
+      gqlt config set <name> <key> <value>  (set value in named config)
+      gqlt config use <name>           (switch to named config)
+      gqlt config create <name>         (create new named config)
+      gqlt config delete <name>         (delete named config)
+      gqlt config clear [name]          (clear current or named config)
+      gqlt config init                  (create default config file)
+      
+      # AI-friendly commands
+      gqlt config describe              (show schema and examples)
+      gqlt config validate              (check config file syntax)
+      gqlt config examples              (show usage examples)
+      gqlt config help                  (detailed help with examples)
+      gqlt config template <name>       (create from template)
+      gqlt config docs                  (generate markdown docs)
+      
     reads/updates JSON file on disk
+    
+    Note: "default" config is always available and used as fallback
+
+[ ] 17. Example config file structure (AI-friendly):
+    {
+      "current": "production",
+      "configs": {
+        "default": {
+          "endpoint": "https://api.example.com/graphql",
+          "headers": {
+            "Authorization": "Bearer your-token-here",
+            "X-API-Key": "your-api-key-here"
+          },
+          "defaults": {
+            "out": "pretty"
+          },
+          "_comment": "Default configuration - used when no specific config is active"
+        },
+        "production": {
+          "endpoint": "https://api.company.com/graphql",
+          "headers": {
+            "Authorization": "Bearer prod-token-123"
+          },
+          "defaults": {
+            "out": "json"
+          }
+        },
+        "staging": {
+          "endpoint": "https://staging-api.company.com/graphql", 
+          "headers": {
+            "Authorization": "Bearer staging-token-456"
+          },
+          "defaults": {
+            "out": "pretty"
+          }
+        },
+        "local": {
+          "endpoint": "http://localhost:4000/graphql",
+          "headers": {},
+          "defaults": {
+            "out": "pretty"
+          }
+        }
+      },
+      "_schema": {
+        "endpoint": "GraphQL endpoint URL (required)",
+        "headers": "HTTP headers to include with requests",
+        "defaults.out": "Default output mode: json|pretty|raw"
+      }
+    }
+
+[ ] 18. Example usage:
+    # Initialize config file (creates default config)
+    gqlt config init
+    
+    # AI-friendly setup
+    gqlt config describe              # Show schema and examples
+    gqlt config validate              # Check config validity
+    gqlt config examples              # Show usage examples
+    gqlt config template github       # Create GitHub API template
+    gqlt config template localhost    # Create local development template
+    
+    # Create additional configurations
+    gqlt config create production
+    gqlt config set production endpoint https://api.company.com/graphql
+    gqlt config set production headers.Authorization "Bearer token123"
+    
+    gqlt config create staging  
+    gqlt config set staging endpoint https://staging-api.company.com/graphql
+    
+    # Switch between configs
+    gqlt config use production
+    gqlt run -q '{ me { name } }'  # uses production config
+    
+    gqlt config use staging
+    gqlt run -q '{ me { name } }'  # uses staging config
+    
+    gqlt config use default
+    gqlt run -q '{ me { name } }'  # uses default config
+    
+    # Override specific values
+    gqlt run -q '{ me { name } }' -u https://override.com/graphql
+    
+    # AI-friendly debugging
+    gqlt config show --format=json    # Structured output for AI parsing
+    gqlt config list --format=table  # Tabular data for easy parsing
+    gqlt config docs                  # Generate documentation
+
+[ ] 19. AI-friendly features:
+    - Self-documenting config structure with _schema and _comment fields
+    - Rich help system with examples and suggestions
+    - Validation with actionable error messages
+    - Template system for common use cases
+    - Structured output formats (json, table) for AI parsing
+    - Auto-completion hints for commands and values
+    - Context-aware error messages with solutions
+    - Documentation generation for AI understanding
+
+[ ] 20. Template examples:
+    gqlt config template github        # GitHub GraphQL API
+    gqlt config template localhost    # Local development
+    gqlt config template production    # Production setup
+    gqlt config template staging       # Staging environment
+    gqlt config template apollo        # Apollo Server
+    gqlt config template hasura       # Hasura GraphQL
 
 ---------------------------------------------------------------
 PHASE 4 | INTROSPECTION AND DESCRIBE

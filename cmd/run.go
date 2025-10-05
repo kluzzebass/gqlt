@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/kluzzebass/gqlt/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -59,6 +60,15 @@ func init() {
 }
 
 func runGraphQL(cmd *cobra.Command, args []string) error {
+	// Step 7.5: Load configuration
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Merge config with CLI flags
+	mergeConfigWithFlags(cfg)
+
 	// Step 8: Input validation
 	if query != "" && queryFile != "" {
 		return fmt.Errorf("cannot specify both --query and --query-file")
@@ -332,6 +342,36 @@ func printValue(value interface{}, indent string, keyColor, stringColor, numberC
 		fmt.Print(string(jsonBytes))
 	}
 	return nil
+}
+
+// mergeConfigWithFlags merges configuration values with CLI flags
+// CLI flags take precedence over config values
+func mergeConfigWithFlags(cfg *config.Config) {
+	current := cfg.GetCurrent()
+
+	// Only set values from config if CLI flags are not provided
+	if url == "" && current.Endpoint != "" {
+		url = current.Endpoint
+	}
+
+	if outMode == "json" && current.Defaults.Out != "" {
+		outMode = current.Defaults.Out
+	}
+
+	// Merge headers from config
+	for k, v := range current.Headers {
+		// Only add if not already specified via CLI
+		found := false
+		for _, h := range headers {
+			if strings.HasPrefix(h, k+"=") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			headers = append(headers, k+"="+v)
+		}
+	}
 }
 
 // basicAuthTransport implements http.RoundTripper for basic authentication
