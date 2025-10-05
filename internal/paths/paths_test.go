@@ -1,129 +1,120 @@
 package paths
 
 import (
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 )
 
-func TestGetDefaultPath(t *testing.T) {
-	path := GetDefaultPath()
-
-	// Verify path is not empty
-	if path == "" {
-		t.Error("GetDefaultPath() returned empty string")
-	}
-
-	// Verify path contains expected directory structure
-	expectedDir := "gqlt"
-	if !strings.Contains(path, expectedDir) {
-		t.Errorf("GetDefaultPath() should contain 'gqlt' directory, got: %s", path)
-	}
-}
-
-func TestGetConfigPath(t *testing.T) {
-	configPath := GetConfigPath()
-
-	// Verify path is not empty
-	if configPath == "" {
-		t.Error("GetConfigPath() returned empty string")
-	}
-
-	// Verify path ends with config.json
-	expectedFile := "config.json"
-	if !strings.Contains(configPath, expectedFile) {
-		t.Errorf("GetConfigPath() should end with 'config.json', got: %s", configPath)
-	}
-
-	// Verify path contains gqlt directory
-	if !strings.Contains(configPath, "gqlt") {
-		t.Errorf("GetConfigPath() should contain 'gqlt' directory, got: %s", configPath)
-	}
-}
-
-func TestGetSchemaPath(t *testing.T) {
-	schemaPath := GetSchemaPath()
-
-	// Verify path is not empty
-	if schemaPath == "" {
-		t.Error("GetSchemaPath() returned empty string")
-	}
-
-	// Verify path ends with schema.json
-	expectedFile := "schema.json"
-	if !strings.Contains(schemaPath, expectedFile) {
-		t.Errorf("GetSchemaPath() should end with 'schema.json', got: %s", schemaPath)
-	}
-
-	// Verify path contains gqlt directory
-	if !strings.Contains(schemaPath, "gqlt") {
-		t.Errorf("GetSchemaPath() should contain 'gqlt' directory, got: %s", schemaPath)
-	}
-}
-
-func TestPathConsistency(t *testing.T) {
-	// Test that all paths use the same base directory
+func TestPaths(t *testing.T) {
+	// Get all paths at the start
 	basePath := GetDefaultPath()
 	configPath := GetConfigPath()
 	schemaPath := GetSchemaPath()
 
-	// Config path should be base + config.json
-	expectedConfigPath := filepath.Join(basePath, "config.json")
-	if configPath != expectedConfigPath {
-		t.Errorf("Config path mismatch: expected %s, got %s", expectedConfigPath, configPath)
+	// Test that all paths are absolute and non-empty
+	if !filepath.IsAbs(basePath) || basePath == "" {
+		t.Errorf("Base path should be absolute and non-empty, got: %s", basePath)
+	}
+	if !filepath.IsAbs(configPath) || configPath == "" {
+		t.Errorf("Config path should be absolute and non-empty, got: %s", configPath)
+	}
+	if !filepath.IsAbs(schemaPath) || schemaPath == "" {
+		t.Errorf("Schema path should be absolute and non-empty, got: %s", schemaPath)
 	}
 
-	// Schema path should be base + schema.json
-	expectedSchemaPath := filepath.Join(basePath, "schema.json")
-	if schemaPath != expectedSchemaPath {
-		t.Errorf("Schema path mismatch: expected %s, got %s", expectedSchemaPath, schemaPath)
+	// Test that all paths contain 'gqlt' directory
+	if !strings.Contains(basePath, "gqlt") {
+		t.Errorf("Base path should contain 'gqlt', got: %s", basePath)
 	}
-}
+	if !strings.Contains(configPath, "gqlt") {
+		t.Errorf("Config path should contain 'gqlt', got: %s", configPath)
+	}
+	if !strings.Contains(schemaPath, "gqlt") {
+		t.Errorf("Schema path should contain 'gqlt', got: %s", schemaPath)
+	}
 
-func TestOSSpecificPaths(t *testing.T) {
-	// Test that paths are OS-specific
-	path := GetDefaultPath()
-
+	// Test OS-specific behavior
 	switch runtime.GOOS {
 	case "darwin":
-		// macOS should use Library/Application Support
-		if !strings.Contains(path, "Library") || !strings.Contains(path, "Application Support") {
-			t.Errorf("macOS path should contain 'Library/Application Support', got: %s", path)
+		if !strings.Contains(basePath, "Library/Application Support") {
+			t.Errorf("macOS path should contain 'Library/Application Support', got: %s", basePath)
 		}
 	case "windows":
-		// Windows should use AppData
-		if !strings.Contains(path, "AppData") {
-			t.Errorf("Windows path should contain 'AppData', got: %s", path)
+		if !strings.Contains(basePath, "AppData") {
+			t.Errorf("Windows path should contain 'AppData', got: %s", basePath)
 		}
 	default:
-		// Linux/Unix should use .config
-		if !strings.Contains(path, ".config") {
-			t.Errorf("Linux/Unix path should contain '.config', got: %s", path)
+		if !strings.Contains(basePath, ".config") {
+			t.Errorf("Linux/Unix path should contain '.config', got: %s", basePath)
 		}
+	}
+
+	// Test that config and schema paths use the base path
+	expectedConfigPath := filepath.Join(basePath, "config.json")
+	expectedSchemaPath := filepath.Join(basePath, "schema.json")
+
+	if configPath != expectedConfigPath {
+		t.Errorf("Config path should be %s, got %s", expectedConfigPath, configPath)
+	}
+	if schemaPath != expectedSchemaPath {
+		t.Errorf("Schema path should be %s, got %s", expectedSchemaPath, schemaPath)
+	}
+
+	// Test that paths have correct extensions
+	if !strings.HasSuffix(configPath, "config.json") {
+		t.Errorf("Config path should end with 'config.json', got: %s", configPath)
+	}
+	if !strings.HasSuffix(schemaPath, "schema.json") {
+		t.Errorf("Schema path should end with 'schema.json', got: %s", schemaPath)
+	}
+
+	// Test that paths are unique
+	if configPath == schemaPath {
+		t.Error("Config and schema paths should be different")
+	}
+
+	// Test path stability (same result across multiple calls)
+	if GetDefaultPath() != basePath {
+		t.Error("GetDefaultPath should return the same path across calls")
+	}
+	if GetConfigPath() != configPath {
+		t.Error("GetConfigPath should return the same path across calls")
+	}
+	if GetSchemaPath() != schemaPath {
+		t.Error("GetSchemaPath should return the same path across calls")
 	}
 }
 
-func TestPathStructure(t *testing.T) {
-	// Test that paths have proper structure
+func TestPathsWithEnvVars(t *testing.T) {
+	// Test with custom HOME environment variable
+	originalHome := os.Getenv("HOME")
+	defer func() {
+		if originalHome != "" {
+			os.Setenv("HOME", originalHome)
+		} else {
+			os.Unsetenv("HOME")
+		}
+	}()
+
+	// Set custom HOME
+	testHome := "/custom/home"
+	os.Setenv("HOME", testHome)
+
+	basePath := GetDefaultPath()
 	configPath := GetConfigPath()
 	schemaPath := GetSchemaPath()
 
-	// Both should be absolute paths
-	if !filepath.IsAbs(configPath) {
-		t.Errorf("Config path should be absolute, got: %s", configPath)
+	// All paths should contain custom HOME
+	if !strings.Contains(basePath, testHome) {
+		t.Errorf("Base path should contain custom HOME '%s', got: %s", testHome, basePath)
 	}
-
-	if !filepath.IsAbs(schemaPath) {
-		t.Errorf("Schema path should be absolute, got: %s", schemaPath)
+	if !strings.Contains(configPath, testHome) {
+		t.Errorf("Config path should contain custom HOME '%s', got: %s", testHome, configPath)
 	}
-
-	// Both should have proper file extensions
-	if filepath.Ext(configPath) != ".json" {
-		t.Errorf("Config path should have .json extension, got: %s", configPath)
-	}
-
-	if filepath.Ext(schemaPath) != ".json" {
-		t.Errorf("Schema path should have .json extension, got: %s", schemaPath)
+	if !strings.Contains(schemaPath, testHome) {
+		t.Errorf("Schema path should contain custom HOME '%s', got: %s", testHome, schemaPath)
 	}
 }
