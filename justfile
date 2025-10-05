@@ -207,7 +207,7 @@ git-push-tag:
     echo "Tag v$version pushed"
 
 # Check if GitHub CLI is installed and authenticated
-check-gh:
+_check-gh:
     @if ! command -v gh >/dev/null 2>&1; then \
         echo "Error: GitHub CLI (gh) is not installed."; \
         echo "Please install it from: https://cli.github.com/"; \
@@ -222,7 +222,7 @@ check-gh:
 
 # Create GitHub release with distribution files
 github-release:
-    @just check-gh && \
+    @just _check-gh && \
     version=$(cat VERSION) && \
     echo "Creating GitHub release v$version..." && \
     gh release create v$version \
@@ -234,7 +234,7 @@ github-release:
 
 # Create draft GitHub release for review
 github-release-draft:
-    @just check-gh && \
+    @just _check-gh && \
     version=$(cat VERSION) && \
     echo "Creating draft GitHub release v$version..." && \
     gh release create v$version \
@@ -348,7 +348,6 @@ help-just:
     @echo "  git-tags             - Show git tags"
     @echo "  git-tag              - Create git tag for current version"
     @echo "  git-push-tag         - Push git tag"
-    @echo "  check-gh             - Check if GitHub CLI is installed and authenticated"
     @echo ""
     @echo "Development:"
     @echo "  dev-setup            - Set up development environment"
