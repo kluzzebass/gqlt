@@ -11,7 +11,7 @@ import (
 
 func TestBasicCommandStructure(t *testing.T) {
 	// Test that all main commands exist
-	mainCommands := []string{"run", "config", "introspect", "describe"}
+	mainCommands := []string{"run", "config", "introspect", "describe", "validate"}
 
 	for _, cmdName := range mainCommands {
 		found := false
@@ -23,6 +23,36 @@ func TestBasicCommandStructure(t *testing.T) {
 		}
 		if !found {
 			t.Errorf("Expected main command '%s' to be registered", cmdName)
+		}
+	}
+}
+
+func TestValidateSubcommands(t *testing.T) {
+	// Test that validate has all expected subcommands
+	expectedSubcommands := []string{"query", "config", "schema"}
+
+	// Find validate command
+	var validateCmd *cobra.Command
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Name() == "validate" {
+			validateCmd = cmd
+			break
+		}
+	}
+	if validateCmd == nil {
+		t.Fatalf("Expected validate command to be registered")
+	}
+
+	for _, subCmdName := range expectedSubcommands {
+		found := false
+		for _, cmd := range validateCmd.Commands() {
+			if cmd.Name() == subCmdName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected validate subcommand '%s' to be registered", subCmdName)
 		}
 	}
 }
@@ -56,10 +86,22 @@ func TestCommandFlags(t *testing.T) {
 		}
 	}
 
-	// Test config command persistent flags
+	// Test that config command no longer has format flag (it's now global)
 	formatFlag := configCmd.PersistentFlags().Lookup("format")
-	if formatFlag == nil {
-		t.Error("Expected config command to have 'format' persistent flag")
+	if formatFlag != nil {
+		t.Error("Expected config command to NOT have 'format' persistent flag (it's now global)")
+	}
+}
+
+func TestGlobalFlags(t *testing.T) {
+	// Test that root command has expected global flags
+	expectedFlags := []string{"config-dir", "use-config", "format", "quiet"}
+
+	for _, flagName := range expectedFlags {
+		flag := rootCmd.PersistentFlags().Lookup(flagName)
+		if flag == nil {
+			t.Errorf("Expected global flag '%s' to be registered", flagName)
+		}
 	}
 }
 
@@ -86,6 +128,26 @@ func TestCommandExecution(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name:    "validate help",
+			args:    []string{"validate", "--help"},
+			wantErr: false,
+		},
+		{
+			name:    "validate config help",
+			args:    []string{"validate", "config", "--help"},
+			wantErr: false,
+		},
+		{
+			name:    "validate query help",
+			args:    []string{"validate", "query", "--help"},
+			wantErr: false,
+		},
+		{
+			name:    "validate schema help",
+			args:    []string{"validate", "schema", "--help"},
+			wantErr: false,
+		},
+		{
 			name:    "invalid command",
 			args:    []string{"invalid-command"},
 			wantErr: true,
@@ -100,6 +162,7 @@ func TestCommandExecution(t *testing.T) {
 			cmd.AddCommand(configCmd)
 			cmd.AddCommand(introspectCmd)
 			cmd.AddCommand(describeCmd)
+			cmd.AddCommand(validateCmd)
 
 			// Capture output
 			var buf bytes.Buffer

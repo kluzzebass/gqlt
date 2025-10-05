@@ -15,25 +15,51 @@ var configCmd = &cobra.Command{
 	Long: `Manage gqlt configuration files with support for multiple named configurations.
 This allows you to store different settings for different environments (production, staging, local, etc.).
 
-Examples:
-  gqlt config init                    # Initialize config file
-  gqlt config list                   # List all configurations
-  gqlt config show                   # Show current configuration
-  gqlt config create production      # Create new configuration
-  gqlt config use production         # Switch to production config
-  gqlt config set production endpoint https://api.example.com/graphql
-  gqlt config validate               # Validate configuration`,
-}
+AI-FRIENDLY FEATURES:
+- Structured output with --format json|table|yaml
+- Machine-readable error codes
+- Quiet mode for automation
 
-var (
-	format string
-)
+COMMON WORKFLOWS:
+  # Initialize and setup
+  gqlt config init
+  gqlt config create production
+  gqlt config set production endpoint https://api.prod.com/graphql
+  gqlt config set production headers '{"Authorization": "Bearer token"}'
+  gqlt config use production
+  
+  # Environment management
+  gqlt config create staging
+  gqlt config set staging endpoint https://api.staging.com/graphql
+  gqlt config create local
+  gqlt config set local endpoint http://localhost:4000/graphql
+  
+  # Configuration inspection
+  gqlt config list --format table
+  gqlt config show production --format json
+  gqlt config validate
+
+EXAMPLES:
+  # Basic setup
+  gqlt config init
+  gqlt config create myapi
+  gqlt config set myapi endpoint https://api.example.com/graphql
+  gqlt config use myapi
+  
+  # With authentication
+  gqlt config set myapi headers '{"Authorization": "Bearer token"}'
+  gqlt config set myapi headers '{"X-API-Key": "api-key"}'
+  
+  # Clone configuration
+  gqlt config clone production staging
+  
+  # Structured output for AI agents
+  gqlt config list --format json --quiet
+  gqlt config show --format yaml`,
+}
 
 func init() {
 	rootCmd.AddCommand(configCmd)
-
-	// Global flags
-	configCmd.PersistentFlags().StringVarP(&format, "format", "f", "json", "Output format: json|table|yaml")
 }
 
 var configShowCmd = &cobra.Command{
@@ -147,7 +173,8 @@ func init() {
 func runConfigShow(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
-		return err
+		formatter := gqlt.NewFormatter(outputFormat)
+		return formatter.FormatStructuredError(err, "CONFIG_LOAD_ERROR", quietMode)
 	}
 
 	name := "current"
@@ -161,56 +188,49 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 
 	entry, exists := cfg.Configs[name]
 	if !exists {
-		return fmt.Errorf("configuration '%s' does not exist", name)
+		formatter := gqlt.NewFormatter(outputFormat)
+		return formatter.FormatStructuredError(fmt.Errorf("configuration '%s' does not exist", name), "CONFIG_NOT_FOUND", quietMode)
 	}
 
-	switch format {
-	case "json":
-		return printJSON(entry)
-	case "table":
-		return printTable(entry, name)
-	case "yaml":
-		return printYAML(entry)
-	default:
-		return fmt.Errorf("unsupported format: %s", format)
-	}
+	formatter := gqlt.NewFormatter(outputFormat)
+	return formatter.FormatStructured(entry, quietMode)
 }
 
 func runConfigList(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
-		return err
+		formatter := gqlt.NewFormatter(outputFormat)
+		return formatter.FormatStructuredError(err, "CONFIG_LOAD_ERROR", quietMode)
 	}
 
-	switch format {
-	case "json":
-		return printJSON(cfg.Configs)
-	case "table":
-		return printConfigListTable(cfg)
-	case "yaml":
-		return printYAML(cfg.Configs)
-	default:
-		return fmt.Errorf("unsupported format: %s", format)
-	}
+	formatter := gqlt.NewFormatter(outputFormat)
+	return formatter.FormatStructured(cfg.Configs, quietMode)
 }
 
 func runConfigCreate(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
-		return err
+		formatter := gqlt.NewFormatter(outputFormat)
+		return formatter.FormatStructuredError(err, "CONFIG_LOAD_ERROR", quietMode)
 	}
 
 	name := args[0]
 	if err := cfg.Create(name); err != nil {
-		return err
+		formatter := gqlt.NewFormatter(outputFormat)
+		return formatter.FormatStructuredError(err, "CONFIG_CREATE_ERROR", quietMode)
 	}
 
 	if err := cfg.Save(configDir); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+		formatter := gqlt.NewFormatter(outputFormat)
+		return formatter.FormatStructuredError(fmt.Errorf("failed to save config: %w", err), "CONFIG_SAVE_ERROR", quietMode)
 	}
 
-	fmt.Printf("Created configuration '%s'\n", name)
-	return nil
+	if !quietMode {
+		fmt.Printf("Created configuration '%s'\n", name)
+	}
+
+	formatter := gqlt.NewFormatter(outputFormat)
+	return formatter.FormatStructured(map[string]string{"message": "Configuration created", "name": name}, quietMode)
 }
 
 func runConfigDelete(cmd *cobra.Command, args []string) error {

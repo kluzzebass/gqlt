@@ -13,7 +13,50 @@ var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Execute a GraphQL operation against an endpoint",
 	Long: `Execute a GraphQL operation (query or mutation) against a GraphQL endpoint.
-You can provide the query inline, from a file, or via stdin.`,
+You can provide the query inline, from a file, or via stdin.
+
+EXAMPLES:
+  # Basic query
+  gqlt run --url https://api.example.com/graphql --query "{ users { id name } }"
+  
+  # Query with variables
+  gqlt run --url https://api.example.com/graphql --query "query($id: ID!) { user(id: $id) { name } }" --vars '{"id": "123"}'
+  
+  # Mutation with file upload
+  gqlt run --url https://api.example.com/graphql --query "mutation($file: Upload!) { uploadFile(file: $file) }" --file avatar=./photo.jpg
+  
+  # Using configuration
+  gqlt run --query "{ users { id name } }"  # Uses configured endpoint
+  
+  # With authentication
+  gqlt run --token "bearer-token" --query "{ me { id } }"
+  gqlt run --username user --password pass --query "{ me { id } }"
+  gqlt run --api-key "api-key" --query "{ me { id } }"
+  
+  # Structured output for AI agents
+  gqlt run --format json --quiet --query "{ users { id } }"
+  
+  # Multiple file uploads
+  gqlt run --query "mutation($files: [Upload!]!) { uploadFiles(files: $files) }" --files-list files.txt
+
+QUERY SOURCES:
+  - Inline: --query "query { ... }"
+  - File: --query-file query.graphql
+  - Stdin: echo "query { ... }" | gqlt run --url https://api.example.com/graphql
+
+VARIABLES:
+  - Inline: --vars '{"key": "value"}'
+  - File: --vars-file variables.json
+
+AUTHENTICATION (in order of precedence):
+  1. Basic auth: --username + --password
+  2. Bearer token: --token
+  3. API key: --api-key
+
+OUTPUT MODES:
+  - json: Structured JSON (default)
+  - pretty: Colorized formatted JSON
+  - raw: Unformatted JSON`,
 	RunE: runGraphQL,
 }
 
@@ -58,7 +101,8 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 	// Step 7.5: Load configuration
 	cfg, err := gqlt.Load(configDir)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		formatter := gqlt.NewFormatter(outputFormat)
+		return formatter.FormatStructuredError(fmt.Errorf("failed to load config: %w", err), "CONFIG_LOAD_ERROR", quietMode)
 	}
 
 	// Merge config with CLI flags
@@ -66,22 +110,26 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 
 	// Step 8: Input validation
 	if query != "" && queryFile != "" {
-		return fmt.Errorf("cannot specify both --query and --query-file")
+		formatter := gqlt.NewFormatter(outputFormat)
+		return formatter.FormatStructuredError(fmt.Errorf("cannot specify both --query and --query-file"), "INPUT_VALIDATION_ERROR", quietMode)
 	}
 	if vars != "" && varsFile != "" {
-		return fmt.Errorf("cannot specify both --vars and --vars-file")
+		formatter := gqlt.NewFormatter(outputFormat)
+		return formatter.FormatStructuredError(fmt.Errorf("cannot specify both --vars and --vars-file"), "INPUT_VALIDATION_ERROR", quietMode)
 	}
 
 	// Step 9: Helper resolution
 	inputHandler := gqlt.NewInput()
 	queryStr, err := inputHandler.LoadQuery(query, queryFile)
 	if err != nil {
-		return fmt.Errorf("failed to load query: %w", err)
+		formatter := gqlt.NewFormatter(outputFormat)
+		return formatter.FormatStructuredError(fmt.Errorf("failed to load query: %w", err), "QUERY_LOAD_ERROR", quietMode)
 	}
 
 	varsMap, err := inputHandler.LoadVariables(vars, varsFile)
 	if err != nil {
-		return fmt.Errorf("failed to load variables: %w", err)
+		formatter := gqlt.NewFormatter(outputFormat)
+		return formatter.FormatStructuredError(fmt.Errorf("failed to load variables: %w", err), "VARIABLES_LOAD_ERROR", quietMode)
 	}
 
 	headersMap := inputHandler.LoadHeaders(headers)
@@ -89,20 +137,23 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 	// Parse file uploads
 	filesMap, err := inputHandler.ParseFiles(files)
 	if err != nil {
-		return fmt.Errorf("failed to parse files: %w", err)
+		formatter := gqlt.NewFormatter(outputFormat)
+		return formatter.FormatStructuredError(fmt.Errorf("failed to parse files: %w", err), "FILES_PARSE_ERROR", quietMode)
 	}
 
 	// Parse files from list if provided
 	if filesList != "" {
 		filesFromList, err := inputHandler.ParseFilesFromList(filesList)
 		if err != nil {
-			return fmt.Errorf("failed to parse files list: %w", err)
+			formatter := gqlt.NewFormatter(outputFormat)
+			return formatter.FormatStructuredError(fmt.Errorf("failed to parse files list: %w", err), "FILES_LIST_PARSE_ERROR", quietMode)
 		}
 
 		// Parse the files from list
 		filesFromListMap, err := inputHandler.ParseFiles(filesFromList)
 		if err != nil {
-			return fmt.Errorf("failed to parse files from list: %w", err)
+			formatter := gqlt.NewFormatter(outputFormat)
+			return formatter.FormatStructuredError(fmt.Errorf("failed to parse files from list: %w", err), "FILES_LIST_PARSE_ERROR", quietMode)
 		}
 
 		// Merge with existing files
@@ -148,23 +199,42 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 		// Use multipart/form-data for file uploads
 		result, err = client.ExecuteWithFiles(queryStr, varsMap, operation, filesMap)
 		if err != nil {
-			return fmt.Errorf("failed to execute GraphQL operation with files: %w", err)
+			formatter := gqlt.NewFormatter(outputFormat)
+			return formatter.FormatStructuredError(fmt.Errorf("failed to execute GraphQL operation with files: %w", err), "GRAPHQL_EXECUTION_ERROR", quietMode)
 		}
 	} else {
 		// Use regular JSON for operations without files
 		result, err = client.Execute(queryStr, varsMap, operation)
 		if err != nil {
-			return fmt.Errorf("failed to execute GraphQL operation: %w", err)
+			formatter := gqlt.NewFormatter(outputFormat)
+			return formatter.FormatStructuredError(fmt.Errorf("failed to execute GraphQL operation: %w", err), "GRAPHQL_EXECUTION_ERROR", quietMode)
 		}
 	}
 
 	// Step 11: Check for GraphQL errors
 	if len(result.Errors) > 0 {
+		formatter := gqlt.NewFormatter(outputFormat)
+		formatter.FormatStructuredError(fmt.Errorf("GraphQL errors occurred"), "GRAPHQL_ERRORS", quietMode)
 		os.Exit(2)
 	}
 
 	// Step 12: Output formatting
-	formatter := gqlt.NewFormatter()
+	formatter := gqlt.NewFormatter(outputFormat)
+
+	// Use structured output if format is not the default GraphQL output modes
+	if outputFormat != "json" || outMode != "json" {
+		// For structured output, include the full response
+		responseData := map[string]interface{}{
+			"data":   result.Data,
+			"errors": result.Errors,
+		}
+		if result.Extensions != nil {
+			responseData["extensions"] = result.Extensions
+		}
+		return formatter.FormatStructured(responseData, quietMode)
+	}
+
+	// Use original GraphQL formatting for backward compatibility
 	return formatter.FormatResponse(result, outMode)
 }
 
