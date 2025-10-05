@@ -390,11 +390,14 @@ PHASE 5 | INTROSPECTION AND DESCRIBE
     - endpoint via flag/config
     - issue introspection query:
       query IntrospectionQuery { __schema { types { name kind fields { name type { name kind } } } } }
-    - save to .gqlt/schema.json or user-specified path
+    - save to per-configuration schema cache (dual format: JSON + GraphQL SDL)
     - flags:
        --refresh (ignore cache)
        --out path
        --summary (stdout short)
+    - per-configuration caching: each config has its own schema files
+    - config directory support: --config-dir points to directory containing config.json and schemas/
+    - dual format storage: <config>.json (machine-readable) + <config>.graphqls (human-readable)
 
 [x] 28. cmd/describe.go
     - read schema JSON file

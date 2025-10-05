@@ -206,8 +206,7 @@ func runConfigCreate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	path := getConfigPath()
-	if err := cfg.Save(path); err != nil {
+	if err := cfg.Save(configDir); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
@@ -226,8 +225,7 @@ func runConfigDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	path := getConfigPath()
-	if err := cfg.Save(path); err != nil {
+	if err := cfg.Save(configDir); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
@@ -246,8 +244,7 @@ func runConfigUse(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	path := getConfigPath()
-	if err := cfg.Save(path); err != nil {
+	if err := cfg.Save(configDir); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
@@ -269,8 +266,7 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	path := getConfigPath()
-	if err := cfg.Save(path); err != nil {
+	if err := cfg.Save(configDir); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
@@ -281,12 +277,12 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 func runConfigInit(cmd *cobra.Command, args []string) error {
 	cfg := config.GetDefaultConfig()
 
-	path := getConfigPath()
-	if err := cfg.Save(path); err != nil {
+	if err := cfg.Save(configDir); err != nil {
 		return fmt.Errorf("failed to create config file: %w", err)
 	}
 
-	fmt.Printf("Initialized configuration file at %s\n", path)
+	configPath := getConfigPath()
+	fmt.Printf("Initialized configuration file at %s\n", configPath)
 	return nil
 }
 
@@ -407,8 +403,7 @@ func runConfigClone(cmd *cobra.Command, args []string) error {
 	cfg.Configs[targetName] = sourceConfig
 
 	// Save the updated config
-	path := getConfigPath()
-	if err := cfg.Save(path); err != nil {
+	if err := cfg.Save(configDir); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
@@ -419,15 +414,14 @@ func runConfigClone(cmd *cobra.Command, args []string) error {
 // Helper functions
 
 func loadConfig() (*config.Config, error) {
-	// Get config path from the run command's configPath variable
-	// This is a bit of a hack, but it works for now
-	return config.Load("")
+	// Use the global configDir variable
+	return config.Load(configDir)
 }
 
 func getConfigPath() string {
-	// Use global configPath if set, otherwise default to OS-specific path
-	if configPath != "" {
-		return configPath
+	// Use global configDir if set, otherwise default to OS-specific path
+	if configDir != "" {
+		return paths.GetConfigPathForDir(configDir)
 	}
 
 	// Use the shared default path function

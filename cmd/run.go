@@ -59,7 +59,7 @@ func init() {
 
 func runGraphQL(cmd *cobra.Command, args []string) error {
 	// Step 7.5: Load configuration
-	cfg, err := config.Load(configPath)
+	cfg, err := config.Load(configDir)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}

@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var configPath string
+var configDir string
 var configName string
 
 var rootCmd = &cobra.Command{
@@ -21,6 +21,6 @@ func Execute() {
 
 func init() {
 	// Add global persistent flags
-	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "config file (default is OS-specific)")
+	rootCmd.PersistentFlags().StringVar(&configDir, "config-dir", "", "config directory (default is OS-specific)")
 	rootCmd.PersistentFlags().StringVar(&configName, "use-config", "", "use specific configuration by name (overrides current selection)")
 }

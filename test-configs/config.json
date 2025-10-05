@@ -1,0 +1,13 @@
+{
+  "current": "default",
+  "configs": {
+    "default": {
+      "endpoint": "",
+      "headers": {},
+      "defaults": {
+        "out": "json"
+      },
+      "_comment": "Default configuration - used when no specific config is active"
+    }
+  }
+}

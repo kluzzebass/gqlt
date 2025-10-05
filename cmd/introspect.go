@@ -36,7 +36,7 @@ func init() {
 
 func runIntrospect(cmd *cobra.Command, args []string) error {
 	// Load configuration
-	cfg, err := config.Load(configPath)
+	cfg, err := config.Load(configDir)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -47,8 +47,12 @@ func runIntrospect(cmd *cobra.Command, args []string) error {
 	// Determine output path
 	outputPath := introspectOut
 	if outputPath == "" {
-		// Use OS-specific config directory
-		outputPath = paths.GetSchemaPath()
+		// Use config-specific schema path
+		if configDir != "" {
+			outputPath = paths.GetSchemaPathForConfigInDir(cfg.Current, configDir)
+		} else {
+			outputPath = paths.GetSchemaPathForConfig(cfg.Current)
+		}
 	}
 
 	// Check if cache exists and refresh is not requested
@@ -99,12 +103,22 @@ func runIntrospect(cmd *cobra.Command, args []string) error {
 		return showSchemaSummaryFromResult(result)
 	}
 
-	// Save schema to file
-	if err := introspect.SaveSchema(result, outputPath); err != nil {
-		return fmt.Errorf("failed to save schema: %w", err)
+	// Save schema to file(s)
+	if configDir != "" {
+		// Use dual format saving (JSON + GraphQL)
+		if err := introspect.SaveSchemaDual(result, cfg.Current, configDir); err != nil {
+			return fmt.Errorf("failed to save schema: %w", err)
+		}
+		fmt.Printf("Schema saved to %s and %s\n",
+			paths.GetJSONSchemaPathForConfigInDir(cfg.Current, configDir),
+			paths.GetGraphQLSchemaPathForConfigInDir(cfg.Current, configDir))
+	} else {
+		// Use single JSON format for backward compatibility
+		if err := introspect.SaveSchema(result, outputPath); err != nil {
+			return fmt.Errorf("failed to save schema: %w", err)
+		}
+		fmt.Printf("Schema saved to %s\n", outputPath)
 	}
-
-	fmt.Printf("Schema saved to %s\n", outputPath)
 	return nil
 }
 

@@ -32,10 +32,11 @@ type Schema struct {
 	DefaultsOut string `json:"defaults.out"`
 }
 
-// Load reads a configuration file from the specified path
-// If path is empty, searches in standard locations
-func Load(path string) (*Config, error) {
-	if path == "" {
+// Load reads a configuration file from the specified config directory
+// If configDir is empty, searches in standard locations
+func Load(configDir string) (*Config, error) {
+	var path string
+	if configDir == "" {
 		// Search in standard locations based on OS
 		locations := []string{
 			paths.GetConfigPath(),
@@ -52,6 +53,9 @@ func Load(path string) (*Config, error) {
 			// No config file found, return default config
 			return GetDefaultConfig(), nil
 		}
+	} else {
+		// Use config directory
+		path = paths.GetConfigPathForDir(configDir)
 	}
 
 	data, err := os.ReadFile(path)
@@ -78,8 +82,11 @@ func Load(path string) (*Config, error) {
 	return &config, nil
 }
 
-// Save writes the configuration to the specified path
-func (c *Config) Save(path string) error {
+// Save writes the configuration to the specified config directory
+func (c *Config) Save(configDir string) error {
+	// Use config directory
+	path := paths.GetConfigPathForDir(configDir)
+
 	// Ensure directory exists
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {

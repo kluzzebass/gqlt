@@ -257,16 +257,16 @@ func TestLoadNonExistent(t *testing.T) {
 func TestLoadInvalidJSON(t *testing.T) {
 	// Create a temporary directory
 	tempDir := t.TempDir()
-	invalidPath := filepath.Join(tempDir, "invalid.json")
+	configPath := filepath.Join(tempDir, "config.json")
 
 	// Create invalid JSON file
-	err := os.WriteFile(invalidPath, []byte("invalid json"), 0644)
+	err := os.WriteFile(configPath, []byte("invalid json"), 0644)
 	if err != nil {
 		t.Errorf("Failed to create invalid JSON file: %v", err)
 	}
 
 	// Test loading invalid JSON
-	_, err = Load(invalidPath)
+	_, err = Load(tempDir) // This should try to load config.json from tempDir
 	if err == nil {
 		t.Error("Expected error for invalid JSON")
 	}

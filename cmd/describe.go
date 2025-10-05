@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/kluzzebass/gqlt/internal/config"
 	"github.com/kluzzebass/gqlt/internal/paths"
 	"github.com/kluzzebass/gqlt/internal/schema"
 	"github.com/spf13/cobra"
@@ -36,10 +37,24 @@ func init() {
 }
 
 func runDescribe(cmd *cobra.Command, args []string) error {
+	// Load configuration
+	cfg, err := config.Load(configDir)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Merge config with flags
+	mergeConfigWithFlags(cfg)
+
 	// Determine schema path
 	schemaPath := describeSchema
 	if schemaPath == "" {
-		schemaPath = paths.GetSchemaPath()
+		// Use config-specific schema path
+		if configDir != "" {
+			schemaPath = paths.GetSchemaPathForConfigInDir(cfg.Current, configDir)
+		} else {
+			schemaPath = paths.GetSchemaPathForConfig(cfg.Current)
+		}
 	}
 
 	// Load schema analyzer

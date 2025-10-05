@@ -34,3 +34,36 @@ func GetConfigPath() string {
 func GetSchemaPath() string {
 	return filepath.Join(GetDefaultPath(), "schema.json")
 }
+
+// GetSchemaPathForConfig returns the schema file path for a specific configuration
+func GetSchemaPathForConfig(configName string) string {
+	return filepath.Join(GetDefaultPath(), "schemas", configName+".json")
+}
+
+// GetConfigPathForDir returns the config file path for a specific config directory
+func GetConfigPathForDir(configDir string) string {
+	if configDir == "" {
+		return GetConfigPath()
+	}
+	return filepath.Join(configDir, "config.json")
+}
+
+// GetSchemaPathForConfigInDir returns the schema file path for a specific configuration in a config directory
+func GetSchemaPathForConfigInDir(configName, configDir string) string {
+	return filepath.Join(configDir, "schemas", configName+".json")
+}
+
+// GetJSONSchemaPathForConfigInDir returns the JSON schema file path for a specific configuration in a config directory
+func GetJSONSchemaPathForConfigInDir(configName, configDir string) string {
+	return filepath.Join(configDir, "schemas", configName+".json")
+}
+
+// GetGraphQLSchemaPathForConfigInDir returns the GraphQL schema file path for a specific configuration in a config directory
+func GetGraphQLSchemaPathForConfigInDir(configName, configDir string) string {
+	return filepath.Join(configDir, "schemas", configName+".graphqls")
+}
+
+// GetSchemasDir returns the schemas directory
+func GetSchemasDir() string {
+	return filepath.Join(GetDefaultPath(), "schemas")
+}
