@@ -272,7 +272,7 @@ func (f *JSONFormatter) FormatStructuredError(err error, code string, quiet bool
 	if err != nil {
 		message = err.Error()
 	}
-	
+
 	output := &StructuredOutput{
 		Success: false,
 		Error: &ErrorInfo{
@@ -289,7 +289,7 @@ func (f *JSONFormatter) FormatStructuredErrorWithContext(err error, code string,
 	if err != nil {
 		message = err.Error()
 	}
-	
+
 	output := &StructuredOutput{
 		Success: false,
 		Error: &ErrorInfo{
@@ -345,7 +345,7 @@ func (f *TableFormatter) FormatStructuredError(err error, code string, quiet boo
 	if err != nil {
 		message = err.Error()
 	}
-	
+
 	output := &StructuredOutput{
 		Success: false,
 		Error: &ErrorInfo{
@@ -362,7 +362,7 @@ func (f *TableFormatter) FormatStructuredErrorWithContext(err error, code string
 	if err != nil {
 		message = err.Error()
 	}
-	
+
 	output := &StructuredOutput{
 		Success: false,
 		Error: &ErrorInfo{
@@ -504,7 +504,7 @@ func (f *YAMLFormatter) FormatStructuredError(err error, code string, quiet bool
 	if err != nil {
 		message = err.Error()
 	}
-	
+
 	output := &StructuredOutput{
 		Success: false,
 		Error: &ErrorInfo{
@@ -521,7 +521,7 @@ func (f *YAMLFormatter) FormatStructuredErrorWithContext(err error, code string,
 	if err != nil {
 		message = err.Error()
 	}
-	
+
 	output := &StructuredOutput{
 		Success: false,
 		Error: &ErrorInfo{
