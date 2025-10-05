@@ -4,6 +4,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var configPath string
+var configName string
+
 var rootCmd = &cobra.Command{
 	Use:   "gqlt",
 	Short: "A minimal, composable command-line client for running GraphQL operations",
@@ -17,6 +20,7 @@ func Execute() {
 }
 
 func init() {
-	// Add global persistent flags here if needed
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gqlt/config.json)")
+	// Add global persistent flags
+	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "config file (default is OS-specific)")
+	rootCmd.PersistentFlags().StringVar(&configName, "use-config", "", "use specific configuration by name (overrides current selection)")
 }
