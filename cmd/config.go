@@ -32,7 +32,7 @@ var (
 
 func init() {
 	rootCmd.AddCommand(configCmd)
-	
+
 	// Global flags
 	configCmd.PersistentFlags().StringVarP(&format, "format", "f", "json", "Output format: json|table|yaml")
 }
@@ -158,21 +158,21 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	name := "current"
 	if len(args) > 0 {
 		name = args[0]
 	}
-	
+
 	if name == "current" {
 		name = cfg.Current
 	}
-	
+
 	entry, exists := cfg.Configs[name]
 	if !exists {
 		return fmt.Errorf("configuration '%s' does not exist", name)
 	}
-	
+
 	switch format {
 	case "json":
 		return printJSON(entry)
@@ -190,7 +190,7 @@ func runConfigList(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	switch format {
 	case "json":
 		return printJSON(cfg.Configs)
@@ -208,17 +208,17 @@ func runConfigCreate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	name := args[0]
 	if err := cfg.Create(name); err != nil {
 		return err
 	}
-	
+
 	path := getConfigPath()
 	if err := cfg.Save(path); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
-	
+
 	fmt.Printf("Created configuration '%s'\n", name)
 	return nil
 }
@@ -228,17 +228,17 @@ func runConfigDelete(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	name := args[0]
 	if err := cfg.Delete(name); err != nil {
 		return err
 	}
-	
+
 	path := getConfigPath()
 	if err := cfg.Save(path); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
-	
+
 	fmt.Printf("Deleted configuration '%s'\n", name)
 	return nil
 }
@@ -248,17 +248,17 @@ func runConfigUse(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	name := args[0]
 	if err := cfg.SetCurrent(name); err != nil {
 		return err
 	}
-	
+
 	path := getConfigPath()
 	if err := cfg.Save(path); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
-	
+
 	fmt.Printf("Switched to configuration '%s'\n", name)
 	return nil
 }
@@ -268,32 +268,32 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	name := args[0]
 	key := args[1]
 	value := args[2]
-	
+
 	if err := cfg.SetValue(name, key, value); err != nil {
 		return err
 	}
-	
+
 	path := getConfigPath()
 	if err := cfg.Save(path); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
-	
+
 	fmt.Printf("Set %s.%s = %s\n", name, key, value)
 	return nil
 }
 
 func runConfigInit(cmd *cobra.Command, args []string) error {
 	cfg := config.GetDefaultConfig()
-	
+
 	path := getConfigPath()
 	if err := cfg.Save(path); err != nil {
 		return fmt.Errorf("failed to create config file: %w", err)
 	}
-	
+
 	fmt.Printf("Initialized configuration file at %s\n", path)
 	return nil
 }
@@ -303,13 +303,13 @@ func runConfigValidate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	errors := cfg.Validate()
 	if len(errors) == 0 {
 		fmt.Println("Configuration is valid")
 		return nil
 	}
-	
+
 	fmt.Println("Configuration has errors:")
 	for _, err := range errors {
 		fmt.Printf("  - %s\n", err)
@@ -320,13 +320,16 @@ func runConfigValidate(cmd *cobra.Command, args []string) error {
 func runConfigDescribe(cmd *cobra.Command, args []string) error {
 	schema := config.GetSchema()
 	
-	fmt.Println("Configuration Schema:")
+	description := fmt.Sprintf(`Configuration Schema:
+
+endpoint: %s
+headers: %s
+defaults.out: %s
+
+Example configuration:`, schema.Endpoint, schema.Headers, schema.DefaultsOut)
+	
+	fmt.Print(description)
 	fmt.Println()
-	fmt.Printf("endpoint: %s\n", schema.Endpoint)
-	fmt.Printf("headers: %s\n", schema.Headers)
-	fmt.Printf("defaults.out: %s\n", schema.DefaultsOut)
-	fmt.Println()
-	fmt.Println("Example configuration:")
 	
 	example := map[string]interface{}{
 		"current": "default",
@@ -350,42 +353,43 @@ func runConfigDescribe(cmd *cobra.Command, args []string) error {
 }
 
 func runConfigExamples(cmd *cobra.Command, args []string) error {
-	fmt.Println("Configuration Examples:")
-	fmt.Println()
-	fmt.Println("1. Initialize configuration:")
-	fmt.Println("   gqlt config init")
-	fmt.Println()
-	fmt.Println("2. Create environment-specific configs:")
-	fmt.Println("   gqlt config create production")
-	fmt.Println("   gqlt config create staging")
-	fmt.Println("   gqlt config create local")
-	fmt.Println()
-	fmt.Println("3. Configure endpoints:")
-	fmt.Println("   gqlt config set production endpoint https://api.company.com/graphql")
-	fmt.Println("   gqlt config set staging endpoint https://staging-api.company.com/graphql")
-	fmt.Println("   gqlt config set local endpoint http://localhost:4000/graphql")
-	fmt.Println()
-	fmt.Println("4. Configure authentication:")
-	fmt.Println("   gqlt config set production headers.Authorization 'Bearer prod-token'")
-	fmt.Println("   gqlt config set staging headers.Authorization 'Bearer staging-token'")
-	fmt.Println()
-	fmt.Println("5. Configure output modes:")
-	fmt.Println("   gqlt config set production defaults.out json")
-	fmt.Println("   gqlt config set staging defaults.out pretty")
-	fmt.Println()
-	fmt.Println("6. Switch between configurations:")
-	fmt.Println("   gqlt config use production")
-	fmt.Println("   gqlt run -q '{ me { name } }'")
-	fmt.Println()
-	fmt.Println("7. Override specific values:")
-	fmt.Println("   gqlt run -q '{ me { name } }' -u https://override.com/graphql")
+	examples := `Configuration Examples:
+
+1. Initialize configuration:
+   gqlt config init
+
+2. Create environment-specific configs:
+   gqlt config create production
+   gqlt config create staging
+   gqlt config create local
+
+3. Configure endpoints:
+   gqlt config set production endpoint https://api.company.com/graphql
+   gqlt config set staging endpoint https://staging-api.company.com/graphql
+   gqlt config set local endpoint http://localhost:4000/graphql
+
+4. Configure authentication:
+   gqlt config set production headers.Authorization 'Bearer prod-token'
+   gqlt config set staging headers.Authorization 'Bearer staging-token'
+
+5. Configure output modes:
+   gqlt config set production defaults.out json
+   gqlt config set staging defaults.out pretty
+
+6. Switch between configurations:
+   gqlt config use production
+   gqlt run -q '{ me { name } }'
+
+7. Override specific values:
+   gqlt run -q '{ me { name } }' -u https://override.com/graphql`
 	
+	fmt.Print(examples)
 	return nil
 }
 
 func runConfigTemplate(cmd *cobra.Command, args []string) error {
 	templateName := args[0]
-	
+
 	templates := map[string]config.ConfigEntry{
 		"github": {
 			Endpoint: "https://api.github.com/graphql",
@@ -456,25 +460,25 @@ func runConfigTemplate(cmd *cobra.Command, args []string) error {
 			Comment: "Hasura GraphQL configuration",
 		},
 	}
-	
+
 	template, exists := templates[templateName]
 	if !exists {
-		return fmt.Errorf("template '%s' not found. Available templates: %s", 
+		return fmt.Errorf("template '%s' not found. Available templates: %s",
 			templateName, strings.Join(getTemplateNames(templates), ", "))
 	}
-	
+
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
 	}
-	
+
 	cfg.Configs[templateName] = template
-	
+
 	path := getConfigPath()
 	if err := cfg.Save(path); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
-	
+
 	fmt.Printf("Created configuration '%s' from template\n", templateName)
 	return nil
 }
