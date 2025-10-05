@@ -586,14 +586,14 @@ PHASE 12 | LIBRARY AND AI AGENT OPTIMIZATION
     - Add proper GoDoc comments to all public APIs
     - Document public APIs with examples
 
-[ ] 46. AI agent optimization
+[x] 46. AI agent optimization
     - Add structured output modes (--format json) for all commands
     - Implement machine-readable error messages with error codes
     - Add --quiet mode for automation scenarios
     - Create AI-friendly help text with examples and common patterns
     - Add validation commands that return structured results
 
-[ ] 47. Test library integration
+[x] 47. Test library integration
     - Create example test files showing library usage
     - Add test utilities for common GraphQL testing patterns
     - Document how to use gqlt as a library in Go tests
@@ -602,7 +602,7 @@ PHASE 12 | LIBRARY AND AI AGENT OPTIMIZATION
 
 [ ] 48. Library documentation and examples
     - Add GoDoc comments to all public APIs
-    - Create pkg/README.md with library usage examples
+    - Update README.md with library usage examples
     - Add example programs in examples/ directory
     - Document common patterns for both CLI and library usage
     - Add migration guide from other GraphQL libraries
