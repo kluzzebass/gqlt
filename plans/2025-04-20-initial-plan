@@ -120,6 +120,11 @@ Purpose: Execute GraphQL operation (query or mutation)
       "pretty": colorized formatted JSON with syntax highlighting
       "raw": unformatted JSON (no indentation, compact)
 
+Exit codes:
+0  success, no errors
+1  system/CLI/network error
+2  GraphQL response contained "errors" or test/schema diff failures
+
 ---------------------------------------------------------------
 PHASE 3 | CONFIG FILES ✅ COMPLETE
 ---------------------------------------------------------------
@@ -545,17 +550,10 @@ PHASE 10 | BUILD / VALIDATION
     checksum + tag v0.1.0
 
 ---------------------------------------------------------------
-PHASE 11 | EXIT CODES SUMMARY
----------------------------------------------------------------
-0  success, no errors
-1  system/CLI/network error
-2  GraphQL response contained "errors" or test/schema diff failures
-
----------------------------------------------------------------
-PHASE 12 | DOCUMENTATION GENERATION
+PHASE 11 | DOCUMENTATION GENERATION
 ---------------------------------------------------------------
 
-[x] 43. internal/docs/generator.go
+[ ] 43. internal/docs/generator.go
     - go generate directive: //go:generate go run internal/docs/generator.go
     - single Cobra command structure parser
     - extract help text, descriptions, flags, and examples
@@ -563,7 +561,7 @@ PHASE 12 | DOCUMENTATION GENERATION
     - support multiple output formats (markdown, manpage)
     - include usage examples and configuration guides
 
-[x] 44. Documentation workflow
+[ ] 44. Documentation workflow
     - go generate ./... (runs all //go:generate directives)
     - single parser generates both README.md and gqlt.1
     - automated documentation updates in CI/CD
