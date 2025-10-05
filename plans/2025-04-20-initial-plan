@@ -469,21 +469,16 @@ PHASE 6 | AUTHENTICATION SUPPORT
     }
 
 ---------------------------------------------------------------
-PHASE 7 | INTERNAL UTILITIES
+PHASE 7 | ~~INTERNAL UTILITIES~~ (SKIPPED - REDUNDANT)
 ---------------------------------------------------------------
 
-[ ] 32. internal/io/io.go
-    Func ReadFileOrStdin(path string) (string, error)
-    Func ParseJSONFile(path string, v any) error
-    Func WriteJSON(path string, data any) error
+~~[ ] 32. internal/io/io.go~~ (REDUNDANT - already implemented in internal/input)
+~~[ ] 33. internal/output/output.go~~ (REDUNDANT - already have internal/output with Formatter)
+~~[ ] 34. internal/errors~~ (REDUNDANT - already have consistent error handling)
 
-[ ] 33. internal/output/output.go
-    Func PrintJSON(obj any)
-    Func PrintPretty(obj any)
-    Func PrintRaw(data map[string]any)
-
-[ ] 34. internal/errors
-    Central error helper for consistent exit codes.
+REASON: Phase 7 is no longer relevant because we've already implemented better,
+more comprehensive solutions in our layered architecture. The proposed utilities
+would actually be a step backward from what we have.
 
 ---------------------------------------------------------------
 PHASE 8 | BUILD / VALIDATION
