@@ -306,11 +306,11 @@ func runConfigValidate(cmd *cobra.Command, args []string) error {
 	
 	errors := cfg.Validate()
 	if len(errors) == 0 {
-		fmt.Println("✅ Configuration is valid")
+		fmt.Println("Configuration is valid")
 		return nil
 	}
 	
-	fmt.Println("❌ Configuration has errors:")
+	fmt.Println("Configuration has errors:")
 	for _, err := range errors {
 		fmt.Printf("  - %s\n", err)
 	}
