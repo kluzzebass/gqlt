@@ -51,7 +51,7 @@ EXAMPLES:
   gqlt validate query --query-file query.graphql --url https://api.example.com/graphql
   gqlt validate query --query "{ users { id } }" --format json --quiet`,
 	Args: cobra.NoArgs,
-	RunE: runValidateQuery,
+	RunE: validateQuery,
 }
 
 func init() {
@@ -71,7 +71,7 @@ EXAMPLES:
   gqlt validate config
   gqlt validate config --format json --quiet`,
 	Args: cobra.NoArgs,
-	RunE: runValidateConfig,
+	RunE: validateConfig,
 }
 
 var validateSchemaCmd = &cobra.Command{
@@ -84,7 +84,7 @@ EXAMPLES:
   gqlt validate schema --url https://api.example.com/graphql
   gqlt validate schema --url https://api.example.com/graphql --format json --quiet`,
 	Args: cobra.NoArgs,
-	RunE: runValidateSchema,
+	RunE: validateSchema,
 }
 
 func init() {
@@ -96,7 +96,7 @@ func init() {
 	validateSchemaCmd.Flags().StringP("url", "u", "", "GraphQL endpoint URL")
 }
 
-func runValidateQuery(cmd *cobra.Command, args []string) error {
+func validateQuery(cmd *cobra.Command, args []string) error {
 	// Get configuration from flags
 	configDir := cmd.Flag("config-dir").Value.String()
 	outputFormat := cmd.Flag("format").Value.String()
@@ -225,7 +225,7 @@ func runValidateQuery(cmd *cobra.Command, args []string) error {
 	return formatter.FormatStructured(validationResult, quietMode)
 }
 
-func runValidateConfig(cmd *cobra.Command, args []string) error {
+func validateConfig(cmd *cobra.Command, args []string) error {
 	// Get configuration from flags
 	configDir := cmd.Flag("config-dir").Value.String()
 	outputFormat := cmd.Flag("format").Value.String()
@@ -287,7 +287,7 @@ func runValidateConfig(cmd *cobra.Command, args []string) error {
 	return formatter.FormatStructured(validationResult, quietMode)
 }
 
-func runValidateSchema(cmd *cobra.Command, args []string) error {
+func validateSchema(cmd *cobra.Command, args []string) error {
 	// Get configuration from flags
 	configDir := cmd.Flag("config-dir").Value.String()
 	outputFormat := cmd.Flag("format").Value.String()

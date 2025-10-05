@@ -16,7 +16,7 @@ var describeCmd = &cobra.Command{
 	Long: `Describe GraphQL types and fields from a cached schema file.
 Use this to explore the GraphQL schema structure.`,
 	Args: cobra.ExactArgs(1),
-	RunE: runDescribe,
+	RunE: describe,
 }
 
 var (
@@ -34,7 +34,7 @@ func init() {
 	describeCmd.Flags().StringVar(&describeSchema, "schema", "", "schema file path (default is OS-specific)")
 }
 
-func runDescribe(cmd *cobra.Command, args []string) error {
+func describe(cmd *cobra.Command, args []string) error {
 	// Load configuration
 	cfg, err := gqlt.Load(configDir)
 	if err != nil {

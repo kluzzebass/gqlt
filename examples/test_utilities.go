@@ -41,18 +41,18 @@ func (h *GraphQLTestHelper) AssertFieldExists(response *gqlt.Response, fieldPath
 	if !ok {
 		h.t.Fatal("Expected response data to be a map")
 	}
-	
+
 	// Simple field path support (e.g., "user.name")
 	fields := splitFieldPath(fieldPath)
 	current := data
-	
+
 	for i, field := range fields {
 		value, exists := current[field]
 		if !exists {
 			h.t.Errorf("Expected field '%s' at path '%s'", field, fieldPath)
 			return
 		}
-		
+
 		if i < len(fields)-1 {
 			// Not the last field, should be a map
 			current, ok = value.(map[string]interface{})
@@ -78,17 +78,17 @@ func (h *GraphQLTestHelper) GetFieldValue(response *gqlt.Response, fieldPath str
 	if !ok {
 		h.t.Fatal("Expected response data to be a map")
 	}
-	
+
 	fields := splitFieldPath(fieldPath)
 	current := data
-	
+
 	for i, field := range fields {
 		value, exists := current[field]
 		if !exists {
 			h.t.Errorf("Field '%s' not found at path '%s'", field, fieldPath)
 			return nil
 		}
-		
+
 		if i < len(fields)-1 {
 			current, ok = value.(map[string]interface{})
 			if !ok {
@@ -99,7 +99,7 @@ func (h *GraphQLTestHelper) GetFieldValue(response *gqlt.Response, fieldPath str
 			return value
 		}
 	}
-	
+
 	return nil
 }
 
@@ -111,7 +111,7 @@ func (h *GraphQLTestHelper) AssertArrayLength(response *gqlt.Response, fieldPath
 		h.t.Errorf("Expected field '%s' to be an array", fieldPath)
 		return
 	}
-	
+
 	if len(array) != expectedLength {
 		h.t.Errorf("Expected array '%s' to have length %d, got %d", fieldPath, expectedLength, len(array))
 	}
@@ -171,7 +171,7 @@ func splitFieldPath(path string) []string {
 	// Simple implementation - can be enhanced for more complex paths
 	var fields []string
 	var current string
-	
+
 	for _, char := range path {
 		if char == '.' {
 			if current != "" {
@@ -182,31 +182,31 @@ func splitFieldPath(path string) []string {
 			current += string(char)
 		}
 	}
-	
+
 	if current != "" {
 		fields = append(fields, current)
 	}
-	
+
 	return fields
 }
 
 // ExampleTestWithHelper demonstrates using the test helper
 func ExampleTestWithHelper(t *testing.T) {
 	helper := NewGraphQLTestHelper(t, "https://api.example.com/graphql")
-	
+
 	// Set authentication if needed
 	helper.SetAuth("bearer", map[string]string{
 		"token": "your-token-here",
 	})
-	
+
 	// Execute a query
 	response := helper.ExecuteQuery("{ users { id name } }", nil, "")
-	
+
 	// Use assertions
 	helper.AssertNoErrors(response)
 	helper.AssertFieldExists(response, "users")
 	helper.AssertArrayLength(response, "users", 2) // Expect 2 users
-	
+
 	// Check specific values
 	firstUser := helper.GetFieldValue(response, "users.0")
 	if firstUser == nil {

@@ -39,7 +39,7 @@ func TestHelpTextContainsAIFeatures(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a fresh command for each test
 			cmd := rootCmd
-			
+
 			// Capture stdout
 			oldStdout := os.Stdout
 			r, w, _ := os.Pipe()
@@ -79,7 +79,7 @@ func TestHelpTextContainsExamples(t *testing.T) {
 	}{
 		{
 			name:     "root help contains basic examples",
-			args:    []string{"--help"},
+			args:     []string{"--help"},
 			expected: []string{"gqlt run --url", "gqlt config create", "gqlt introspect", "gqlt describe"},
 		},
 		{
@@ -103,7 +103,7 @@ func TestHelpTextContainsExamples(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a fresh command for each test
 			cmd := rootCmd
-			
+
 			// Capture stdout
 			oldStdout := os.Stdout
 			r, w, _ := os.Pipe()
@@ -167,7 +167,7 @@ func TestHelpTextContainsStructuredOutputInfo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a fresh command for each test
 			cmd := rootCmd
-			
+
 			// Capture stdout
 			oldStdout := os.Stdout
 			r, w, _ := os.Pipe()

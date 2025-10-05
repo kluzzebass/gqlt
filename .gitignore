@@ -33,5 +33,6 @@ go.work.sum
 
 # gqlt specific
 bin/
+dist/
 .gqlt/
 *.gqlt

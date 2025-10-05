@@ -12,7 +12,7 @@ var introspectCmd = &cobra.Command{
 	Short: "Fetch and cache GraphQL schema via introspection",
 	Long: `Fetch the GraphQL schema from an endpoint using introspection
 and save it to a local cache file for use with other commands.`,
-	RunE: runIntrospect,
+	RunE: introspect,
 }
 
 var (
@@ -30,7 +30,7 @@ func init() {
 	introspectCmd.Flags().BoolVar(&introspectSummary, "summary", false, "show summary instead of saving to file")
 }
 
-func runIntrospect(cmd *cobra.Command, args []string) error {
+func introspect(cmd *cobra.Command, args []string) error {
 	// Load configuration
 	cfg, err := gqlt.Load(configDir)
 	if err != nil {

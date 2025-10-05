@@ -3,11 +3,19 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/kluzzebass/gqlt"
 	"github.com/spf13/cobra"
 )
+
+// setupFormatter creates a formatter with the command's output writers
+func setupFormatter(cmd *cobra.Command) gqlt.Formatter {
+	outputFormat := cmd.Flag("format").Value.String()
+	formatter := gqlt.NewFormatter(outputFormat)
+	formatter.SetOutput(cmd.OutOrStdout())
+	formatter.SetErrorOutput(cmd.ErrOrStderr())
+	return formatter
+}
 
 var configCmd = &cobra.Command{
 	Use:   "config",
@@ -47,7 +55,9 @@ EXAMPLES:
   gqlt config use myapi
   
   # With authentication
-  gqlt config set myapi headers '{"Authorization": "Bearer token"}'
+  gqlt config set-token myapi "your-bearer-token"
+  gqlt config set-username myapi "username"
+  gqlt config set-password myapi "password"
   gqlt config set myapi headers '{"X-API-Key": "api-key"}'
   
   # Clone configuration
@@ -67,14 +77,14 @@ var configShowCmd = &cobra.Command{
 	Short: "Show current or named configuration",
 	Long:  "Show the current configuration or a specific named configuration.",
 	Args:  cobra.MaximumNArgs(1),
-	RunE:  runConfigShow,
+	RunE:  configShow,
 }
 
 var configListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all configurations",
 	Long:  "List all available configurations with their current status.",
-	RunE:  runConfigList,
+	RunE:  configList,
 }
 
 var configCreateCmd = &cobra.Command{
@@ -82,7 +92,7 @@ var configCreateCmd = &cobra.Command{
 	Short: "Create a new configuration",
 	Long:  "Create a new named configuration with default values.",
 	Args:  cobra.ExactArgs(1),
-	RunE:  runConfigCreate,
+	RunE:  configCreate,
 }
 
 var configDeleteCmd = &cobra.Command{
@@ -90,7 +100,7 @@ var configDeleteCmd = &cobra.Command{
 	Short: "Delete a configuration",
 	Long:  "Delete a named configuration (cannot delete default).",
 	Args:  cobra.ExactArgs(1),
-	RunE:  runConfigDelete,
+	RunE:  configDelete,
 }
 
 var configUseCmd = &cobra.Command{
@@ -98,7 +108,7 @@ var configUseCmd = &cobra.Command{
 	Short: "Switch to a configuration",
 	Long:  "Switch the current active configuration to the specified name.",
 	Args:  cobra.ExactArgs(1),
-	RunE:  runConfigUse,
+	RunE:  configUse,
 }
 
 var configSetCmd = &cobra.Command{
@@ -117,35 +127,35 @@ Examples:
   gqlt config set production headers.Authorization "Bearer token123"
   gqlt config set production defaults.out pretty`,
 	Args: cobra.ExactArgs(3),
-	RunE: runConfigSet,
+	RunE: configSet,
 }
 
 var configInitCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize configuration file",
 	Long:  "Create a new configuration file with default settings.",
-	RunE:  runConfigInit,
+	RunE:  configInit,
 }
 
 var configValidateCmd = &cobra.Command{
 	Use:   "validate",
 	Short: "Validate configuration",
 	Long:  "Check the configuration file for errors and provide suggestions.",
-	RunE:  runConfigValidate,
+	RunE:  configValidate,
 }
 
 var configDescribeCmd = &cobra.Command{
 	Use:   "describe",
 	Short: "Show configuration schema",
 	Long:  "Show the configuration schema and available options.",
-	RunE:  runConfigDescribe,
+	RunE:  configDescribe,
 }
 
 var configExamplesCmd = &cobra.Command{
 	Use:   "examples",
 	Short: "Show usage examples",
 	Long:  "Show common usage examples and templates.",
-	RunE:  runConfigExamples,
+	RunE:  configExamples,
 }
 
 var configCloneCmd = &cobra.Command{
@@ -153,7 +163,31 @@ var configCloneCmd = &cobra.Command{
 	Short: "Clone an existing configuration",
 	Long:  "Create a new configuration by copying an existing one.",
 	Args:  cobra.ExactArgs(2),
-	RunE:  runConfigClone,
+	RunE:  configClone,
+}
+
+var configSetTokenCmd = &cobra.Command{
+	Use:   "set-token <name> <token>",
+	Short: "Set bearer token for a configuration",
+	Long:  "Set the Authorization header with Bearer token for a named configuration.",
+	Args:  cobra.ExactArgs(2),
+	RunE:  configSetToken,
+}
+
+var configSetUsernameCmd = &cobra.Command{
+	Use:   "set-username <name> <username>",
+	Short: "Set username for basic authentication",
+	Long:  "Set the username for basic authentication (requires password to be set separately).",
+	Args:  cobra.ExactArgs(2),
+	RunE:  configSetUsername,
+}
+
+var configSetPasswordCmd = &cobra.Command{
+	Use:   "set-password <name> <password>",
+	Short: "Set password for basic authentication",
+	Long:  "Set the password for basic authentication (requires username to be set separately).",
+	Args:  cobra.ExactArgs(2),
+	RunE:  configSetPassword,
 }
 
 func init() {
@@ -163,6 +197,9 @@ func init() {
 	configCmd.AddCommand(configDeleteCmd)
 	configCmd.AddCommand(configUseCmd)
 	configCmd.AddCommand(configSetCmd)
+	configCmd.AddCommand(configSetTokenCmd)
+	configCmd.AddCommand(configSetUsernameCmd)
+	configCmd.AddCommand(configSetPasswordCmd)
 	configCmd.AddCommand(configInitCmd)
 	configCmd.AddCommand(configValidateCmd)
 	configCmd.AddCommand(configDescribeCmd)
@@ -170,10 +207,11 @@ func init() {
 	configCmd.AddCommand(configCloneCmd)
 }
 
-func runConfigShow(cmd *cobra.Command, args []string) error {
+func configShow(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
-		formatter := gqlt.NewFormatter(outputFormat)
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
 		return formatter.FormatStructuredError(err, "CONFIG_LOAD_ERROR", quietMode)
 	}
 
@@ -188,52 +226,61 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 
 	entry, exists := cfg.Configs[name]
 	if !exists {
-		formatter := gqlt.NewFormatter(outputFormat)
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
 		return formatter.FormatStructuredError(fmt.Errorf("configuration '%s' does not exist", name), "CONFIG_NOT_FOUND", quietMode)
 	}
 
-	formatter := gqlt.NewFormatter(outputFormat)
+	quietMode := cmd.Flag("quiet").Value.String() == "true"
+	formatter := setupFormatter(cmd)
 	return formatter.FormatStructured(entry, quietMode)
 }
 
-func runConfigList(cmd *cobra.Command, args []string) error {
+func configList(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
-		formatter := gqlt.NewFormatter(outputFormat)
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
 		return formatter.FormatStructuredError(err, "CONFIG_LOAD_ERROR", quietMode)
 	}
 
-	formatter := gqlt.NewFormatter(outputFormat)
+	quietMode := cmd.Flag("quiet").Value.String() == "true"
+	formatter := setupFormatter(cmd)
 	return formatter.FormatStructured(cfg.Configs, quietMode)
 }
 
-func runConfigCreate(cmd *cobra.Command, args []string) error {
+func configCreate(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
-		formatter := gqlt.NewFormatter(outputFormat)
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
 		return formatter.FormatStructuredError(err, "CONFIG_LOAD_ERROR", quietMode)
 	}
 
 	name := args[0]
 	if err := cfg.Create(name); err != nil {
-		formatter := gqlt.NewFormatter(outputFormat)
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
 		return formatter.FormatStructuredError(err, "CONFIG_CREATE_ERROR", quietMode)
 	}
 
 	if err := cfg.Save(configDir); err != nil {
-		formatter := gqlt.NewFormatter(outputFormat)
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
 		return formatter.FormatStructuredError(fmt.Errorf("failed to save config: %w", err), "CONFIG_SAVE_ERROR", quietMode)
 	}
 
+	quietMode := cmd.Flag("quiet").Value.String() == "true"
+	
 	if !quietMode {
 		fmt.Printf("Created configuration '%s'\n", name)
 	}
 
-	formatter := gqlt.NewFormatter(outputFormat)
+	formatter := setupFormatter(cmd)
 	return formatter.FormatStructured(map[string]string{"message": "Configuration created", "name": name}, quietMode)
 }
 
-func runConfigDelete(cmd *cobra.Command, args []string) error {
+func configDelete(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
@@ -252,7 +299,7 @@ func runConfigDelete(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runConfigUse(cmd *cobra.Command, args []string) error {
+func configUse(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
@@ -271,7 +318,7 @@ func runConfigUse(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runConfigSet(cmd *cobra.Command, args []string) error {
+func configSet(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
@@ -293,7 +340,7 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runConfigInit(cmd *cobra.Command, args []string) error {
+func configInit(cmd *cobra.Command, args []string) error {
 	cfg := gqlt.GetDefaultConfig()
 
 	if err := cfg.Save(configDir); err != nil {
@@ -305,7 +352,7 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runConfigValidate(cmd *cobra.Command, args []string) error {
+func configValidate(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
@@ -324,7 +371,7 @@ func runConfigValidate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runConfigDescribe(cmd *cobra.Command, args []string) error {
+func configDescribe(cmd *cobra.Command, args []string) error {
 	schema := gqlt.GetSchema()
 
 	description := fmt.Sprintf(`Configuration Schema:
@@ -359,7 +406,7 @@ Example configuration:`, schema.Endpoint, schema.Headers, schema.DefaultsOut)
 	return nil
 }
 
-func runConfigExamples(cmd *cobra.Command, args []string) error {
+func configExamples(cmd *cobra.Command, args []string) error {
 	examples := `Configuration Examples:
 
 1. Initialize configuration:
@@ -380,8 +427,10 @@ func runConfigExamples(cmd *cobra.Command, args []string) error {
    gqlt config set local endpoint http://localhost:4000/graphql
 
 5. Configure authentication:
-   gqlt config set production headers.Authorization 'Bearer prod-token'
-   gqlt config set staging headers.Authorization 'Bearer staging-token'
+   gqlt config set-token production "prod-token"
+   gqlt config set-token staging "staging-token"
+   gqlt config set-username local "admin"
+   gqlt config set-password local "secret"
 
 6. Configure output modes:
    gqlt config set production defaults.out json
@@ -398,7 +447,7 @@ func runConfigExamples(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runConfigClone(cmd *cobra.Command, args []string) error {
+func configClone(cmd *cobra.Command, args []string) error {
 	sourceName := args[0]
 	targetName := args[1]
 
@@ -430,6 +479,132 @@ func runConfigClone(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func configSetToken(cmd *cobra.Command, args []string) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
+		return formatter.FormatStructuredError(err, "CONFIG_LOAD_ERROR", quietMode)
+	}
+
+	name := args[0]
+	token := args[1]
+
+	// Check if configuration exists
+	entry, exists := cfg.Configs[name]
+	if !exists {
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
+		return formatter.FormatStructuredError(fmt.Errorf("configuration '%s' does not exist", name), "CONFIG_NOT_FOUND", quietMode)
+	}
+
+	// Set the Authorization header with Bearer token
+	if entry.Headers == nil {
+		entry.Headers = make(map[string]string)
+	}
+	entry.Headers["Authorization"] = "Bearer " + token
+	cfg.Configs[name] = entry
+
+	if err := cfg.Save(configDir); err != nil {
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
+		return formatter.FormatStructuredError(fmt.Errorf("failed to save config: %w", err), "CONFIG_SAVE_ERROR", quietMode)
+	}
+
+	quietMode := cmd.Flag("quiet").Value.String() == "true"
+	
+	if !quietMode {
+		fmt.Printf("Set bearer token for configuration '%s'\n", name)
+	}
+
+	formatter := setupFormatter(cmd)
+	return formatter.FormatStructured(map[string]string{"message": "Bearer token set", "name": name}, quietMode)
+}
+
+func configSetUsername(cmd *cobra.Command, args []string) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
+		return formatter.FormatStructuredError(err, "CONFIG_LOAD_ERROR", quietMode)
+	}
+
+	name := args[0]
+	username := args[1]
+
+	// Check if configuration exists
+	entry, exists := cfg.Configs[name]
+	if !exists {
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
+		return formatter.FormatStructuredError(fmt.Errorf("configuration '%s' does not exist", name), "CONFIG_NOT_FOUND", quietMode)
+	}
+
+	// Set the username in headers (for basic auth, we'll store both username and password)
+	if entry.Headers == nil {
+		entry.Headers = make(map[string]string)
+	}
+	entry.Headers["X-Username"] = username
+	cfg.Configs[name] = entry
+
+	if err := cfg.Save(configDir); err != nil {
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
+		return formatter.FormatStructuredError(fmt.Errorf("failed to save config: %w", err), "CONFIG_SAVE_ERROR", quietMode)
+	}
+
+	quietMode := cmd.Flag("quiet").Value.String() == "true"
+	
+	if !quietMode {
+		fmt.Printf("Set username for configuration '%s'\n", name)
+	}
+
+	formatter := setupFormatter(cmd)
+	return formatter.FormatStructured(map[string]string{"message": "Username set", "name": name}, quietMode)
+}
+
+func configSetPassword(cmd *cobra.Command, args []string) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
+		return formatter.FormatStructuredError(err, "CONFIG_LOAD_ERROR", quietMode)
+	}
+
+	name := args[0]
+	password := args[1]
+
+	// Check if configuration exists
+	entry, exists := cfg.Configs[name]
+	if !exists {
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
+		return formatter.FormatStructuredError(fmt.Errorf("configuration '%s' does not exist", name), "CONFIG_NOT_FOUND", quietMode)
+	}
+
+	// Set the password in headers (for basic auth, we'll store both username and password)
+	if entry.Headers == nil {
+		entry.Headers = make(map[string]string)
+	}
+	entry.Headers["X-Password"] = password
+	cfg.Configs[name] = entry
+
+	if err := cfg.Save(configDir); err != nil {
+		quietMode := cmd.Flag("quiet").Value.String() == "true"
+		formatter := setupFormatter(cmd)
+		return formatter.FormatStructuredError(fmt.Errorf("failed to save config: %w", err), "CONFIG_SAVE_ERROR", quietMode)
+	}
+
+	quietMode := cmd.Flag("quiet").Value.String() == "true"
+	
+	if !quietMode {
+		fmt.Printf("Set password for configuration '%s'\n", name)
+	}
+
+	formatter := setupFormatter(cmd)
+	return formatter.FormatStructured(map[string]string{"message": "Password set", "name": name}, quietMode)
+}
+
 // Helper functions
 
 func loadConfig() (*gqlt.Config, error) {
@@ -445,44 +620,4 @@ func getConfigPath() string {
 
 	// Use the shared default path function
 	return gqlt.GetConfigPath()
-}
-
-func printJSON(v interface{}) error {
-	encoder := json.NewEncoder(os.Stdout)
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(v)
-}
-
-func printYAML(v interface{}) error {
-	// For now, just print JSON (YAML support can be added later)
-	return printJSON(v)
-}
-
-func printTable(entry gqlt.ConfigEntry, name string) error {
-	fmt.Printf("Configuration: %s\n", name)
-	fmt.Printf("  Endpoint: %s\n", entry.Endpoint)
-	fmt.Printf("  Headers:\n")
-	for k, v := range entry.Headers {
-		fmt.Printf("    %s: %s\n", k, v)
-	}
-	fmt.Printf("  Default Output: %s\n", entry.Defaults.Out)
-	if entry.Comment != "" {
-		fmt.Printf("  Comment: %s\n", entry.Comment)
-	}
-	return nil
-}
-
-func printConfigListTable(cfg *gqlt.Config) error {
-	fmt.Printf("Current: %s\n", cfg.Current)
-	fmt.Println("Configurations:")
-	for name, entry := range cfg.Configs {
-		status := ""
-		if name == cfg.Current {
-			status = " (current)"
-		}
-		fmt.Printf("  %s%s\n", name, status)
-		fmt.Printf("    Endpoint: %s\n", entry.Endpoint)
-		fmt.Printf("    Output: %s\n", entry.Defaults.Out)
-	}
-	return nil
 }

@@ -11,10 +11,10 @@ import (
 func main() {
 	// Example 1: Basic query execution
 	fmt.Println("=== Basic Query Example ===")
-	
+
 	// Create a GraphQL client
 	client := gqlt.NewClient("https://api.github.com/graphql", nil)
-	
+
 	// Define a simple query
 	query := `
 		query {
@@ -24,7 +24,7 @@ func main() {
 			}
 		}
 	`
-	
+
 	// Execute the query
 	response, err := client.Execute(query, nil, "")
 	if err != nil {
@@ -32,10 +32,10 @@ func main() {
 	} else {
 		fmt.Printf("Response: %+v\n", response)
 	}
-	
+
 	// Example 2: Query with variables
 	fmt.Println("\n=== Query with Variables Example ===")
-	
+
 	queryWithVars := `
 		query GetRepository($owner: String!, $name: String!) {
 			repository(owner: $owner, name: $name) {
@@ -45,12 +45,12 @@ func main() {
 			}
 		}
 	`
-	
+
 	variables := map[string]interface{}{
 		"owner": "facebook",
 		"name":  "react",
 	}
-	
+
 	response, err = client.Execute(queryWithVars, variables, "GetRepository")
 	if err != nil {
 		log.Printf("Query execution failed: %v", err)
@@ -60,10 +60,10 @@ func main() {
 			fmt.Printf("Errors: %+v\n", response.Errors)
 		}
 	}
-	
+
 	// Example 3: Schema introspection
 	fmt.Println("\n=== Schema Introspection Example ===")
-	
+
 	introspectClient := gqlt.NewIntrospect(client)
 	schema, err := introspectClient.IntrospectSchema()
 	if err != nil {
@@ -73,7 +73,7 @@ func main() {
 		if len(schema.Errors) > 0 {
 			fmt.Printf("Schema errors: %+v\n", schema.Errors)
 		}
-		
+
 		// Analyze the schema
 		analyzer, err := gqlt.NewAnalyzer(schema)
 		if err != nil {
@@ -91,10 +91,10 @@ func main() {
 			}
 		}
 	}
-	
+
 	// Example 4: Configuration management
 	fmt.Println("\n=== Configuration Management Example ===")
-	
+
 	// Load configuration
 	cfg, err := gqlt.Load(".")
 	if err != nil {
@@ -102,7 +102,7 @@ func main() {
 	} else {
 		fmt.Printf("Current config: %s\n", cfg.Current)
 		fmt.Printf("Available configs: %v\n", getConfigNames(cfg.Configs))
-		
+
 		// Create a new configuration
 		cfg.Configs["example"] = gqlt.ConfigEntry{
 			Endpoint: "https://api.example.com/graphql",
@@ -113,7 +113,7 @@ func main() {
 				Out string `json:"out"`
 			}{Out: "json"},
 		}
-		
+
 		// Save configuration
 		err = cfg.Save(".")
 		if err != nil {
@@ -122,12 +122,12 @@ func main() {
 			fmt.Println("Configuration saved successfully")
 		}
 	}
-	
+
 	// Example 5: Input handling
 	fmt.Println("\n=== Input Handling Example ===")
-	
+
 	inputHandler := gqlt.NewInput()
-	
+
 	// Test query loading
 	queryStr, err := inputHandler.LoadQuery("{ users { id name } }", "")
 	if err != nil {
@@ -135,7 +135,7 @@ func main() {
 	} else {
 		fmt.Printf("Loaded query: %s\n", queryStr)
 	}
-	
+
 	// Test variables loading
 	variablesJSON := `{"id": "123", "name": "test"}`
 	variablesMap, err := inputHandler.LoadVariables(variablesJSON, "")
@@ -144,7 +144,7 @@ func main() {
 	} else {
 		fmt.Printf("Loaded variables: %+v\n", variablesMap)
 	}
-	
+
 	// Test headers loading
 	headersList := []string{
 		"Authorization: Bearer token",

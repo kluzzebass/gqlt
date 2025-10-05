@@ -3,6 +3,7 @@ package gqlt
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/fatih/color"
@@ -15,6 +16,8 @@ type Formatter interface {
 	FormatStructuredError(err error, code string, quiet bool) error
 	FormatStructuredErrorWithContext(err error, code string, errorType string, context map[string]interface{}, quiet bool) error
 	FormatResponse(response *Response, mode string) error
+	SetOutput(writer io.Writer)
+	SetErrorOutput(writer io.Writer)
 }
 
 // FormatterFactory creates a new formatter instance.
@@ -95,13 +98,100 @@ func GetAvailableFormatters() []string {
 }
 
 // JSONFormatter implements Formatter for JSON output
-type JSONFormatter struct{}
+type JSONFormatter struct {
+	output io.Writer
+	errorOutput io.Writer
+}
+
+// SetOutput sets the output writer for the formatter
+func (f *JSONFormatter) SetOutput(writer io.Writer) {
+	f.output = writer
+}
+
+// SetErrorOutput sets the error output writer for the formatter
+func (f *JSONFormatter) SetErrorOutput(writer io.Writer) {
+	f.errorOutput = writer
+}
+
+// getOutput returns the output writer, defaulting to os.Stdout if not set
+func (f *JSONFormatter) getOutput() io.Writer {
+	if f.output != nil {
+		return f.output
+	}
+	return os.Stdout
+}
+
+// getErrorOutput returns the error output writer, defaulting to os.Stderr if not set
+func (f *JSONFormatter) getErrorOutput() io.Writer {
+	if f.errorOutput != nil {
+		return f.errorOutput
+	}
+	return os.Stderr
+}
 
 // TableFormatter implements Formatter for table output
-type TableFormatter struct{}
+type TableFormatter struct {
+	output io.Writer
+	errorOutput io.Writer
+}
+
+// SetOutput sets the output writer for the formatter
+func (f *TableFormatter) SetOutput(writer io.Writer) {
+	f.output = writer
+}
+
+// SetErrorOutput sets the error output writer for the formatter
+func (f *TableFormatter) SetErrorOutput(writer io.Writer) {
+	f.errorOutput = writer
+}
+
+// getOutput returns the output writer, defaulting to os.Stdout if not set
+func (f *TableFormatter) getOutput() io.Writer {
+	if f.output != nil {
+		return f.output
+	}
+	return os.Stdout
+}
+
+// getErrorOutput returns the error output writer, defaulting to os.Stderr if not set
+func (f *TableFormatter) getErrorOutput() io.Writer {
+	if f.errorOutput != nil {
+		return f.errorOutput
+	}
+	return os.Stderr
+}
 
 // YAMLFormatter implements Formatter for YAML output
-type YAMLFormatter struct{}
+type YAMLFormatter struct {
+	output io.Writer
+	errorOutput io.Writer
+}
+
+// SetOutput sets the output writer for the formatter
+func (f *YAMLFormatter) SetOutput(writer io.Writer) {
+	f.output = writer
+}
+
+// SetErrorOutput sets the error output writer for the formatter
+func (f *YAMLFormatter) SetErrorOutput(writer io.Writer) {
+	f.errorOutput = writer
+}
+
+// getOutput returns the output writer, defaulting to os.Stdout if not set
+func (f *YAMLFormatter) getOutput() io.Writer {
+	if f.output != nil {
+		return f.output
+	}
+	return os.Stdout
+}
+
+// getErrorOutput returns the error output writer, defaulting to os.Stderr if not set
+func (f *YAMLFormatter) getErrorOutput() io.Writer {
+	if f.errorOutput != nil {
+		return f.errorOutput
+	}
+	return os.Stderr
+}
 
 // StructuredOutput represents a structured response for AI agents
 type StructuredOutput struct {
@@ -217,7 +307,7 @@ func (f *JSONFormatter) FormatResponse(response *Response, mode string) error {
 }
 
 func (f *JSONFormatter) formatStructuredJSON(output *StructuredOutput) error {
-	encoder := json.NewEncoder(os.Stdout)
+	encoder := json.NewEncoder(f.getOutput())
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(output)
 }
@@ -271,51 +361,51 @@ func (f *TableFormatter) formatStructuredTable(output *StructuredOutput, quiet b
 		// In quiet mode, just show the data or error message
 		if output.Success {
 			if output.Data != nil {
-				fmt.Println(output.Data)
+				fmt.Fprintln(f.getOutput(), output.Data)
 			}
 		} else {
-			fmt.Fprintf(os.Stderr, "Error: %s\n", output.Error.Message)
+			fmt.Fprintf(f.getErrorOutput(), "Error: %s\n", output.Error.Message)
 		}
 		return nil
 	}
 
 	// Full table output
 	if output.Success {
-		fmt.Println("✓ Success")
+		fmt.Fprintln(f.getOutput(), "✓ Success")
 		if output.Data != nil {
-			fmt.Printf("Data: %v\n", output.Data)
+			fmt.Fprintf(f.getOutput(), "Data: %v\n", output.Data)
 		}
 	} else {
-		fmt.Println("✗ Error")
-		fmt.Printf("Code: %s\n", output.Error.Code)
+		fmt.Fprintln(f.getOutput(), "✗ Error")
+		fmt.Fprintf(f.getOutput(), "Code: %s\n", output.Error.Code)
 		if output.Error.Type != "" {
-			fmt.Printf("Type: %s\n", output.Error.Type)
+			fmt.Fprintf(f.getOutput(), "Type: %s\n", output.Error.Type)
 		}
-		fmt.Printf("Message: %s\n", output.Error.Message)
+		fmt.Fprintf(f.getOutput(), "Message: %s\n", output.Error.Message)
 		if output.Error.Details != "" {
-			fmt.Printf("Details: %s\n", output.Error.Details)
+			fmt.Fprintf(f.getOutput(), "Details: %s\n", output.Error.Details)
 		}
 		if len(output.Error.Context) > 0 {
-			fmt.Println("Context:")
+			fmt.Fprintln(f.getOutput(), "Context:")
 			for key, value := range output.Error.Context {
-				fmt.Printf("  %s: %v\n", key, value)
+				fmt.Fprintf(f.getOutput(), "  %s: %v\n", key, value)
 			}
 		}
 	}
 
 	if output.Meta != nil {
-		fmt.Println("\nMetadata:")
+		fmt.Fprintln(f.getOutput(), "\nMetadata:")
 		if output.Meta.Command != "" {
-			fmt.Printf("  Command: %s\n", output.Meta.Command)
+			fmt.Fprintf(f.getOutput(), "  Command: %s\n", output.Meta.Command)
 		}
 		if output.Meta.Config != "" {
-			fmt.Printf("  Config: %s\n", output.Meta.Config)
+			fmt.Fprintf(f.getOutput(), "  Config: %s\n", output.Meta.Config)
 		}
 		if output.Meta.Endpoint != "" {
-			fmt.Printf("  Endpoint: %s\n", output.Meta.Endpoint)
+			fmt.Fprintf(f.getOutput(), "  Endpoint: %s\n", output.Meta.Endpoint)
 		}
 		if output.Meta.Operation != "" {
-			fmt.Printf("  Operation: %s\n", output.Meta.Operation)
+			fmt.Fprintf(f.getOutput(), "  Operation: %s\n", output.Meta.Operation)
 		}
 	}
 
@@ -369,42 +459,42 @@ func (f *YAMLFormatter) FormatResponse(response *Response, mode string) error {
 func (f *YAMLFormatter) formatStructuredYAML(output *StructuredOutput) error {
 	// Simple YAML-like output
 	if output.Success {
-		fmt.Println("success: true")
+		fmt.Fprintln(f.getOutput(), "success: true")
 		if output.Data != nil {
-			fmt.Printf("data: %v\n", output.Data)
+			fmt.Fprintf(f.getOutput(), "data: %v\n", output.Data)
 		}
 	} else {
-		fmt.Println("success: false")
-		fmt.Printf("error:\n")
-		fmt.Printf("  code: %s\n", output.Error.Code)
+		fmt.Fprintln(f.getOutput(), "success: false")
+		fmt.Fprintf(f.getOutput(), "error:\n")
+		fmt.Fprintf(f.getOutput(), "  code: %s\n", output.Error.Code)
 		if output.Error.Type != "" {
-			fmt.Printf("  type: %s\n", output.Error.Type)
+			fmt.Fprintf(f.getOutput(), "  type: %s\n", output.Error.Type)
 		}
-		fmt.Printf("  message: %s\n", output.Error.Message)
+		fmt.Fprintf(f.getOutput(), "  message: %s\n", output.Error.Message)
 		if output.Error.Details != "" {
-			fmt.Printf("  details: %s\n", output.Error.Details)
+			fmt.Fprintf(f.getOutput(), "  details: %s\n", output.Error.Details)
 		}
 		if len(output.Error.Context) > 0 {
-			fmt.Printf("  context:\n")
+			fmt.Fprintf(f.getOutput(), "  context:\n")
 			for key, value := range output.Error.Context {
-				fmt.Printf("    %s: %v\n", key, value)
+				fmt.Fprintf(f.getOutput(), "    %s: %v\n", key, value)
 			}
 		}
 	}
 
 	if output.Meta != nil {
-		fmt.Println("meta:")
+		fmt.Fprintln(f.getOutput(), "meta:")
 		if output.Meta.Command != "" {
-			fmt.Printf("  command: %s\n", output.Meta.Command)
+			fmt.Fprintf(f.getOutput(), "  command: %s\n", output.Meta.Command)
 		}
 		if output.Meta.Config != "" {
-			fmt.Printf("  config: %s\n", output.Meta.Config)
+			fmt.Fprintf(f.getOutput(), "  config: %s\n", output.Meta.Config)
 		}
 		if output.Meta.Endpoint != "" {
-			fmt.Printf("  endpoint: %s\n", output.Meta.Endpoint)
+			fmt.Fprintf(f.getOutput(), "  endpoint: %s\n", output.Meta.Endpoint)
 		}
 		if output.Meta.Operation != "" {
-			fmt.Printf("  operation: %s\n", output.Meta.Operation)
+			fmt.Fprintf(f.getOutput(), "  operation: %s\n", output.Meta.Operation)
 		}
 	}
 
@@ -431,36 +521,36 @@ func (f *JSONFormatter) formatPretty(response *Response) error {
 	numberColor := color.New(color.FgCyan)
 	boolColor := color.New(color.FgMagenta)
 
-	fmt.Print("{\n")
+	fmt.Fprint(f.getOutput(), "{\n")
 
 	// Data field
 	if response.Data != nil {
-		dataColor.Print("  \"data\": ")
+		dataColor.Fprint(f.getOutput(), "  \"data\": ")
 		f.printValue(response.Data, "  ", dataColor, errorColor, keyColor, stringColor, numberColor, boolColor)
-		fmt.Print(",\n")
+		fmt.Fprint(f.getOutput(), ",\n")
 	}
 
 	// Errors field
 	if len(response.Errors) > 0 {
-		errorColor.Print("  \"errors\": ")
+		errorColor.Fprint(f.getOutput(), "  \"errors\": ")
 		f.printValue(response.Errors, "  ", dataColor, errorColor, keyColor, stringColor, numberColor, boolColor)
-		fmt.Print(",\n")
+		fmt.Fprint(f.getOutput(), ",\n")
 	}
 
 	// Extensions field
 	if len(response.Extensions) > 0 {
-		keyColor.Print("  \"extensions\": ")
+		keyColor.Fprint(f.getOutput(), "  \"extensions\": ")
 		f.printValue(response.Extensions, "  ", dataColor, errorColor, keyColor, stringColor, numberColor, boolColor)
-		fmt.Print(",\n")
+		fmt.Fprint(f.getOutput(), ",\n")
 	}
 
-	fmt.Print("}\n")
+	fmt.Fprint(f.getOutput(), "}\n")
 	return nil
 }
 
 // formatRaw outputs unformatted JSON
 func (f *JSONFormatter) formatRaw(response *Response) error {
-	encoder := json.NewEncoder(os.Stdout)
+	encoder := json.NewEncoder(f.getOutput())
 	return encoder.Encode(response)
 }
 
@@ -468,37 +558,37 @@ func (f *JSONFormatter) formatRaw(response *Response) error {
 func (f *JSONFormatter) printValue(v interface{}, indent string, dataColor, errorColor, keyColor, stringColor, numberColor, boolColor *color.Color) {
 	switch val := v.(type) {
 	case map[string]interface{}:
-		fmt.Print("{\n")
+		fmt.Fprint(f.getOutput(), "{\n")
 		first := true
 		for k, v := range val {
 			if !first {
-				fmt.Print(",\n")
+				fmt.Fprint(f.getOutput(), ",\n")
 			}
 			first = false
-			keyColor.Printf("%s  \"%s\": ", indent, k)
+			keyColor.Fprintf(f.getOutput(), "%s  \"%s\": ", indent, k)
 			f.printValue(v, indent+"  ", dataColor, errorColor, keyColor, stringColor, numberColor, boolColor)
 		}
-		fmt.Printf("\n%s}", indent)
+		fmt.Fprintf(f.getOutput(), "\n%s}", indent)
 	case []interface{}:
-		fmt.Print("[\n")
+		fmt.Fprint(f.getOutput(), "[\n")
 		for i, item := range val {
 			if i > 0 {
-				fmt.Print(",\n")
+				fmt.Fprint(f.getOutput(), ",\n")
 			}
-			fmt.Printf("%s  ", indent)
+			fmt.Fprintf(f.getOutput(), "%s  ", indent)
 			f.printValue(item, indent+"  ", dataColor, errorColor, keyColor, stringColor, numberColor, boolColor)
 		}
-		fmt.Printf("\n%s]", indent)
+		fmt.Fprintf(f.getOutput(), "\n%s]", indent)
 	case string:
-		stringColor.Printf("\"%s\"", val)
+		stringColor.Fprintf(f.getOutput(), "\"%s\"", val)
 	case float64:
-		numberColor.Print(val)
+		numberColor.Fprint(f.getOutput(), val)
 	case bool:
-		boolColor.Print(val)
+		boolColor.Fprint(f.getOutput(), val)
 	case nil:
-		fmt.Print("null")
+		fmt.Fprint(f.getOutput(), "null")
 	default:
-		fmt.Printf("%v", val)
+		fmt.Fprintf(f.getOutput(), "%v", val)
 	}
 }
 
@@ -508,7 +598,7 @@ func (f *JSONFormatter) FormatJSON(data interface{}) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
-	fmt.Println(string(jsonData))
+	fmt.Fprintln(f.getOutput(), string(jsonData))
 	return nil
 }
 

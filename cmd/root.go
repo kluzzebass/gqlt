@@ -1,8 +1,12 @@
 package main
 
 import (
+	"github.com/kluzzebass/gqlt"
 	"github.com/spf13/cobra"
 )
+
+// version will be set by the build process, fallback to library version
+var version = "dev"
 
 var configDir string
 var configName string
@@ -58,11 +62,21 @@ OUTPUT FORMATS:
   
   # YAML format
   gqlt config show --format yaml`,
-	Version: "0.1.0",
+	Version: getVersionInfo(),
 }
 
 func Execute() {
 	cobra.CheckErr(rootCmd.Execute())
+}
+
+// getVersionInfo returns detailed version information
+func getVersionInfo() string {
+	// If version was set by build process, use it
+	if version != "dev" {
+		return version
+	}
+	// Otherwise, use the library version
+	return gqlt.Version()
 }
 
 // Main is the entry point for the CLI
