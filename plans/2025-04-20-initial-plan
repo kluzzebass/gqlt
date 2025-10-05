@@ -298,10 +298,92 @@ Config location search order:
     gqlt config clone countries production  # Clone countries to production
 
 ---------------------------------------------------------------
-PHASE 4 | INTROSPECTION AND DESCRIBE
+PHASE 4 | REFACTOR TO LAYERED ARCHITECTURE
 ---------------------------------------------------------------
 
-[ ] 21. cmd/introspect.go
+PURPOSE: Separate command parsing from business logic for better testability
+
+[ ] 21. Create internal/graphql package:
+    - Move GraphQL execution logic from cmd/run.go
+    - Client struct with methods for different operations
+    - Separate concerns: HTTP client, request building, response parsing
+    - Make it testable without Cobra dependencies
+    
+    type Client struct {
+        endpoint string
+        headers  map[string]string
+        httpClient *http.Client
+    }
+    
+    func (c *Client) Execute(query string, variables map[string]interface{}, operationName string) (*Response, error)
+    func (c *Client) SetHeaders(headers map[string]string)
+    func (c *Client) SetAuth(username, password string)
+
+[ ] 22. Create internal/io package:
+    - Move file loading logic from cmd/run.go
+    - Pure functions for file operations
+    - No Cobra dependencies
+    
+    func LoadQuery(query, queryFile string) (string, error)
+    func LoadVariables(vars, varsFile string) (map[string]interface{}, error)
+    func LoadHeaders(headers []string) (map[string]string, error)
+    func ParseFiles(files []string) (map[string]string, error)
+
+[ ] 23. Create internal/output package:
+    - Move output formatting logic from cmd/run.go
+    - Pure functions for different output modes
+    - No Cobra dependencies
+    
+    func FormatJSON(data interface{}) error
+    func FormatPretty(data interface{}) error  
+    func FormatRaw(data interface{}) error
+
+[ ] 24. Refactor cmd/run.go:
+    - Only Cobra command parsing and flag gathering
+    - Delegate all business logic to internal packages
+    - Much simpler and focused on CLI concerns
+    
+    func runGraphQL(cmd *cobra.Command, args []string) error {
+        // 1. Parse flags
+        // 2. Load config
+        // 3. Create internal/graphql.Client
+        // 4. Execute operation
+        // 5. Format output
+    }
+
+[ ] 25. Refactor cmd/config.go:
+    - Move config business logic to internal/config
+    - cmd/config.go only handles CLI parsing
+    - internal/config handles all config operations
+    
+    type Manager struct {
+        path string
+    }
+    
+    func (m *Manager) Load() (*Config, error)
+    func (m *Manager) Save(config *Config) error
+    func (m *Manager) Create(name string) error
+    func (m *Manager) Delete(name string) error
+    // etc.
+
+[ ] 26. Add comprehensive tests:
+    - Unit tests for each internal package
+    - Integration tests for cmd packages
+    - Mock HTTP clients for testing
+    - Test all error conditions
+    - Test all output formats
+
+BENEFITS:
+- Testable: Each layer can be tested independently
+- Maintainable: Clear separation of concerns
+- Reusable: Internal packages can be used by other tools
+- Extensible: Easy to add new commands or features
+
+---------------------------------------------------------------
+PHASE 5 | INTROSPECTION AND DESCRIBE
+---------------------------------------------------------------
+
+[ ] 27. cmd/introspect.go
     - endpoint via flag/config
     - issue introspection query:
       query IntrospectionQuery { __schema { types { name kind fields { name type { name kind } } } } }
@@ -311,7 +393,7 @@ PHASE 4 | INTROSPECTION AND DESCRIBE
        --out path
        --summary (stdout short)
 
-[ ] 22. cmd/describe.go
+[ ] 28. cmd/describe.go
     - read schema JSON file
     - build index:
         map[TypeName]TypeMetadata
@@ -329,10 +411,10 @@ PHASE 4 | INTROSPECTION AND DESCRIBE
         └── search(q: String!): [Product]
 
 ---------------------------------------------------------------
-PHASE 5 | TEST AND SCHEMA DIFF
+PHASE 6 | TEST AND SCHEMA DIFF
 ---------------------------------------------------------------
 
-[ ] 23. cmd/test.go
+[ ] 29. cmd/test.go
     Purpose: load YAML/JSON suite of operations + expected matches
     TestSpec structure:
         - name string
@@ -346,7 +428,7 @@ PHASE 5 | TEST AND SCHEMA DIFF
             count passes/fails
     Exit codes: 0 all pass, 2 failures.
 
-[ ] 24. cmd/schema_diff.go
+[ ] 30. cmd/schema_diff.go
     Inputs: two file paths
     Compare type/field maps.
     Diff struct:
@@ -371,7 +453,7 @@ PHASE 6 | AUTHENTICATION SUPPORT
     - Basic: Custom http.RoundTripper with Authorization header
     - None: No authentication (default)
 
-[ ] 25. Update config structure for simple auth:
+[ ] 31. Update config structure for simple auth:
     type Config struct {
         Endpoint string            `json:"endpoint"`
         Token    string            `json:"token"`
@@ -387,39 +469,39 @@ PHASE 6 | AUTHENTICATION SUPPORT
 PHASE 7 | INTERNAL UTILITIES
 ---------------------------------------------------------------
 
-[ ] 26. internal/io/io.go
+[ ] 32. internal/io/io.go
     Func ReadFileOrStdin(path string) (string, error)
     Func ParseJSONFile(path string, v any) error
     Func WriteJSON(path string, data any) error
 
-[ ] 27. internal/output/output.go
+[ ] 33. internal/output/output.go
     Func PrintJSON(obj any)
     Func PrintPretty(obj any)
     Func PrintRaw(data map[string]any)
 
-[ ] 28. internal/errors
+[ ] 34. internal/errors
     Central error helper for consistent exit codes.
 
 ---------------------------------------------------------------
 PHASE 8 | BUILD / VALIDATION
 ---------------------------------------------------------------
 
-[ ] 29. Build command:
+[ ] 35. Build command:
     go build -o bin/gqlt main.go
     verify binary size < 15MB static
     test: ./bin/gqlt --help
 
-[ ] 30. Manual tests:
+[ ] 36. Manual tests:
     ./gqlt run --url <endpoint> --query '{__typename}'
     ./gqlt run --query-file q.graphql --vars '{"id":"1"}'
     ./gqlt introspect
     ./gqlt describe Query
 
-[ ] 31. CI / Testing:
+[ ] 37. CI / Testing:
     Write unit tests for config merge, IO helpers
     run: go test ./...
 
-[ ] 32. Release binaries:
+[ ] 38. Release binaries:
     for os in linux darwin windows; do GOOS=$os go build -o dist/gqlt-$os main.go; done
     checksum + tag v0.1.0
 
@@ -427,7 +509,7 @@ PHASE 8 | BUILD / VALIDATION
 PHASE 9 | HANDLING FILE UPLOADS
 ---------------------------------------------------------------
 
-[ ] 33. Support file uploads:
+[ ] 39. Support file uploads:
     -f, --file flags parsed as "name=path" (repeatable)
     -F, --files-list string (file containing list of files to upload)
     - Parse file flags into map[name]path
@@ -435,7 +517,7 @@ PHASE 9 | HANDLING FILE UPLOADS
     - Note: File uploads require multipart/form-data implementation
     - For now, file uploads are parsed but not yet implemented
 
-[ ] 34. Example use in shell:
+[ ] 40. Example use in shell:
     # Simple query (formatted JSON)
     gqlt run -u https://api.example.com/graphql -q '{ __typename }'
     
