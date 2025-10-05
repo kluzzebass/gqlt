@@ -1,9 +1,7 @@
-package output
+package gqlt
 
 import (
 	"testing"
-
-	"github.com/kluzzebass/gqlt/internal/graphql"
 )
 
 func TestFormatter(t *testing.T) {
@@ -13,11 +11,11 @@ func TestFormatter(t *testing.T) {
 	// Test cases with different response types
 	testCases := []struct {
 		name     string
-		response *graphql.Response
+		response *Response
 	}{
 		{
 			name: "valid data response",
-			response: &graphql.Response{
+			response: &Response{
 				Data: map[string]interface{}{
 					"user": map[string]interface{}{
 						"id":   "123",
@@ -28,7 +26,7 @@ func TestFormatter(t *testing.T) {
 		},
 		{
 			name: "response with errors",
-			response: &graphql.Response{
+			response: &Response{
 				Data: nil,
 				Errors: []interface{}{
 					map[string]interface{}{
@@ -40,7 +38,7 @@ func TestFormatter(t *testing.T) {
 		},
 		{
 			name: "response with extensions",
-			response: &graphql.Response{
+			response: &Response{
 				Data: map[string]interface{}{
 					"user": map[string]interface{}{
 						"id": "123",
@@ -58,19 +56,16 @@ func TestFormatter(t *testing.T) {
 	// Test each mode with each test case
 	for _, mode := range modes {
 		t.Run(mode, func(t *testing.T) {
-			formatter := NewFormatter(mode)
+			formatter := NewFormatter()
 			if formatter == nil {
 				t.Error("Expected formatter to be created")
 				return
-			}
-			if formatter.mode != mode {
-				t.Errorf("Expected mode '%s', got %s", mode, formatter.mode)
 			}
 
 			// Test all response types
 			for _, tc := range testCases {
 				t.Run(tc.name, func(t *testing.T) {
-					err := formatter.Format(tc.response)
+					err := formatter.FormatResponse((*Response)(tc.response), mode)
 					if err != nil {
 						t.Errorf("Format failed for %s mode with %s: %v", mode, tc.name, err)
 					}

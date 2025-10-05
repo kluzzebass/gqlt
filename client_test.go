@@ -1,10 +1,11 @@
-package graphql
+package gqlt
 
 import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -284,7 +285,7 @@ func TestExecuteWithFiles(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify content type is multipart
 		contentType := r.Header.Get("Content-Type")
-		if !contains(contentType, "multipart/form-data") {
+		if !strings.Contains(contentType, "multipart/form-data") {
 			t.Errorf("Expected multipart content type, got %s", contentType)
 		}
 
@@ -363,10 +364,4 @@ func TestBasicAuthTransport(t *testing.T) {
 	if result.Data == nil {
 		t.Error("Expected data in response")
 	}
-}
-
-// Helper function to check if string contains substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && s[:len(substr)] == substr ||
-		len(s) > len(substr) && contains(s[1:], substr)
 }

@@ -1,12 +1,10 @@
-package schema
+package gqlt
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
-
-	"github.com/kluzzebass/gqlt/internal/graphql"
 )
 
 // Analyzer handles GraphQL schema analysis and description
@@ -15,7 +13,7 @@ type Analyzer struct {
 }
 
 // NewAnalyzer creates a new schema analyzer
-func NewAnalyzer(schema *graphql.Response) (*Analyzer, error) {
+func NewAnalyzer(schema *Response) (*Analyzer, error) {
 	// Extract schema data
 	schemaData, ok := schema.Data.(map[string]interface{})
 	if !ok {
@@ -39,7 +37,7 @@ func LoadAnalyzerFromFile(filePath string) (*Analyzer, error) {
 		return nil, fmt.Errorf("failed to read schema file: %w", err)
 	}
 
-	var result graphql.Response
+	var result Response
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse schema file: %w", err)
 	}
@@ -84,7 +82,7 @@ func (a *Analyzer) GetSummary() (*Summary, error) {
 }
 
 // FindType finds a type by name
-func (a *Analyzer) FindType(typeName string) (map[string]interface{}, error) {
+func (a *Analyzer) FindType(typeName string) (*TypeDescription, error) {
 	types, ok := a.schemaData["types"].([]interface{})
 	if !ok {
 		return nil, fmt.Errorf("invalid types format")
@@ -96,7 +94,7 @@ func (a *Analyzer) FindType(typeName string) (map[string]interface{}, error) {
 			continue
 		}
 		if name, ok := typeObj["name"].(string); ok && name == typeName {
-			return typeObj, nil
+			return a.GetTypeDescription(typeName)
 		}
 	}
 
@@ -104,34 +102,97 @@ func (a *Analyzer) FindType(typeName string) (map[string]interface{}, error) {
 }
 
 // FindField finds a field in a root type
-func (a *Analyzer) FindField(rootType, fieldName string) (map[string]interface{}, error) {
+func (a *Analyzer) FindField(rootType, fieldName string) (*FieldDescription, error) {
 	// Find the root type
-	rootTypeObj, err := a.FindType(rootType)
+	_, err := a.FindType(rootType)
 	if err != nil {
 		return nil, err
 	}
 
-	// Find the field
-	fields, ok := rootTypeObj["fields"].([]interface{})
+	// Find the field in the root type's fields
+	types, ok := a.schemaData["types"].([]interface{})
 	if !ok {
-		return nil, fmt.Errorf("type '%s' has no fields", rootType)
+		return nil, fmt.Errorf("invalid types format")
 	}
 
-	for _, f := range fields {
-		fieldObj, ok := f.(map[string]interface{})
+	for _, t := range types {
+		typeObj, ok := t.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		if name, ok := fieldObj["name"].(string); ok && name == fieldName {
-			return fieldObj, nil
+		if name, ok := typeObj["name"].(string); ok && name == rootType {
+			// Find the field
+			fields, ok := typeObj["fields"].([]interface{})
+			if !ok {
+				return nil, fmt.Errorf("type '%s' has no fields", rootType)
+			}
+
+			for _, f := range fields {
+				fieldObj, ok := f.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if name, ok := fieldObj["name"].(string); ok && name == fieldName {
+					return a.GetFieldDescription(rootType, fieldObj)
+				}
+			}
 		}
 	}
 
 	return nil, fmt.Errorf("field '%s' not found in type '%s'", fieldName, rootType)
 }
 
-// FormatTypeDescription formats a type description
-func (a *Analyzer) FormatTypeDescription(typeObj map[string]interface{}) (*TypeDescription, error) {
+// GetTypeDescription gets a type description by name
+func (a *Analyzer) GetTypeDescription(typeName string) (*TypeDescription, error) {
+	types, ok := a.schemaData["types"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid types format")
+	}
+
+	for _, t := range types {
+		typeObj, ok := t.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if name, ok := typeObj["name"].(string); ok && name == typeName {
+			return a.formatTypeDescription(typeObj)
+		}
+	}
+
+	return nil, fmt.Errorf("type '%s' not found in schema", typeName)
+}
+
+// GetFieldDescription gets a field description
+func (a *Analyzer) GetFieldDescription(rootType string, fieldObj map[string]interface{}) (*FieldDescription, error) {
+	name, _ := fieldObj["name"].(string)
+	description, _ := fieldObj["description"].(string)
+	fieldType, _ := fieldObj["type"].(map[string]interface{})
+
+	desc := &FieldDescription{
+		RootType:    rootType,
+		Name:        name,
+		Description: description,
+		Type:        a.formatTypeString(fieldType),
+	}
+
+	// Format arguments if available
+	if args, ok := fieldObj["args"].([]interface{}); ok && len(args) > 0 {
+		desc.Arguments = make([]FieldSummary, 0, len(args))
+		for _, arg := range args {
+			argObj, ok := arg.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			argSummary := a.formatFieldSummary(argObj)
+			desc.Arguments = append(desc.Arguments, argSummary)
+		}
+	}
+
+	return desc, nil
+}
+
+// formatTypeDescription formats a type description
+func (a *Analyzer) formatTypeDescription(typeObj map[string]interface{}) (*TypeDescription, error) {
 	name, _ := typeObj["name"].(string)
 	kind, _ := typeObj["kind"].(string)
 	description, _ := typeObj["description"].(string)
@@ -188,35 +249,6 @@ func (a *Analyzer) FormatTypeDescription(typeObj map[string]interface{}) (*TypeD
 	return desc, nil
 }
 
-// FormatFieldDescription formats a field description
-func (a *Analyzer) FormatFieldDescription(fieldObj map[string]interface{}, rootType string) (*FieldDescription, error) {
-	name, _ := fieldObj["name"].(string)
-	description, _ := fieldObj["description"].(string)
-	fieldType, _ := fieldObj["type"].(map[string]interface{})
-
-	desc := &FieldDescription{
-		RootType:    rootType,
-		Name:        name,
-		Description: description,
-		Type:        a.formatTypeString(fieldType),
-	}
-
-	// Format arguments if available
-	if args, ok := fieldObj["args"].([]interface{}); ok && len(args) > 0 {
-		desc.Arguments = make([]FieldSummary, 0, len(args))
-		for _, arg := range args {
-			argObj, ok := arg.(map[string]interface{})
-			if !ok {
-				continue
-			}
-			argSummary := a.formatFieldSummary(argObj)
-			desc.Arguments = append(desc.Arguments, argSummary)
-		}
-	}
-
-	return desc, nil
-}
-
 func (a *Analyzer) formatFieldSummary(fieldObj map[string]interface{}) FieldSummary {
 	name, _ := fieldObj["name"].(string)
 	description, _ := fieldObj["description"].(string)
@@ -257,6 +289,7 @@ func (a *Analyzer) formatFieldSummary(fieldObj map[string]interface{}) FieldSumm
 		Type:         typeStr,
 		Signature:    signature,
 		DefaultValue: defaultValue,
+		Arguments:    []FieldSummary{}, // Initialize empty slice
 	}
 }
 
@@ -287,46 +320,4 @@ func (a *Analyzer) formatTypeString(typeObj map[string]interface{}) string {
 		return name
 	}
 	return kind
-}
-
-// Summary represents a schema summary
-type Summary struct {
-	TotalTypes       int    `json:"totalTypes"`
-	QueryType        string `json:"queryType,omitempty"`
-	MutationType     string `json:"mutationType,omitempty"`
-	SubscriptionType string `json:"subscriptionType,omitempty"`
-}
-
-// TypeDescription represents a type description
-type TypeDescription struct {
-	Name        string         `json:"name"`
-	Kind        string         `json:"kind"`
-	Description string         `json:"description,omitempty"`
-	Fields      []FieldSummary `json:"fields,omitempty"`
-	InputFields []FieldSummary `json:"inputFields,omitempty"`
-	EnumValues  []EnumValue    `json:"enumValues,omitempty"`
-}
-
-// FieldDescription represents a field description
-type FieldDescription struct {
-	RootType    string         `json:"rootType"`
-	Name        string         `json:"name"`
-	Description string         `json:"description,omitempty"`
-	Type        string         `json:"type"`
-	Arguments   []FieldSummary `json:"arguments,omitempty"`
-}
-
-// FieldSummary represents a field summary
-type FieldSummary struct {
-	Name         string `json:"name"`
-	Description  string `json:"description,omitempty"`
-	Type         string `json:"type"`
-	Signature    string `json:"signature"`
-	DefaultValue string `json:"defaultValue,omitempty"`
-}
-
-// EnumValue represents an enum value
-type EnumValue struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
 }

@@ -1,14 +1,11 @@
-package cmd
+package main
 
 import (
 	"fmt"
 	"os"
 	"strings"
 
-	"github.com/kluzzebass/gqlt/internal/config"
-	"github.com/kluzzebass/gqlt/internal/graphql"
-	"github.com/kluzzebass/gqlt/internal/input"
-	"github.com/kluzzebass/gqlt/internal/output"
+	"github.com/kluzzebass/gqlt"
 	"github.com/spf13/cobra"
 )
 
@@ -59,7 +56,7 @@ func init() {
 
 func runGraphQL(cmd *cobra.Command, args []string) error {
 	// Step 7.5: Load configuration
-	cfg, err := config.Load(configDir)
+	cfg, err := gqlt.Load(configDir)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -76,33 +73,34 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 	}
 
 	// Step 9: Helper resolution
-	queryStr, err := input.LoadQuery(query, queryFile)
+	inputHandler := gqlt.NewInput()
+	queryStr, err := inputHandler.LoadQuery(query, queryFile)
 	if err != nil {
 		return fmt.Errorf("failed to load query: %w", err)
 	}
 
-	varsMap, err := input.LoadVariables(vars, varsFile)
+	varsMap, err := inputHandler.LoadVariables(vars, varsFile)
 	if err != nil {
 		return fmt.Errorf("failed to load variables: %w", err)
 	}
 
-	headersMap := input.LoadHeaders(headers)
+	headersMap := inputHandler.LoadHeaders(headers)
 
 	// Parse file uploads
-	filesMap, err := input.ParseFiles(files)
+	filesMap, err := inputHandler.ParseFiles(files)
 	if err != nil {
 		return fmt.Errorf("failed to parse files: %w", err)
 	}
 
 	// Parse files from list if provided
 	if filesList != "" {
-		filesFromList, err := input.ParseFilesFromList(filesList)
+		filesFromList, err := inputHandler.ParseFilesFromList(filesList)
 		if err != nil {
 			return fmt.Errorf("failed to parse files list: %w", err)
 		}
 
 		// Parse the files from list
-		filesFromListMap, err := input.ParseFiles(filesFromList)
+		filesFromListMap, err := inputHandler.ParseFiles(filesFromList)
 		if err != nil {
 			return fmt.Errorf("failed to parse files from list: %w", err)
 		}
@@ -115,7 +113,7 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 
 	// Step 10: Run GraphQL call
 	// Create GraphQL client
-	client := graphql.NewClient(url, headersMap)
+	client := gqlt.NewClient(url, headersMap)
 
 	// Set authentication if provided
 	if username != "" && password != "" {
@@ -145,7 +143,7 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 	}
 
 	// Execute GraphQL operation (with or without files)
-	var result *graphql.Response
+	var result *gqlt.Response
 	if len(filesMap) > 0 {
 		// Use multipart/form-data for file uploads
 		result, err = client.ExecuteWithFiles(queryStr, varsMap, operation, filesMap)
@@ -166,14 +164,14 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 	}
 
 	// Step 12: Output formatting
-	formatter := output.NewFormatter(outMode)
-	return formatter.Format(result)
+	formatter := gqlt.NewFormatter()
+	return formatter.FormatResponse(result, outMode)
 }
 
 // mergeConfigWithFlags merges configuration values with CLI flags
 // CLI flags take precedence over config values
-func mergeConfigWithFlags(cfg *config.Config) {
-	var current *config.ConfigEntry
+func mergeConfigWithFlags(cfg *gqlt.Config) {
+	var current *gqlt.ConfigEntry
 
 	// Use specific config name if provided, otherwise use current
 	if configName != "" {

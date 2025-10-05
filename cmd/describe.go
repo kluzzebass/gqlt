@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"encoding/json"
@@ -6,9 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kluzzebass/gqlt/internal/config"
-	"github.com/kluzzebass/gqlt/internal/paths"
-	"github.com/kluzzebass/gqlt/internal/schema"
+	"github.com/kluzzebass/gqlt"
 	"github.com/spf13/cobra"
 )
 
@@ -38,7 +36,7 @@ func init() {
 
 func runDescribe(cmd *cobra.Command, args []string) error {
 	// Load configuration
-	cfg, err := config.Load(configDir)
+	cfg, err := gqlt.Load(configDir)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -51,14 +49,14 @@ func runDescribe(cmd *cobra.Command, args []string) error {
 	if schemaPath == "" {
 		// Use config-specific schema path
 		if configDir != "" {
-			schemaPath = paths.GetSchemaPathForConfigInDir(cfg.Current, configDir)
+			schemaPath = gqlt.GetSchemaPathForConfigInDir(cfg.Current, configDir)
 		} else {
-			schemaPath = paths.GetSchemaPathForConfig(cfg.Current)
+			schemaPath = gqlt.GetSchemaPathForConfig(cfg.Current)
 		}
 	}
 
 	// Load schema analyzer
-	analyzer, err := schema.LoadAnalyzerFromFile(schemaPath)
+	analyzer, err := gqlt.LoadAnalyzerFromFile(schemaPath)
 	if err != nil {
 		return fmt.Errorf("failed to load schema: %w", err)
 	}
@@ -84,7 +82,7 @@ func runDescribe(cmd *cobra.Command, args []string) error {
 	}
 }
 
-func describeType(analyzer *schema.Analyzer, typeName string) error {
+func describeType(analyzer *gqlt.Analyzer, typeName string) error {
 	// Find the type
 	typeObj, err := analyzer.FindType(typeName)
 	if err != nil {
@@ -99,7 +97,7 @@ func describeType(analyzer *schema.Analyzer, typeName string) error {
 	}
 
 	// Output formatted description
-	desc, err := analyzer.FormatTypeDescription(typeObj)
+	desc, err := analyzer.GetTypeDescription(typeName)
 	if err != nil {
 		return fmt.Errorf("failed to format type description: %w", err)
 	}
@@ -107,7 +105,7 @@ func describeType(analyzer *schema.Analyzer, typeName string) error {
 	return printTypeDescription(desc)
 }
 
-func describeField(analyzer *schema.Analyzer, rootType, fieldName string) error {
+func describeField(analyzer *gqlt.Analyzer, rootType, fieldName string) error {
 	// Find the field
 	fieldObj, err := analyzer.FindField(rootType, fieldName)
 	if err != nil {
@@ -122,7 +120,7 @@ func describeField(analyzer *schema.Analyzer, rootType, fieldName string) error 
 	}
 
 	// Output formatted description
-	desc, err := analyzer.FormatFieldDescription(fieldObj, rootType)
+	desc, err := analyzer.FindField(rootType, fieldName)
 	if err != nil {
 		return fmt.Errorf("failed to format field description: %w", err)
 	}
@@ -130,7 +128,7 @@ func describeField(analyzer *schema.Analyzer, rootType, fieldName string) error 
 	return printFieldDescription(desc)
 }
 
-func printTypeDescription(desc *schema.TypeDescription) error {
+func printTypeDescription(desc *gqlt.TypeDescription) error {
 	fmt.Printf("TYPE %s (%s)\n", desc.Name, desc.Kind)
 	if desc.Description != "" {
 		fmt.Printf("  %s\n", desc.Description)
@@ -173,7 +171,7 @@ func printTypeDescription(desc *schema.TypeDescription) error {
 	return nil
 }
 
-func printFieldDescription(desc *schema.FieldDescription) error {
+func printFieldDescription(desc *gqlt.FieldDescription) error {
 	fmt.Printf("FIELD %s.%s\n", desc.RootType, desc.Name)
 	if desc.Description != "" {
 		fmt.Printf("  %s\n", desc.Description)

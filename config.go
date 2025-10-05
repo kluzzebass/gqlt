@@ -1,12 +1,11 @@
-package config
+package gqlt
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/kluzzebass/gqlt/internal/paths"
+	"runtime"
 )
 
 // Config represents the main configuration structure
@@ -32,6 +31,97 @@ type Schema struct {
 	DefaultsOut string `json:"defaults.out"`
 }
 
+// Path functions
+func getDefaultPath() string {
+	switch runtime.GOOS {
+	case "darwin":
+		// macOS: Application Support
+		return filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "gqlt")
+	case "windows":
+		// Windows: AppData
+		appData := os.Getenv("APPDATA")
+		if appData == "" {
+			appData = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Roaming")
+		}
+		return filepath.Join(appData, "gqlt")
+	default:
+		// Linux/Unix: XDG Base Directory
+		return filepath.Join(os.Getenv("HOME"), ".config", "gqlt")
+	}
+}
+
+func getConfigPath() string {
+	return filepath.Join(getDefaultPath(), "config.json")
+}
+
+func getSchemaPath() string {
+	return filepath.Join(getDefaultPath(), "schema.json")
+}
+
+func getSchemaPathForConfig(configName string) string {
+	return filepath.Join(getDefaultPath(), "schemas", configName+".json")
+}
+
+func getConfigPathForDir(configDir string) string {
+	if configDir == "" {
+		return getConfigPath()
+	}
+	return filepath.Join(configDir, "config.json")
+}
+
+func getSchemaPathForConfigInDir(configName, configDir string) string {
+	return filepath.Join(configDir, "schemas", configName+".json")
+}
+
+func getJSONSchemaPathForConfigInDir(configName, configDir string) string {
+	return filepath.Join(configDir, "schemas", configName+".json")
+}
+
+func getGraphQLSchemaPathForConfigInDir(configName, configDir string) string {
+	return filepath.Join(configDir, "schemas", configName+".graphqls")
+}
+
+func getSchemasDir() string {
+	return filepath.Join(getDefaultPath(), "schemas")
+}
+
+// Public path functions
+func GetDefaultPath() string {
+	return getDefaultPath()
+}
+
+func GetConfigPath() string {
+	return getConfigPath()
+}
+
+func GetSchemaPath() string {
+	return getSchemaPath()
+}
+
+func GetSchemaPathForConfig(configName string) string {
+	return getSchemaPathForConfig(configName)
+}
+
+func GetConfigPathForDir(configDir string) string {
+	return getConfigPathForDir(configDir)
+}
+
+func GetSchemaPathForConfigInDir(configName, configDir string) string {
+	return getSchemaPathForConfigInDir(configName, configDir)
+}
+
+func GetJSONSchemaPathForConfigInDir(configName, configDir string) string {
+	return getJSONSchemaPathForConfigInDir(configName, configDir)
+}
+
+func GetGraphQLSchemaPathForConfigInDir(configName, configDir string) string {
+	return getGraphQLSchemaPathForConfigInDir(configName, configDir)
+}
+
+func GetSchemasDir() string {
+	return getSchemasDir()
+}
+
 // Load reads a configuration file from the specified config directory
 // If configDir is empty, searches in standard locations
 func Load(configDir string) (*Config, error) {
@@ -39,7 +129,7 @@ func Load(configDir string) (*Config, error) {
 	if configDir == "" {
 		// Search in standard locations based on OS
 		locations := []string{
-			paths.GetConfigPath(),
+			getConfigPath(),
 		}
 
 		for _, loc := range locations {
@@ -55,7 +145,7 @@ func Load(configDir string) (*Config, error) {
 		}
 	} else {
 		// Use config directory
-		path = paths.GetConfigPathForDir(configDir)
+		path = getConfigPathForDir(configDir)
 	}
 
 	data, err := os.ReadFile(path)
@@ -85,7 +175,7 @@ func Load(configDir string) (*Config, error) {
 // Save writes the configuration to the specified config directory
 func (c *Config) Save(configDir string) error {
 	// Use config directory
-	path := paths.GetConfigPathForDir(configDir)
+	path := getConfigPathForDir(configDir)
 
 	// Ensure directory exists
 	dir := filepath.Dir(path)

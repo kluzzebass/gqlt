@@ -1,4 +1,4 @@
-package input
+package gqlt
 
 import (
 	"encoding/json"
@@ -8,8 +8,16 @@ import (
 	"strings"
 )
 
+// Input handles input operations
+type Input struct{}
+
+// NewInput creates a new input handler
+func NewInput() *Input {
+	return &Input{}
+}
+
 // LoadQuery loads a GraphQL query from string or file
-func LoadQuery(query, queryFile string) (string, error) {
+func (i *Input) LoadQuery(query, queryFile string) (string, error) {
 	if query != "" {
 		return query, nil
 	}
@@ -26,7 +34,7 @@ func LoadQuery(query, queryFile string) (string, error) {
 }
 
 // LoadVariables loads variables from string or file
-func LoadVariables(vars, varsFile string) (map[string]interface{}, error) {
+func (i *Input) LoadVariables(vars, varsFile string) (map[string]interface{}, error) {
 	var varsStr string
 
 	if vars != "" {
@@ -53,7 +61,7 @@ func LoadVariables(vars, varsFile string) (map[string]interface{}, error) {
 }
 
 // LoadHeaders parses header strings into a map
-func LoadHeaders(headers []string) map[string]string {
+func (i *Input) LoadHeaders(headers []string) map[string]string {
 	headersMap := make(map[string]string)
 
 	for _, header := range headers {
@@ -69,7 +77,7 @@ func LoadHeaders(headers []string) map[string]string {
 }
 
 // ParseFiles parses file upload specifications
-func ParseFiles(files []string) (map[string]string, error) {
+func (i *Input) ParseFiles(files []string) (map[string]string, error) {
 	filesMap := make(map[string]string)
 
 	for _, file := range files {
@@ -102,7 +110,7 @@ func ParseFiles(files []string) (map[string]string, error) {
 }
 
 // ParseFilesFromList parses file upload specifications from a file
-func ParseFilesFromList(filesListPath string) ([]string, error) {
+func (i *Input) ParseFilesFromList(filesListPath string) ([]string, error) {
 	if filesListPath == "" {
 		return []string{}, nil
 	}
@@ -115,7 +123,7 @@ func ParseFilesFromList(filesListPath string) ([]string, error) {
 	lines := strings.Split(string(data), "\n")
 	var files []string
 
-	for i, line := range lines {
+	for lineNum, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue // Skip empty lines and comments
@@ -123,13 +131,13 @@ func ParseFilesFromList(filesListPath string) ([]string, error) {
 
 		// Validate format - just check for = and use everything after it as the filename
 		if !strings.Contains(line, "=") {
-			return nil, fmt.Errorf("invalid file format at line %d: '%s', expected 'name=path'", i+1, line)
+			return nil, fmt.Errorf("invalid file format at line %d: '%s', expected 'name=path'", lineNum+1, line)
 		}
 
 		// Resolve the path to handle relative paths, ~, etc.
-		resolvedLine, err := resolveFilePath(line)
+		resolvedLine, err := i.resolveFilePath(line)
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve path at line %d: %v", i+1, err)
+			return nil, fmt.Errorf("failed to resolve path at line %d: %v", lineNum+1, err)
 		}
 
 		files = append(files, resolvedLine)
@@ -139,7 +147,7 @@ func ParseFilesFromList(filesListPath string) ([]string, error) {
 }
 
 // resolveFilePath resolves a file path, handling ~ expansion and relative paths
-func resolveFilePath(line string) (string, error) {
+func (i *Input) resolveFilePath(line string) (string, error) {
 	// Split the line into name and path
 	parts := strings.SplitN(line, "=", 2)
 	if len(parts) != 2 {

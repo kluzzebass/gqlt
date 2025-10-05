@@ -1,13 +1,9 @@
-package cmd
+package main
 
 import (
 	"fmt"
 
-	"github.com/kluzzebass/gqlt/internal/config"
-	"github.com/kluzzebass/gqlt/internal/graphql"
-	"github.com/kluzzebass/gqlt/internal/introspect"
-	"github.com/kluzzebass/gqlt/internal/paths"
-	"github.com/kluzzebass/gqlt/internal/schema"
+	"github.com/kluzzebass/gqlt"
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +32,7 @@ func init() {
 
 func runIntrospect(cmd *cobra.Command, args []string) error {
 	// Load configuration
-	cfg, err := config.Load(configDir)
+	cfg, err := gqlt.Load(configDir)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -49,15 +45,15 @@ func runIntrospect(cmd *cobra.Command, args []string) error {
 	if outputPath == "" {
 		// Use config-specific schema path
 		if configDir != "" {
-			outputPath = paths.GetSchemaPathForConfigInDir(cfg.Current, configDir)
+			outputPath = gqlt.GetSchemaPathForConfigInDir(cfg.Current, configDir)
 		} else {
-			outputPath = paths.GetSchemaPathForConfig(cfg.Current)
+			outputPath = gqlt.GetSchemaPathForConfig(cfg.Current)
 		}
 	}
 
 	// Check if cache exists and refresh is not requested
 	if !introspectRefresh {
-		if introspect.SchemaExists(outputPath) {
+		if gqlt.SchemaExists(outputPath) {
 			if introspectSummary {
 				return showSchemaSummary(outputPath)
 			}
@@ -77,7 +73,7 @@ func runIntrospect(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create GraphQL client
-	client := graphql.NewClient(endpoint, make(map[string]string))
+	client := gqlt.NewClient(endpoint, make(map[string]string))
 
 	// Set authentication if provided
 	if username != "" && password != "" {
@@ -90,10 +86,10 @@ func runIntrospect(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create introspection client
-	introspectClient := introspect.NewClient(client)
+	introspectClient := gqlt.NewIntrospect(client)
 
 	// Execute introspection query
-	result, err := introspectClient.FetchSchema()
+	result, err := introspectClient.IntrospectSchema()
 	if err != nil {
 		return fmt.Errorf("failed to fetch schema: %w", err)
 	}
@@ -106,15 +102,15 @@ func runIntrospect(cmd *cobra.Command, args []string) error {
 	// Save schema to file(s)
 	if configDir != "" {
 		// Use dual format saving (JSON + GraphQL)
-		if err := introspect.SaveSchemaDual(result, cfg.Current, configDir); err != nil {
+		if err := gqlt.SaveSchemaDual(result, cfg.Current, configDir); err != nil {
 			return fmt.Errorf("failed to save schema: %w", err)
 		}
 		fmt.Printf("Schema saved to %s and %s\n",
-			paths.GetJSONSchemaPathForConfigInDir(cfg.Current, configDir),
-			paths.GetGraphQLSchemaPathForConfigInDir(cfg.Current, configDir))
+			gqlt.GetJSONSchemaPathForConfigInDir(cfg.Current, configDir),
+			gqlt.GetGraphQLSchemaPathForConfigInDir(cfg.Current, configDir))
 	} else {
 		// Use single JSON format for backward compatibility
-		if err := introspect.SaveSchema(result, outputPath); err != nil {
+		if err := gqlt.SaveSchema(result, outputPath); err != nil {
 			return fmt.Errorf("failed to save schema: %w", err)
 		}
 		fmt.Printf("Schema saved to %s\n", outputPath)
@@ -123,7 +119,7 @@ func runIntrospect(cmd *cobra.Command, args []string) error {
 }
 
 func showSchemaSummary(filePath string) error {
-	analyzer, err := schema.LoadAnalyzerFromFile(filePath)
+	analyzer, err := gqlt.LoadAnalyzerFromFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to load schema analyzer: %w", err)
 	}
@@ -151,8 +147,8 @@ func showSchemaSummary(filePath string) error {
 	return nil
 }
 
-func showSchemaSummaryFromResult(result *graphql.Response) error {
-	analyzer, err := schema.NewAnalyzer(result)
+func showSchemaSummaryFromResult(result *gqlt.Response) error {
+	analyzer, err := gqlt.NewAnalyzer(result)
 	if err != nil {
 		return fmt.Errorf("failed to create schema analyzer: %w", err)
 	}

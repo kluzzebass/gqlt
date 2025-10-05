@@ -1,4 +1,4 @@
-package output
+package gqlt
 
 import (
 	"encoding/json"
@@ -6,22 +6,19 @@ import (
 	"os"
 
 	"github.com/fatih/color"
-	"github.com/kluzzebass/gqlt/internal/graphql"
 )
 
 // Formatter handles different output modes
-type Formatter struct {
-	mode string
-}
+type Formatter struct{}
 
 // NewFormatter creates a new formatter
-func NewFormatter(mode string) *Formatter {
-	return &Formatter{mode: mode}
+func NewFormatter() *Formatter {
+	return &Formatter{}
 }
 
-// Format formats and prints the GraphQL response
-func (f *Formatter) Format(response *graphql.Response) error {
-	switch f.mode {
+// FormatResponse formats and prints the GraphQL response
+func (f *Formatter) FormatResponse(response *Response, mode string) error {
+	switch mode {
 	case "json":
 		return f.formatJSON(response)
 	case "pretty":
@@ -29,19 +26,19 @@ func (f *Formatter) Format(response *graphql.Response) error {
 	case "raw":
 		return f.formatRaw(response)
 	default:
-		return fmt.Errorf("unknown output mode: %s", f.mode)
+		return fmt.Errorf("unknown output mode: %s", mode)
 	}
 }
 
 // formatJSON outputs formatted JSON
-func (f *Formatter) formatJSON(response *graphql.Response) error {
+func (f *Formatter) formatJSON(response *Response) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(response)
 }
 
 // formatPretty outputs colorized formatted JSON
-func (f *Formatter) formatPretty(response *graphql.Response) error {
+func (f *Formatter) formatPretty(response *Response) error {
 	// Color definitions
 	dataColor := color.New(color.FgGreen, color.Bold)
 	errorColor := color.New(color.FgRed, color.Bold)
@@ -78,7 +75,7 @@ func (f *Formatter) formatPretty(response *graphql.Response) error {
 }
 
 // formatRaw outputs unformatted JSON
-func (f *Formatter) formatRaw(response *graphql.Response) error {
+func (f *Formatter) formatRaw(response *Response) error {
 	encoder := json.NewEncoder(os.Stdout)
 	return encoder.Encode(response)
 }
@@ -119,4 +116,30 @@ func (f *Formatter) printValue(v interface{}, indent string, dataColor, errorCol
 	default:
 		fmt.Printf("%v", val)
 	}
+}
+
+// FormatJSON formats data as JSON with indentation
+func (f *Formatter) FormatJSON(data interface{}) error {
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+	fmt.Println(string(jsonData))
+	return nil
+}
+
+// FormatPretty formats data as colorized JSON
+func (f *Formatter) FormatPretty(data interface{}) error {
+	// For now, just use regular JSON formatting
+	// TODO: Implement colorized formatting for arbitrary data
+	return f.FormatJSON(data)
+}
+
+// WriteToFile writes data to a file
+func (f *Formatter) WriteToFile(data interface{}, filename string) error {
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+	return os.WriteFile(filename, jsonData, 0644)
 }

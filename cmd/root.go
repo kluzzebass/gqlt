@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"github.com/spf13/cobra"
@@ -17,6 +17,11 @@ It supports queries, mutations, subscriptions, introspection, and more.`,
 
 func Execute() {
 	cobra.CheckErr(rootCmd.Execute())
+}
+
+// Main is the entry point for the CLI
+func main() {
+	Execute()
 }
 
 func init() {

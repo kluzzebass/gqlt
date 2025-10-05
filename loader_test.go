@@ -1,4 +1,4 @@
-package input
+package gqlt
 
 import (
 	"os"
@@ -9,7 +9,8 @@ import (
 
 func TestLoadQuery(t *testing.T) {
 	// Test with direct query
-	query, err := LoadQuery("query { user { id } }", "")
+	inputHandler := NewInput()
+	query, err := inputHandler.LoadQuery("query { user { id } }", "")
 	if err != nil {
 		t.Errorf("LoadQuery failed: %v", err)
 	}
@@ -25,7 +26,7 @@ func TestLoadQuery(t *testing.T) {
 		t.Errorf("Failed to create query file: %v", err)
 	}
 
-	query, err = LoadQuery("", queryFile)
+	query, err = inputHandler.LoadQuery("", queryFile)
 	if err != nil {
 		t.Errorf("LoadQuery from file failed: %v", err)
 	}
@@ -34,7 +35,7 @@ func TestLoadQuery(t *testing.T) {
 	}
 
 	// Test with non-existent file
-	_, err = LoadQuery("", "/non/existent/file.graphql")
+	_, err = inputHandler.LoadQuery("", "/non/existent/file.graphql")
 	if err == nil {
 		t.Error("Expected error for non-existent file")
 	}
@@ -42,7 +43,8 @@ func TestLoadQuery(t *testing.T) {
 
 func TestLoadVariables(t *testing.T) {
 	// Test with direct variables
-	variables, err := LoadVariables(`{"id": "123"}`, "")
+	inputHandler := NewInput()
+	variables, err := inputHandler.LoadVariables(`{"id": "123"}`, "")
 	if err != nil {
 		t.Errorf("LoadVariables failed: %v", err)
 	}
@@ -58,7 +60,7 @@ func TestLoadVariables(t *testing.T) {
 		t.Errorf("Failed to create vars file: %v", err)
 	}
 
-	variables, err = LoadVariables("", varsFile)
+	variables, err = inputHandler.LoadVariables("", varsFile)
 	if err != nil {
 		t.Errorf("LoadVariables from file failed: %v", err)
 	}
@@ -70,13 +72,13 @@ func TestLoadVariables(t *testing.T) {
 	}
 
 	// Test with invalid JSON
-	_, err = LoadVariables(`{"invalid": json}`, "")
+	_, err = inputHandler.LoadVariables(`{"invalid": json}`, "")
 	if err == nil {
 		t.Error("Expected error for invalid JSON")
 	}
 
 	// Test with non-existent file
-	_, err = LoadVariables("", "/non/existent/vars.json")
+	_, err = inputHandler.LoadVariables("", "/non/existent/vars.json")
 	if err == nil {
 		t.Error("Expected error for non-existent file")
 	}
@@ -84,8 +86,9 @@ func TestLoadVariables(t *testing.T) {
 
 func TestLoadHeaders(t *testing.T) {
 	// Test with valid headers
+	inputHandler := NewInput()
 	headers := []string{"Authorization: Bearer token123", "X-API-Key: key456"}
-	result := LoadHeaders(headers)
+	result := inputHandler.LoadHeaders(headers)
 	if result["Authorization"] != "Bearer token123" {
 		t.Errorf("Expected Authorization header, got %s", result["Authorization"])
 	}
@@ -94,13 +97,13 @@ func TestLoadHeaders(t *testing.T) {
 	}
 
 	// Test with empty headers
-	result = LoadHeaders([]string{})
+	result = inputHandler.LoadHeaders([]string{})
 	if len(result) != 0 {
 		t.Errorf("Expected empty headers, got %v", result)
 	}
 
 	// Test with invalid header format (should be ignored)
-	result = LoadHeaders([]string{"InvalidHeader"})
+	result = inputHandler.LoadHeaders([]string{"InvalidHeader"})
 	if len(result) != 0 {
 		t.Errorf("Expected empty headers for invalid format, got %v", result)
 	}
@@ -108,7 +111,8 @@ func TestLoadHeaders(t *testing.T) {
 
 func TestParseFiles(t *testing.T) {
 	// Test with empty files list
-	result, err := ParseFiles([]string{})
+	inputHandler := NewInput()
+	result, err := inputHandler.ParseFiles([]string{})
 	if err != nil {
 		t.Errorf("ParseFiles failed: %v", err)
 	}
@@ -138,7 +142,7 @@ func TestParseFiles(t *testing.T) {
 	files[0] = "file1=" + file1
 	files[1] = "file2=" + file2
 
-	result, err = ParseFiles(files)
+	result, err = inputHandler.ParseFiles(files)
 	if err != nil {
 		t.Errorf("ParseFiles failed: %v", err)
 	}
@@ -154,14 +158,14 @@ func TestParseFiles(t *testing.T) {
 
 	// Test with invalid format
 	invalidFiles := []string{"invalid-format"}
-	_, err = ParseFiles(invalidFiles)
+	_, err = inputHandler.ParseFiles(invalidFiles)
 	if err == nil {
 		t.Error("Expected error for invalid file format")
 	}
 
 	// Test with non-existent file
 	nonExistentFiles := []string{"file1=non-existent.txt"}
-	_, err = ParseFiles(nonExistentFiles)
+	_, err = inputHandler.ParseFiles(nonExistentFiles)
 	if err == nil {
 		t.Error("Expected error for non-existent file")
 	}
@@ -169,7 +173,8 @@ func TestParseFiles(t *testing.T) {
 
 func TestParseFilesFromList(t *testing.T) {
 	// Test with empty files list path
-	result, err := ParseFilesFromList("")
+	inputHandler := NewInput()
+	result, err := inputHandler.ParseFilesFromList("")
 	if err != nil {
 		t.Errorf("ParseFilesFromList failed: %v", err)
 	}
@@ -195,7 +200,7 @@ file4=test4.txt`
 		t.Errorf("Failed to create files list: %v", err)
 	}
 
-	result, err = ParseFilesFromList(filesListPath)
+	result, err = inputHandler.ParseFilesFromList(filesListPath)
 	if err != nil {
 		t.Errorf("ParseFilesFromList failed: %v", err)
 	}
@@ -229,7 +234,7 @@ file2=test2.txt`
 		t.Errorf("Failed to create invalid list: %v", err)
 	}
 
-	_, err = ParseFilesFromList(invalidListPath)
+	_, err = inputHandler.ParseFilesFromList(invalidListPath)
 	if err == nil {
 		t.Error("Expected error for invalid format in list")
 	}
@@ -237,8 +242,9 @@ file2=test2.txt`
 
 func TestResolveFilePath(t *testing.T) {
 	// Test basic path resolution
+	inputHandler := NewInput()
 	line := "file1=./test.txt"
-	result, err := resolveFilePath(line)
+	result, err := inputHandler.resolveFilePath(line)
 	if err != nil {
 		t.Errorf("resolveFilePath failed: %v", err)
 	}
@@ -252,7 +258,7 @@ func TestResolveFilePath(t *testing.T) {
 
 	// Test ~ expansion
 	line = "file2=~/test.txt"
-	result, err = resolveFilePath(line)
+	result, err = inputHandler.resolveFilePath(line)
 	if err != nil {
 		t.Errorf("resolveFilePath with ~ failed: %v", err)
 	}
@@ -269,7 +275,7 @@ func TestResolveFilePath(t *testing.T) {
 
 	// Test invalid line (no =)
 	line = "invalid-line"
-	result, err = resolveFilePath(line)
+	result, err = inputHandler.resolveFilePath(line)
 	if err != nil {
 		t.Errorf("resolveFilePath with invalid line should not error: %v", err)
 	}

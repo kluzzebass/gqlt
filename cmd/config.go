@@ -1,12 +1,11 @@
-package cmd
+package main
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
 
-	"github.com/kluzzebass/gqlt/internal/config"
-	"github.com/kluzzebass/gqlt/internal/paths"
+	"github.com/kluzzebass/gqlt"
 	"github.com/spf13/cobra"
 )
 
@@ -275,7 +274,7 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 }
 
 func runConfigInit(cmd *cobra.Command, args []string) error {
-	cfg := config.GetDefaultConfig()
+	cfg := gqlt.GetDefaultConfig()
 
 	if err := cfg.Save(configDir); err != nil {
 		return fmt.Errorf("failed to create config file: %w", err)
@@ -306,7 +305,7 @@ func runConfigValidate(cmd *cobra.Command, args []string) error {
 }
 
 func runConfigDescribe(cmd *cobra.Command, args []string) error {
-	schema := config.GetSchema()
+	schema := gqlt.GetSchema()
 
 	description := fmt.Sprintf(`Configuration Schema:
 
@@ -413,19 +412,19 @@ func runConfigClone(cmd *cobra.Command, args []string) error {
 
 // Helper functions
 
-func loadConfig() (*config.Config, error) {
+func loadConfig() (*gqlt.Config, error) {
 	// Use the global configDir variable
-	return config.Load(configDir)
+	return gqlt.Load(configDir)
 }
 
 func getConfigPath() string {
 	// Use global configDir if set, otherwise default to OS-specific path
 	if configDir != "" {
-		return paths.GetConfigPathForDir(configDir)
+		return gqlt.GetConfigPathForDir(configDir)
 	}
 
 	// Use the shared default path function
-	return paths.GetConfigPath()
+	return gqlt.GetConfigPath()
 }
 
 func printJSON(v interface{}) error {
@@ -439,7 +438,7 @@ func printYAML(v interface{}) error {
 	return printJSON(v)
 }
 
-func printTable(entry config.ConfigEntry, name string) error {
+func printTable(entry gqlt.ConfigEntry, name string) error {
 	fmt.Printf("Configuration: %s\n", name)
 	fmt.Printf("  Endpoint: %s\n", entry.Endpoint)
 	fmt.Printf("  Headers:\n")
@@ -453,7 +452,7 @@ func printTable(entry config.ConfigEntry, name string) error {
 	return nil
 }
 
-func printConfigListTable(cfg *config.Config) error {
+func printConfigListTable(cfg *gqlt.Config) error {
 	fmt.Printf("Current: %s\n", cfg.Current)
 	fmt.Println("Configurations:")
 	for name, entry := range cfg.Configs {
