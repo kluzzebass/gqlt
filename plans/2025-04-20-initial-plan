@@ -121,15 +121,23 @@ Purpose: Execute GraphQL operation (query or mutation)
       "raw": unformatted JSON (no indentation, compact)
 
 ---------------------------------------------------------------
-PHASE 3 | CONFIG FILES
+PHASE 3 | CONFIG FILES ✅ COMPLETE
 ---------------------------------------------------------------
+
+IMPLEMENTATION NOTES:
+- Added AI-friendly _comment fields for self-documentation
+- Implemented clone command instead of generic templates (more useful)
+- Removed template system - clone existing configs is more practical
+- All config commands working: show, list, set, use, create, delete, init, clone
+- AI-friendly commands: describe, validate, examples
+- Full integration with run command - CLI flags override config values
 
 Config location search order:
 1. --config flag
 2. ./.gqlt/config.json
 3. $HOME/.config/gqlt/config.json
 
-[ ] 13. internal/config/config.go:
+[x] 13. internal/config/config.go:
     type Config struct {
         Current   string                    `json:"current"`   // active config name (defaults to "default")
         Configs   map[string]ConfigEntry    `json:"configs"`   // named configurations
@@ -141,6 +149,7 @@ Config location search order:
         Defaults struct {
             Out string `json:"out"`
         } `json:"defaults"`
+        Comment string `json:"_comment,omitempty"` // AI-friendly documentation
     }
     
     // Default configuration is always available and used when:
@@ -148,18 +157,18 @@ Config location search order:
     // - Current config doesn't exist
     // - No specific config is specified
 
-[ ] 14. Load(path):
+[x] 14. Load(path):
     reads JSON, returns *Config
     if path empty => search in standard paths
-    fallback = nil if not found
+    fallback = GetDefaultConfig() if not found
 
-[ ] 15. Merge(cli *Config, cfg *Config):
-    - CLI values override
+[x] 15. Merge(cli *Config, cfg *Config):
+    - CLI values override config values
     - headers merge (CLI overwrites)
     - default Out fallback from cfg if not set
     return merged *Config
 
-[ ] 16. cmd/config.go (optional)
+[x] 16. cmd/config.go (IMPLEMENTED)
     subcommands:
       gqlt config show [name]           (show current or named config)
       gqlt config list                  (list all configurations)
@@ -167,22 +176,20 @@ Config location search order:
       gqlt config use <name>           (switch to named config)
       gqlt config create <name>         (create new named config)
       gqlt config delete <name>         (delete named config)
-      gqlt config clear [name]          (clear current or named config)
       gqlt config init                  (create default config file)
+      gqlt config clone <source> <target> (clone existing configuration)
       
       # AI-friendly commands
       gqlt config describe              (show schema and examples)
       gqlt config validate              (check config file syntax)
       gqlt config examples              (show usage examples)
-      gqlt config help                  (detailed help with examples)
-      gqlt config template <name>       (create from template)
-      gqlt config docs                  (generate markdown docs)
       
     reads/updates JSON file on disk
     
     Note: "default" config is always available and used as fallback
+    Note: Removed template system - clone is more useful
 
-[ ] 17. Example config file structure (AI-friendly):
+[x] 17. Example config file structure (AI-friendly):
     {
       "current": "production",
       "configs": {
@@ -230,7 +237,7 @@ Config location search order:
       }
     }
 
-[ ] 18. Example usage:
+[x] 18. Example usage:
     # Initialize config file (creates default config)
     gqlt config init
     
@@ -238,15 +245,14 @@ Config location search order:
     gqlt config describe              # Show schema and examples
     gqlt config validate              # Check config validity
     gqlt config examples              # Show usage examples
-    gqlt config template github       # Create GitHub API template
-    gqlt config template localhost    # Create local development template
     
     # Create additional configurations
     gqlt config create production
     gqlt config set production endpoint https://api.company.com/graphql
     gqlt config set production headers.Authorization "Bearer token123"
     
-    gqlt config create staging  
+    # Clone existing configurations
+    gqlt config clone production staging  
     gqlt config set staging endpoint https://staging-api.company.com/graphql
     
     # Switch between configs

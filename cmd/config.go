@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/kluzzebass/gqlt/internal/config"
 	"github.com/spf13/cobra"
@@ -123,20 +122,12 @@ var configExamplesCmd = &cobra.Command{
 	RunE:  runConfigExamples,
 }
 
-var configTemplateCmd = &cobra.Command{
-	Use:   "template <name>",
-	Short: "Create configuration from template",
-	Long: `Create a new configuration from a predefined template.
-
-Available templates:
-  github     - GitHub GraphQL API
-  localhost  - Local development server
-  production - Production environment
-  staging    - Staging environment
-  apollo     - Apollo Server
-  hasura     - Hasura GraphQL`,
-	Args: cobra.ExactArgs(1),
-	RunE: runConfigTemplate,
+var configCloneCmd = &cobra.Command{
+	Use:   "clone <source> <target>",
+	Short: "Clone an existing configuration",
+	Long:  "Create a new configuration by copying an existing one.",
+	Args:  cobra.ExactArgs(2),
+	RunE:  runConfigClone,
 }
 
 func init() {
@@ -150,7 +141,7 @@ func init() {
 	configCmd.AddCommand(configValidateCmd)
 	configCmd.AddCommand(configDescribeCmd)
 	configCmd.AddCommand(configExamplesCmd)
-	configCmd.AddCommand(configTemplateCmd)
+	configCmd.AddCommand(configCloneCmd)
 }
 
 func runConfigShow(cmd *cobra.Command, args []string) error {
@@ -319,7 +310,7 @@ func runConfigValidate(cmd *cobra.Command, args []string) error {
 
 func runConfigDescribe(cmd *cobra.Command, args []string) error {
 	schema := config.GetSchema()
-	
+
 	description := fmt.Sprintf(`Configuration Schema:
 
 endpoint: %s
@@ -327,10 +318,10 @@ headers: %s
 defaults.out: %s
 
 Example configuration:`, schema.Endpoint, schema.Headers, schema.DefaultsOut)
-	
+
 	fmt.Print(description)
 	fmt.Println()
-	
+
 	example := map[string]interface{}{
 		"current": "default",
 		"configs": map[string]interface{}{
@@ -345,10 +336,10 @@ Example configuration:`, schema.Endpoint, schema.Headers, schema.DefaultsOut)
 			},
 		},
 	}
-	
+
 	jsonData, _ := json.MarshalIndent(example, "", "  ")
 	fmt.Println(string(jsonData))
-	
+
 	return nil
 }
 
@@ -363,123 +354,64 @@ func runConfigExamples(cmd *cobra.Command, args []string) error {
    gqlt config create staging
    gqlt config create local
 
-3. Configure endpoints:
+3. Clone existing configurations:
+   gqlt config clone production staging
+   gqlt config clone default local
+
+4. Configure endpoints:
    gqlt config set production endpoint https://api.company.com/graphql
    gqlt config set staging endpoint https://staging-api.company.com/graphql
    gqlt config set local endpoint http://localhost:4000/graphql
 
-4. Configure authentication:
+5. Configure authentication:
    gqlt config set production headers.Authorization 'Bearer prod-token'
    gqlt config set staging headers.Authorization 'Bearer staging-token'
 
-5. Configure output modes:
+6. Configure output modes:
    gqlt config set production defaults.out json
    gqlt config set staging defaults.out pretty
 
-6. Switch between configurations:
+7. Switch between configurations:
    gqlt config use production
    gqlt run -q '{ me { name } }'
 
-7. Override specific values:
+8. Override specific values:
    gqlt run -q '{ me { name } }' -u https://override.com/graphql`
-	
+
 	fmt.Print(examples)
 	return nil
 }
 
-func runConfigTemplate(cmd *cobra.Command, args []string) error {
-	templateName := args[0]
-
-	templates := map[string]config.ConfigEntry{
-		"github": {
-			Endpoint: "https://api.github.com/graphql",
-			Headers: map[string]string{
-				"Authorization": "Bearer your-github-token",
-			},
-			Defaults: struct {
-				Out string `json:"out"`
-			}{
-				Out: "pretty",
-			},
-			Comment: "GitHub GraphQL API configuration",
-		},
-		"localhost": {
-			Endpoint: "http://localhost:4000/graphql",
-			Headers:  make(map[string]string),
-			Defaults: struct {
-				Out string `json:"out"`
-			}{
-				Out: "pretty",
-			},
-			Comment: "Local development server",
-		},
-		"production": {
-			Endpoint: "https://api.company.com/graphql",
-			Headers: map[string]string{
-				"Authorization": "Bearer prod-token",
-			},
-			Defaults: struct {
-				Out string `json:"out"`
-			}{
-				Out: "json",
-			},
-			Comment: "Production environment",
-		},
-		"staging": {
-			Endpoint: "https://staging-api.company.com/graphql",
-			Headers: map[string]string{
-				"Authorization": "Bearer staging-token",
-			},
-			Defaults: struct {
-				Out string `json:"out"`
-			}{
-				Out: "pretty",
-			},
-			Comment: "Staging environment",
-		},
-		"apollo": {
-			Endpoint: "http://localhost:4000/graphql",
-			Headers:  make(map[string]string),
-			Defaults: struct {
-				Out string `json:"out"`
-			}{
-				Out: "pretty",
-			},
-			Comment: "Apollo Server configuration",
-		},
-		"hasura": {
-			Endpoint: "http://localhost:8080/v1/graphql",
-			Headers: map[string]string{
-				"X-Hasura-Admin-Secret": "your-admin-secret",
-			},
-			Defaults: struct {
-				Out string `json:"out"`
-			}{
-				Out: "pretty",
-			},
-			Comment: "Hasura GraphQL configuration",
-		},
-	}
-
-	template, exists := templates[templateName]
-	if !exists {
-		return fmt.Errorf("template '%s' not found. Available templates: %s",
-			templateName, strings.Join(getTemplateNames(templates), ", "))
-	}
+func runConfigClone(cmd *cobra.Command, args []string) error {
+	sourceName := args[0]
+	targetName := args[1]
 
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
 	}
 
-	cfg.Configs[templateName] = template
+	// Check if source exists
+	sourceConfig, exists := cfg.Configs[sourceName]
+	if !exists {
+		return fmt.Errorf("source configuration '%s' does not exist", sourceName)
+	}
 
+	// Check if target already exists
+	if _, exists := cfg.Configs[targetName]; exists {
+		return fmt.Errorf("target configuration '%s' already exists", targetName)
+	}
+
+	// Clone the configuration
+	cfg.Configs[targetName] = sourceConfig
+
+	// Save the updated config
 	path := getConfigPath()
 	if err := cfg.Save(path); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Printf("Created configuration '%s' from template\n", templateName)
+	fmt.Printf("Cloned configuration '%s' to '%s'\n", sourceName, targetName)
 	return nil
 }
 
@@ -534,12 +466,4 @@ func printConfigListTable(cfg *config.Config) error {
 		fmt.Printf("    Output: %s\n", entry.Defaults.Out)
 	}
 	return nil
-}
-
-func getTemplateNames(templates map[string]config.ConfigEntry) []string {
-	names := make([]string, 0, len(templates))
-	for name := range templates {
-		names = append(names, name)
-	}
-	return names
 }
