@@ -446,23 +446,23 @@ PHASE 6 | TEST AND SCHEMA DIFF
        FIELD- Product.oldField
 
 ---------------------------------------------------------------
-PHASE 6 | AUTHENTICATION SUPPORT
+PHASE 7 | AUTHENTICATION SUPPORT
 ---------------------------------------------------------------
 
-[x] 30. Add simple authentication support to run command:
+[x] 31. Add simple authentication support to run command:
     -U, --username string              (basic auth username)
     -p, --password string          (basic auth password)
     -t, --token string            (bearer token for authentication)
     -k, --api-key string         (API key for authentication)
     Note: Bearer tokens can also be handled via -H "Authorization: Bearer <token>"
 
-[x] 31. Implement simple authentication:
+[x] 32. Implement simple authentication:
     - Bearer: Use -t/--token flag or -H "Authorization: Bearer <token>" header
     - Basic: Use -U/--username and -p/--password flags
     - API Key: Use -k/--api-key flag (sets X-API-Key header)
     - None: No authentication (default)
 
-[~] 32. Update config structure for simple auth:
+[~] 33. Update config structure for simple auth:
     Note: CANCELLED - Current approach using headers field is more flexible and secure
     Current config already supports auth via headers:
     {
@@ -476,22 +476,22 @@ PHASE 6 | AUTHENTICATION SUPPORT
     - Standard HTTP approach
 
 ---------------------------------------------------------------
-PHASE 7 | ~~INTERNAL UTILITIES~~ (SKIPPED - REDUNDANT)
+PHASE 8 | ~~INTERNAL UTILITIES~~ (SKIPPED - REDUNDANT)
 ---------------------------------------------------------------
 
-~~[ ] 32. internal/io/io.go~~ (REDUNDANT - already implemented in internal/input)
-~~[ ] 33. internal/output/output.go~~ (REDUNDANT - already have internal/output with Formatter)
-~~[ ] 34. internal/errors~~ (REDUNDANT - already have consistent error handling)
+~~[ ] 34. internal/io/io.go~~ (REDUNDANT - already implemented in internal/input)
+~~[ ] 35. internal/output/output.go~~ (REDUNDANT - already have internal/output with Formatter)
+~~[ ] 36. internal/errors~~ (REDUNDANT - already have consistent error handling)
 
 REASON: Phase 7 is no longer relevant because we've already implemented better,
 more comprehensive solutions in our layered architecture. The proposed utilities
 would actually be a step backward from what we have.
 
 ---------------------------------------------------------------
-PHASE 8 | HANDLING FILE UPLOADS
+PHASE 9 | HANDLING FILE UPLOADS
 ---------------------------------------------------------------
 
-[x] 35. Support file uploads:
+[x] 37. Support file uploads:
     -f, --file flags parsed as "name=path" (repeatable)
     -F, --files-list string (file containing list of files to upload)
     - Parse file flags into map[name]path
@@ -500,7 +500,7 @@ PHASE 8 | HANDLING FILE UPLOADS
     - Added ExecuteWithFiles method to GraphQL client
     - Added ParseFilesFromList function for batch file uploads
 
-[x] 36. Example use in shell:
+[x] 38. Example use in shell:
     # Simple query (formatted JSON)
     gqlt run -u https://api.example.com/graphql -q '{ __typename }'
     
@@ -522,34 +522,53 @@ PHASE 8 | HANDLING FILE UPLOADS
     - raw: compact unformatted JSON for scripting
 
 ---------------------------------------------------------------
-PHASE 9 | BUILD / VALIDATION
+PHASE 10 | BUILD / VALIDATION
 ---------------------------------------------------------------
 
-[x] 37. Build command:
+[x] 39. Build command:
     go build -o bin/gqlt .
     verify binary size < 15MB static (9.2MB - PASS)
     test: ./bin/gqlt --help
 
-[x] 38. Manual tests:
+[x] 40. Manual tests:
     ./gqlt run --url <endpoint> --query '{__typename}'
     ./gqlt run --query-file q.graphql --vars '{"id":"1"}'
     ./gqlt introspect
     ./gqlt describe Query
 
-[x] 39. CI / Testing:
+[x] 41. CI / Testing:
     Write unit tests for config merge, IO helpers
     run: go test ./... (all packages passing)
 
-[ ] 40. Release binaries:
+[ ] 42. Release binaries:
     for os in linux darwin windows; do GOOS=$os go build -o dist/gqlt-$os main.go; done
     checksum + tag v0.1.0
 
 ---------------------------------------------------------------
-PHASE 10 | EXIT CODES SUMMARY
+PHASE 11 | EXIT CODES SUMMARY
 ---------------------------------------------------------------
 0  success, no errors
 1  system/CLI/network error
 2  GraphQL response contained "errors" or test/schema diff failures
+
+---------------------------------------------------------------
+PHASE 12 | DOCUMENTATION GENERATION
+---------------------------------------------------------------
+
+[x] 43. internal/docs/generator.go
+    - go generate directive: //go:generate go run internal/docs/generator.go
+    - single Cobra command structure parser
+    - extract help text, descriptions, flags, and examples
+    - generate both README.md and gqlt.1 from same source
+    - support multiple output formats (markdown, manpage)
+    - include usage examples and configuration guides
+
+[x] 44. Documentation workflow
+    - go generate ./... (runs all //go:generate directives)
+    - single parser generates both README.md and gqlt.1
+    - automated documentation updates in CI/CD
+    - no duplication - one source of truth for documentation
+    - uses standard Go tooling
 
 ---------------------------------------------------------------
 COMPLETE WHEN:
@@ -560,3 +579,5 @@ COMPLETE WHEN:
 [ ] outputs consistent JSON or colorized pretty form
 [ ] uses exit codes appropriately
 [ ] minimal third‑party dependencies
+[ ] comprehensive README.md generated from help system
+[ ] man page generation working
