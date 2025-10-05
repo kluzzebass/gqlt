@@ -61,7 +61,7 @@ func TestCommandHelp(t *testing.T) {
 
 func TestCommandFlags(t *testing.T) {
 	// Test that run command has expected flags
-	expectedFlags := []string{"url", "query", "query-file", "vars", "vars-file", "header", "file", "files-list", "out", "username", "password", "operation"}
+	expectedFlags := []string{"url", "query", "query-file", "vars", "vars-file", "header", "file", "files-list", "out", "username", "password", "token", "api-key", "operation"}
 
 	for _, flagName := range expectedFlags {
 		flag := runCmd.Flag(flagName)

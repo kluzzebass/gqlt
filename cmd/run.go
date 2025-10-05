@@ -33,6 +33,8 @@ var (
 	outMode   string
 	username  string
 	password  string
+	token     string
+	apiKey    string
 )
 
 func init() {
@@ -51,6 +53,8 @@ func init() {
 	runCmd.Flags().StringVarP(&outMode, "out", "O", "json", "Output mode: json|pretty|raw")
 	runCmd.Flags().StringVarP(&username, "username", "U", "", "Username for basic authentication")
 	runCmd.Flags().StringVarP(&password, "password", "p", "", "Password for basic authentication")
+	runCmd.Flags().StringVarP(&token, "token", "t", "", "Bearer token for authentication")
+	runCmd.Flags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication (sets X-API-Key header)")
 }
 
 func runGraphQL(cmd *cobra.Command, args []string) error {
@@ -116,6 +120,28 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 	// Set authentication if provided
 	if username != "" && password != "" {
 		client.SetAuth(username, password)
+		if token != "" {
+			// Warn that token is being ignored in favor of basic auth
+			fmt.Fprintf(os.Stderr, "Warning: Both basic auth and token provided. Using basic auth (token ignored).\n")
+		}
+		if apiKey != "" {
+			// Warn that API key is being ignored in favor of basic auth
+			fmt.Fprintf(os.Stderr, "Warning: Both basic auth and API key provided. Using basic auth (API key ignored).\n")
+		}
+	} else if token != "" {
+		// Set Bearer token authentication
+		client.SetHeaders(map[string]string{
+			"Authorization": "Bearer " + token,
+		})
+		if apiKey != "" {
+			// Warn that API key is being ignored in favor of token auth
+			fmt.Fprintf(os.Stderr, "Warning: Both token and API key provided. Using token auth (API key ignored).\n")
+		}
+	} else if apiKey != "" {
+		// Set API key authentication
+		client.SetHeaders(map[string]string{
+			"X-API-Key": apiKey,
+		})
 	}
 
 	// Execute GraphQL operation (with or without files)
