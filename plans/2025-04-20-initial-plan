@@ -481,33 +481,10 @@ more comprehensive solutions in our layered architecture. The proposed utilities
 would actually be a step backward from what we have.
 
 ---------------------------------------------------------------
-PHASE 8 | BUILD / VALIDATION
+PHASE 8 | HANDLING FILE UPLOADS
 ---------------------------------------------------------------
 
-[ ] 35. Build command:
-    go build -o bin/gqlt main.go
-    verify binary size < 15MB static
-    test: ./bin/gqlt --help
-
-[ ] 36. Manual tests:
-    ./gqlt run --url <endpoint> --query '{__typename}'
-    ./gqlt run --query-file q.graphql --vars '{"id":"1"}'
-    ./gqlt introspect
-    ./gqlt describe Query
-
-[ ] 37. CI / Testing:
-    Write unit tests for config merge, IO helpers
-    run: go test ./...
-
-[ ] 38. Release binaries:
-    for os in linux darwin windows; do GOOS=$os go build -o dist/gqlt-$os main.go; done
-    checksum + tag v0.1.0
-
----------------------------------------------------------------
-PHASE 9 | HANDLING FILE UPLOADS
----------------------------------------------------------------
-
-[ ] 39. Support file uploads:
+[ ] 35. Support file uploads:
     -f, --file flags parsed as "name=path" (repeatable)
     -F, --files-list string (file containing list of files to upload)
     - Parse file flags into map[name]path
@@ -515,7 +492,7 @@ PHASE 9 | HANDLING FILE UPLOADS
     - Note: File uploads require multipart/form-data implementation
     - For now, file uploads are parsed but not yet implemented
 
-[ ] 40. Example use in shell:
+[ ] 36. Example use in shell:
     # Simple query (formatted JSON)
     gqlt run -u https://api.example.com/graphql -q '{ __typename }'
     
@@ -535,6 +512,29 @@ PHASE 9 | HANDLING FILE UPLOADS
     - json: formatted JSON with indentation (default)
     - pretty: colorized formatted JSON for development
     - raw: compact unformatted JSON for scripting
+
+---------------------------------------------------------------
+PHASE 9 | BUILD / VALIDATION
+---------------------------------------------------------------
+
+[ ] 37. Build command:
+    go build -o bin/gqlt main.go
+    verify binary size < 15MB static
+    test: ./bin/gqlt --help
+
+[ ] 38. Manual tests:
+    ./gqlt run --url <endpoint> --query '{__typename}'
+    ./gqlt run --query-file q.graphql --vars '{"id":"1"}'
+    ./gqlt introspect
+    ./gqlt describe Query
+
+[ ] 39. CI / Testing:
+    Write unit tests for config merge, IO helpers
+    run: go test ./...
+
+[ ] 40. Release binaries:
+    for os in linux darwin windows; do GOOS=$os go build -o dist/gqlt-$os main.go; done
+    checksum + tag v0.1.0
 
 ---------------------------------------------------------------
 PHASE 10 | EXIT CODES SUMMARY
