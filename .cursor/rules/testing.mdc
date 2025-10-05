@@ -1,0 +1,18 @@
+---
+description: Testing best practices
+alwaysApply: true
+---
+
+- Add appropriate tests for new functionality.
+- Write tests that verify behavior and catch real bugs, not just boost coverage numbers.
+- Focus on testing important paths, edge cases, and error conditions.
+- Use table-driven tests for testing multiple scenarios with similar logic.
+- Use subtests to focus on specific behaviors without duplicating setup code.
+- Mock external dependencies to isolate units under test, but prefer integration tests for critical user workflows.
+- Test both success and failure paths.
+- Write tests that are readable and maintainable.
+- Use descriptive test names that explain what is being tested.
+- Balance comprehensive coverage with focused, maintainable tests.
+- Use test helpers and utilities to reduce duplication.
+- Ensure tests are deterministic and don't depend on external state.
+- Write tests that serve as documentation for expected behavior.

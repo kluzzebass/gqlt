@@ -16,5 +16,4 @@ alwaysApply: false
 - Unless explicitly told not to, ask before proceeding with the next step.
 - After each step has been approved, mark it as completed in the plan.
 - If you're uncertain about a step, STOP and ask for clarification.
-- Look for eestablished patterns in the existing codebase, and try to replicate where possible.
 - If you encounter steps that seem complex, offer to split it into multiple steps, especially if those steps would make it easier to test.

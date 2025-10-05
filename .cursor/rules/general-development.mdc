@@ -1,0 +1,19 @@
+---
+description: General development practices
+alwaysApply: true
+---
+
+- Look for established patterns in the existing codebase, and try to replicate where possible.
+- When committing your work, don't include all the intermediate steps in the commit message; just keep it down to what the end result is.
+- Prefer editing existing files over creating new ones unless explicitly required.
+- Use absolute paths when possible in tool calls.
+- Write clean, maintainable code with proper error handling and logging.
+- Use meaningful variable and function names.
+- Keep functions focused and single-purpose.
+- Document complex logic with clear comments explaining the "why", not just the "what".
+- Validate inputs and handle edge cases gracefully.
+- Use consistent formatting and style throughout the codebase.
+- Avoid premature optimization; focus on correctness first.
+- When refactoring, ensure all tests pass before and after changes.
+- Prefer composition over inheritance when designing interfaces.
+- Use type-safe approaches and avoid unnecessary type assertions.
