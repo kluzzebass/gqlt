@@ -608,6 +608,40 @@ PHASE 12 | LIBRARY AND AI AGENT OPTIMIZATION
     - Add migration guide from other GraphQL libraries
 
 ---------------------------------------------------------------
+PHASE 13 | MCP SERVER INTEGRATION
+---------------------------------------------------------------
+
+[ ] 49. MCP server foundation
+    - Add MCP server wrapper around existing gqlt functionality
+    - Implement JSON-RPC 2.0 server for AI agent communication
+    - Create MCPServer struct with embedded Client, Config, and Analyzer
+    - Add session management for concurrent AI agent requests
+    - Enable both CLI and MCP server modes in single binary
+
+[ ] 50. MCP tools implementation
+    - execute_query: Run GraphQL queries with variables and operation names
+    - introspect_schema: Get complete GraphQL schema information
+    - describe_type: Analyze specific GraphQL types and fields
+    - validate_query: Check GraphQL query validity against schema
+    - upload_files: Handle file uploads in GraphQL mutations
+    - get_config: Retrieve and manage GraphQL endpoint configurations
+    - set_auth: Configure authentication (Bearer, Basic, API Key)
+
+[ ] 51. MCP resources and prompts
+    - Expose GraphQL schemas as MCP resources for AI exploration
+    - Provide schema summaries and type information as resources
+    - Create prompts for common GraphQL operations and patterns
+    - Add resource discovery for available GraphQL endpoints
+    - Implement schema caching and resource management
+
+[ ] 52. MCP server testing and documentation
+    - Add comprehensive tests for MCP server functionality
+    - Create example MCP client integrations
+    - Document MCP server usage for AI agent developers
+    - Add configuration examples for different AI platforms
+    - Create migration guide from other GraphQL MCP servers
+
+---------------------------------------------------------------
 COMPLETE WHEN:
 ---------------------------------------------------------------
 [ ] gqlt buildable single binary (Linux, macOS, Windows)
