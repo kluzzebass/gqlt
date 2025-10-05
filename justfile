@@ -225,11 +225,13 @@ github-release:
     @just _check-gh && \
     version=$(cat VERSION) && \
     echo "Creating GitHub release v$version..." && \
+    just release-notes > /tmp/release-notes-$version.md && \
     gh release create v$version \
         --title "Release v$version" \
-        --notes-file <(just release-notes) \
+        --notes-file /tmp/release-notes-$version.md \
         dist/gqlt-$version-*.tar.gz \
         dist/gqlt-$version-*.zip && \
+    rm /tmp/release-notes-$version.md && \
     echo "GitHub release v$version created successfully!"
 
 # Create draft GitHub release for review
@@ -237,12 +239,14 @@ github-release-draft:
     @just _check-gh && \
     version=$(cat VERSION) && \
     echo "Creating draft GitHub release v$version..." && \
+    just release-notes > /tmp/release-notes-$version.md && \
     gh release create v$version \
         --draft \
         --title "Release v$version" \
-        --notes-file <(just release-notes) \
+        --notes-file /tmp/release-notes-$version.md \
         dist/gqlt-$version-*.tar.gz \
         dist/gqlt-$version-*.zip && \
+    rm /tmp/release-notes-$version.md && \
     echo "Draft GitHub release v$version created successfully!"
 
 # Full release workflow
