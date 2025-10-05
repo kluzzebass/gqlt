@@ -15,8 +15,9 @@ type Input struct{}
 // NewInput creates a new input handler instance.
 //
 // Example:
-//   input := gqlt.NewInput()
-//   query, err := input.LoadQuery("", "query.graphql")
+//
+//	input := gqlt.NewInput()
+//	query, err := input.LoadQuery("", "query.graphql")
 func NewInput() *Input {
 	return &Input{}
 }
@@ -27,10 +28,11 @@ func NewInput() *Input {
 // If both are provided, query takes precedence.
 //
 // Example:
-//   query, err := input.LoadQuery("", "query.graphql")
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	query, err := input.LoadQuery("", "query.graphql")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func (i *Input) LoadQuery(query, queryFile string) (string, error) {
 	if query != "" {
 		return query, nil
@@ -53,10 +55,11 @@ func (i *Input) LoadQuery(query, queryFile string) (string, error) {
 // If both are provided, vars takes precedence.
 //
 // Example:
-//   variables, err := input.LoadVariables(`{"id": "123"}`, "")
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	variables, err := input.LoadVariables(`{"id": "123"}`, "")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func (i *Input) LoadVariables(vars, varsFile string) (map[string]interface{}, error) {
 	var varsStr string
 
@@ -87,10 +90,11 @@ func (i *Input) LoadVariables(vars, varsFile string) (map[string]interface{}, er
 // Each header string should be in the format "Key: Value".
 //
 // Example:
-//   headers := input.LoadHeaders([]string{
-//       "Authorization: Bearer token",
-//       "Content-Type: application/json",
-//   })
+//
+//	headers := input.LoadHeaders([]string{
+//	    "Authorization: Bearer token",
+//	    "Content-Type: application/json",
+//	})
 func (i *Input) LoadHeaders(headers []string) map[string]string {
 	headersMap := make(map[string]string)
 

@@ -18,10 +18,11 @@ type Analyzer struct {
 // The schema parameter should be the result of a GraphQL introspection query.
 //
 // Example:
-//   analyzer, err := gqlt.NewAnalyzer(introspectionResponse)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	analyzer, err := gqlt.NewAnalyzer(introspectionResponse)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func NewAnalyzer(schema *Response) (*Analyzer, error) {
 	// Extract schema data
 	schemaData, ok := schema.Data.(map[string]interface{})
@@ -43,10 +44,11 @@ func NewAnalyzer(schema *Response) (*Analyzer, error) {
 // The file should contain a GraphQL introspection response in JSON format.
 //
 // Example:
-//   analyzer, err := gqlt.LoadAnalyzerFromFile("schema.json")
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	analyzer, err := gqlt.LoadAnalyzerFromFile("schema.json")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func LoadAnalyzerFromFile(filePath string) (*Analyzer, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {

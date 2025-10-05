@@ -17,8 +17,9 @@ type Introspect struct {
 // NewIntrospect creates a new introspection handler for the specified client.
 //
 // Example:
-//   client := gqlt.NewClient("https://api.example.com/graphql", nil)
-//   introspect := gqlt.NewIntrospect(client)
+//
+//	client := gqlt.NewClient("https://api.example.com/graphql", nil)
+//	introspect := gqlt.NewIntrospect(client)
 func NewIntrospect(client *Client) *Introspect {
 	return &Introspect{
 		client: client,
@@ -29,10 +30,11 @@ func NewIntrospect(client *Client) *Introspect {
 // Returns a Response containing the complete GraphQL schema information.
 //
 // Example:
-//   schema, err := introspect.IntrospectSchema()
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	schema, err := introspect.IntrospectSchema()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func (i *Introspect) IntrospectSchema() (*Response, error) {
 	return i.client.Introspect()
 }
@@ -41,10 +43,11 @@ func (i *Introspect) IntrospectSchema() (*Response, error) {
 // The file will contain the complete introspection response in formatted JSON.
 //
 // Example:
-//   err := introspect.SaveSchema(schema, "schema.json")
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	err := introspect.SaveSchema(schema, "schema.json")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func (i *Introspect) SaveSchema(schema *Response, filePath string) error {
 	data, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {

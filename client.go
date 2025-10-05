@@ -34,9 +34,10 @@ type Response struct {
 // The headers parameter can be nil or contain additional HTTP headers to send with requests.
 //
 // Example:
-//   client := gqlt.NewClient("https://api.example.com/graphql", map[string]string{
-//       "Authorization": "Bearer token",
-//   })
+//
+//	client := gqlt.NewClient("https://api.example.com/graphql", map[string]string{
+//	    "Authorization": "Bearer token",
+//	})
 func NewClient(endpoint string, headers map[string]string) *Client {
 	return &Client{
 		endpoint:   endpoint,
@@ -49,7 +50,8 @@ func NewClient(endpoint string, headers map[string]string) *Client {
 // This will add an Authorization header with Basic authentication to all requests.
 //
 // Example:
-//   client.SetAuth("username", "password")
+//
+//	client.SetAuth("username", "password")
 func (c *Client) SetAuth(username, password string) {
 	c.httpClient = &http.Client{
 		Transport: &basicAuthTransport{
@@ -63,10 +65,11 @@ func (c *Client) SetAuth(username, password string) {
 // These headers will be sent with all subsequent requests.
 //
 // Example:
-//   client.SetHeaders(map[string]string{
-//       "Authorization": "Bearer token",
-//       "X-Custom-Header": "value",
-//   })
+//
+//	client.SetHeaders(map[string]string{
+//	    "Authorization": "Bearer token",
+//	    "X-Custom-Header": "value",
+//	})
 func (c *Client) SetHeaders(headers map[string]string) {
 	if c.headers == nil {
 		c.headers = make(map[string]string)
@@ -82,11 +85,12 @@ func (c *Client) SetHeaders(headers map[string]string) {
 // (useful when the query contains multiple operations).
 //
 // Example:
-//   response, err := client.Execute(
-//       `query GetUser($id: ID!) { user(id: $id) { name email } }`,
-//       map[string]interface{}{"id": "123"},
-//       "GetUser",
-//   )
+//
+//	response, err := client.Execute(
+//	    `query GetUser($id: ID!) { user(id: $id) { name email } }`,
+//	    map[string]interface{}{"id": "123"},
+//	    "GetUser",
+//	)
 func (c *Client) Execute(query string, variables map[string]interface{}, operationName string) (*Response, error) {
 	// Build GraphQL request payload
 	payload := map[string]interface{}{
@@ -147,12 +151,13 @@ func (c *Client) Execute(query string, variables map[string]interface{}, operati
 // with Upload scalar types. The files parameter maps field names to file paths.
 //
 // Example:
-//   response, err := client.ExecuteWithFiles(
-//       `mutation UploadFile($file: Upload!) { uploadFile(file: $file) { id } }`,
-//       map[string]interface{}{"file": nil}, // File will be provided via files parameter
-//       "UploadFile",
-//       map[string]string{"file": "/path/to/file.jpg"},
-//   )
+//
+//	response, err := client.ExecuteWithFiles(
+//	    `mutation UploadFile($file: Upload!) { uploadFile(file: $file) { id } }`,
+//	    map[string]interface{}{"file": nil}, // File will be provided via files parameter
+//	    "UploadFile",
+//	    map[string]string{"file": "/path/to/file.jpg"},
+//	)
 func (c *Client) ExecuteWithFiles(query string, variables map[string]interface{}, operationName string, files map[string]string) (*Response, error) {
 	// Create multipart form data
 	var buf bytes.Buffer

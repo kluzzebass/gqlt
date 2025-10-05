@@ -31,8 +31,9 @@ type FormatterRegistry struct {
 // (JSON, Table, YAML) already registered.
 //
 // Example:
-//   registry := gqlt.NewFormatterRegistry()
-//   formatter, err := registry.Get("json")
+//
+//	registry := gqlt.NewFormatterRegistry()
+//	formatter, err := registry.Get("json")
 func NewFormatterRegistry() *FormatterRegistry {
 	registry := &FormatterRegistry{
 		formatters: make(map[string]FormatterFactory),

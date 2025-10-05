@@ -90,7 +90,7 @@ func getSchemasDir() string {
 // Public path functions
 // GetDefaultPath returns the default configuration directory path for the current OS.
 // On Linux: ~/.config/gqlt
-// On macOS: ~/Library/Application Support/gqlt  
+// On macOS: ~/Library/Application Support/gqlt
 // On Windows: %APPDATA%/gqlt
 func GetDefaultPath() string {
 	return getDefaultPath()
@@ -148,10 +148,11 @@ func GetSchemasDir() string {
 // Returns a Config struct with the loaded configuration or an error if loading fails.
 //
 // Example:
-//   config, err := gqlt.Load("/path/to/config")
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	config, err := gqlt.Load("/path/to/config")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func Load(configDir string) (*Config, error) {
 	var path string
 	if configDir == "" {
@@ -204,10 +205,11 @@ func Load(configDir string) (*Config, error) {
 // Creates the directory if it doesn't exist and writes the configuration as JSON.
 //
 // Example:
-//   err := config.Save("/path/to/config")
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	err := config.Save("/path/to/config")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func (c *Config) Save(configDir string) error {
 	// Use config directory
 	path := getConfigPathForDir(configDir)
@@ -231,8 +233,9 @@ func (c *Config) Save(configDir string) error {
 // or creates a default entry if no configurations exist.
 //
 // Example:
-//   current := config.GetCurrent()
-//   fmt.Printf("Current endpoint: %s\n", current.Endpoint)
+//
+//	current := config.GetCurrent()
+//	fmt.Printf("Current endpoint: %s\n", current.Endpoint)
 func (c *Config) GetCurrent() *ConfigEntry {
 	if entry, exists := c.Configs[c.Current]; exists {
 		return &entry

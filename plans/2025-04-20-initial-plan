@@ -545,9 +545,19 @@ PHASE 10 | BUILD / VALIDATION
     Write unit tests for config merge, IO helpers
     run: go test ./... (all packages passing)
 
-[ ] 42. Release binaries:
-    for os in linux darwin windows; do GOOS=$os go build -o dist/gqlt-$os main.go; done
-    checksum + tag v0.1.0
+[ ] 42. Release binaries and build automation:
+    - Create justfile with recipes for common development tasks
+    - Add VERSION file for semantic versioning management
+    - Implement automated version bumping (patch/minor/major)
+      * Commands: just bump-patch, just bump-minor, just bump-major
+      * Reads current version from VERSION file, increments appropriate component
+      * Writes new version back to VERSION file, optionally creates git commit/tag
+      * VERSION file gets embedded in binary at build time via go:embed
+    - Add cross-platform build recipes (linux, darwin, windows)
+    - Create distribution packaging with checksums
+    - Add release workflow with git tagging
+    - Include development setup and testing recipes
+    - Add dependency management and code quality recipes
 
 ---------------------------------------------------------------
 PHASE 11 | DOCUMENTATION GENERATION
