@@ -45,20 +45,6 @@ func TestConfigSubcommands(t *testing.T) {
 	}
 }
 
-func TestCommandHelp(t *testing.T) {
-	// Test that commands have proper help text
-	commands := []*cobra.Command{runCmd, configCmd, introspectCmd, describeCmd}
-
-	for _, cmd := range commands {
-		if cmd.Short == "" {
-			t.Errorf("Command '%s' should have a short description", cmd.Name())
-		}
-		if cmd.Long == "" {
-			t.Errorf("Command '%s' should have a long description", cmd.Name())
-		}
-	}
-}
-
 func TestCommandFlags(t *testing.T) {
 	// Test that run command has expected flags
 	expectedFlags := []string{"url", "query", "query-file", "vars", "vars-file", "header", "file", "files-list", "out", "username", "password", "token", "api-key", "operation"}

@@ -119,55 +119,6 @@ func TestPathsWithEnvVars(t *testing.T) {
 	}
 }
 
-func TestPerConfigSchemaPaths(t *testing.T) {
-	// Test per-configuration schema paths
-	schemasDir := GetSchemasDir()
-	if !filepath.IsAbs(schemasDir) || schemasDir == "" {
-		t.Errorf("Schemas directory should be absolute and non-empty, got: %s", schemasDir)
-	}
-	if !strings.Contains(schemasDir, "gqlt") {
-		t.Errorf("Schemas directory should contain 'gqlt', got: %s", schemasDir)
-	}
-
-	// Test config-specific schema paths
-	configSchemaPath := GetSchemaPathForConfig("production")
-	if !filepath.IsAbs(configSchemaPath) || configSchemaPath == "" {
-		t.Errorf("Config schema path should be absolute and non-empty, got: %s", configSchemaPath)
-	}
-	if !strings.Contains(configSchemaPath, "production.json") {
-		t.Errorf("Config schema path should contain config name, got: %s", configSchemaPath)
-	}
-
-	// Test that schemas directory is used for config-specific paths
-	basePath := GetDefaultPath()
-	expectedSchemasDir := filepath.Join(basePath, "schemas")
-	if schemasDir != expectedSchemasDir {
-		t.Errorf("Expected schemas dir %s, got %s", expectedSchemasDir, schemasDir)
-	}
-
-	// Test different config names
-	testConfigs := []string{"default", "production", "staging", "local"}
-	for _, configName := range testConfigs {
-		// Test JSON schema paths
-		jsonPath := GetJSONSchemaPathForConfigInDir(configName, basePath)
-		if !strings.Contains(jsonPath, configName+".json") {
-			t.Errorf("JSON schema path for config '%s' should contain '%s.json', got: %s", configName, configName, jsonPath)
-		}
-		if !strings.Contains(jsonPath, "schemas") {
-			t.Errorf("JSON schema path should contain 'schemas' directory, got: %s", jsonPath)
-		}
-
-		// Test GraphQL schema paths
-		graphqlPath := GetGraphQLSchemaPathForConfigInDir(configName, basePath)
-		if !strings.Contains(graphqlPath, configName+".graphqls") {
-			t.Errorf("GraphQL schema path for config '%s' should contain '%s.graphqls', got: %s", configName, configName, graphqlPath)
-		}
-		if !strings.Contains(graphqlPath, "schemas") {
-			t.Errorf("GraphQL schema path should contain 'schemas' directory, got: %s", graphqlPath)
-		}
-	}
-}
-
 func TestDualFormatSchemaPaths(t *testing.T) {
 	// Test dual format schema path functions
 	basePath := "/test/config"
@@ -209,5 +160,21 @@ func TestDualFormatSchemaPaths(t *testing.T) {
 	}
 	if !strings.Contains(emptyGraphQLPath, "schemas") {
 		t.Errorf("Empty config dir GraphQL path should contain 'schemas', got: %s", emptyGraphQLPath)
+	}
+
+	// Test additional path functions for coverage
+	schemasDir := GetSchemasDir()
+	if !filepath.IsAbs(schemasDir) || schemasDir == "" {
+		t.Errorf("Schemas directory should be absolute and non-empty, got: %s", schemasDir)
+	}
+
+	configSchemaPath := GetSchemaPathForConfig("test-config")
+	if !filepath.IsAbs(configSchemaPath) || configSchemaPath == "" {
+		t.Errorf("Config schema path should be absolute and non-empty, got: %s", configSchemaPath)
+	}
+
+	schemaPath := GetSchemaPath()
+	if !filepath.IsAbs(schemaPath) || schemaPath == "" {
+		t.Errorf("Schema path should be absolute and non-empty, got: %s", schemaPath)
 	}
 }

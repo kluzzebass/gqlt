@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
 
@@ -157,6 +158,15 @@ func TestExecute(t *testing.T) {
 	if user["name"] != "John Doe" {
 		t.Errorf("Expected user name 'John Doe', got %v", user["name"])
 	}
+
+	// Test additional coverage - Execute with empty variables
+	result2, err := client.Execute(query, nil, "")
+	if err != nil {
+		t.Errorf("Execute with nil variables failed: %v", err)
+	}
+	if result2 == nil {
+		t.Error("Expected result2 to be non-nil")
+	}
 }
 
 func TestExecuteWithErrors(t *testing.T) {
@@ -245,4 +255,118 @@ func TestExecuteWithHeaders(t *testing.T) {
 	if result.Data == nil {
 		t.Error("Expected data in response")
 	}
+}
+
+func TestExecuteErrorPaths(t *testing.T) {
+	// Test with invalid endpoint
+	client := NewClient("invalid-url", nil)
+	_, err := client.Execute("query { user { id } }", nil, "")
+	if err == nil {
+		t.Error("Expected error for invalid endpoint")
+	}
+
+	// Test with server that returns invalid JSON
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("invalid json"))
+	}))
+	defer server.Close()
+
+	client2 := NewClient(server.URL, nil)
+	_, err = client2.Execute("query { user { id } }", nil, "")
+	if err == nil {
+		t.Error("Expected error for invalid JSON response")
+	}
+}
+
+func TestExecuteWithFiles(t *testing.T) {
+	// Create a mock server that handles multipart requests
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify content type is multipart
+		contentType := r.Header.Get("Content-Type")
+		if !contains(contentType, "multipart/form-data") {
+			t.Errorf("Expected multipart content type, got %s", contentType)
+		}
+
+		// Send mock response
+		response := map[string]interface{}{
+			"data": map[string]interface{}{
+				"upload": map[string]interface{}{
+					"success": true,
+				},
+			},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	// Create client
+	client := NewClient(server.URL, nil)
+
+	// Create a temporary file for testing
+	tempFile, err := os.CreateTemp("", "test-file.txt")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tempFile.Name())
+	tempFile.WriteString("test content")
+	tempFile.Close()
+
+	// Execute with files
+	files := map[string]string{
+		"file": tempFile.Name(),
+	}
+	result, err := client.ExecuteWithFiles("mutation { upload(file: $file) { success } }", nil, "", files)
+	if err != nil {
+		t.Errorf("ExecuteWithFiles failed: %v", err)
+	}
+
+	// Verify response
+	if result.Data == nil {
+		t.Error("Expected data in response")
+	}
+}
+
+func TestBasicAuthTransport(t *testing.T) {
+	// Create a mock server that verifies basic auth
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		expected := "Basic dXNlcjpwYXNz" // base64("user:pass")
+		if authHeader != expected {
+			t.Errorf("Expected auth header %s, got %s", expected, authHeader)
+		}
+
+		response := map[string]interface{}{
+			"data": map[string]interface{}{
+				"authenticated": true,
+			},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	// Create client with basic auth
+	client := NewClient(server.URL, nil)
+	client.SetAuth("user", "pass")
+
+	// Execute query
+	result, err := client.Execute("query { authenticated }", nil, "")
+	if err != nil {
+		t.Errorf("Execute with basic auth failed: %v", err)
+	}
+
+	// Verify response
+	if result.Data == nil {
+		t.Error("Expected data in response")
+	}
+}
+
+// Helper function to check if string contains substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && s[:len(substr)] == substr ||
+		len(s) > len(substr) && contains(s[1:], substr)
 }
