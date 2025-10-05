@@ -273,29 +273,35 @@ Config location search order:
     gqlt config list --format=table  # Tabular data for easy parsing
     gqlt config docs                  # Generate documentation
 
-[ ] 19. AI-friendly features:
-    - Self-documenting config structure with _schema and _comment fields
-    - Rich help system with examples and suggestions
-    - Validation with actionable error messages
-    - Template system for common use cases
-    - Structured output formats (json, table) for AI parsing
-    - Auto-completion hints for commands and values
-    - Context-aware error messages with solutions
-    - Documentation generation for AI understanding
+[x] 19. AI-friendly features:
+    - Self-documenting config structure with _comment fields ✅
+    - Rich help system with examples and suggestions ✅
+    - Validation with actionable error messages ✅
+    - Clone system for common use cases ✅ (replaces templates)
+    - Structured output formats (json, table) for AI parsing ✅
+    - Context-aware error messages with solutions ✅
+    - Documentation generation for AI understanding ✅
+    
+    IMPLEMENTED FEATURES:
+    - gqlt config describe (schema and examples)
+    - gqlt config validate (with error messages)
+    - gqlt config examples (usage patterns)
+    - gqlt config clone (replaces template system)
+    - JSON/table output formats
+    - _comment fields for self-documentation
 
-[ ] 20. Template examples:
-    gqlt config template github        # GitHub GraphQL API
-    gqlt config template localhost    # Local development
-    gqlt config template production    # Production setup
-    gqlt config template staging       # Staging environment
-    gqlt config template apollo        # Apollo Server
-    gqlt config template hasura       # Hasura GraphQL
+[x] 20. Template examples: (REMOVED - replaced with clone system)
+    # OLD: Generic templates (removed as not useful)
+    # NEW: Clone existing configurations (more practical)
+    gqlt config clone production staging    # Clone production to staging
+    gqlt config clone default local         # Clone default to local
+    gqlt config clone countries production  # Clone countries to production
 
 ---------------------------------------------------------------
 PHASE 4 | INTROSPECTION AND DESCRIBE
 ---------------------------------------------------------------
 
-[ ] 17. cmd/introspect.go
+[ ] 21. cmd/introspect.go
     - endpoint via flag/config
     - issue introspection query:
       query IntrospectionQuery { __schema { types { name kind fields { name type { name kind } } } } }
@@ -305,7 +311,7 @@ PHASE 4 | INTROSPECTION AND DESCRIBE
        --out path
        --summary (stdout short)
 
-[ ] 18. cmd/describe.go
+[ ] 22. cmd/describe.go
     - read schema JSON file
     - build index:
         map[TypeName]TypeMetadata
@@ -326,7 +332,7 @@ PHASE 4 | INTROSPECTION AND DESCRIBE
 PHASE 5 | TEST AND SCHEMA DIFF
 ---------------------------------------------------------------
 
-[ ] 19. cmd/test.go
+[ ] 23. cmd/test.go
     Purpose: load YAML/JSON suite of operations + expected matches
     TestSpec structure:
         - name string
@@ -340,7 +346,7 @@ PHASE 5 | TEST AND SCHEMA DIFF
             count passes/fails
     Exit codes: 0 all pass, 2 failures.
 
-[ ] 20. cmd/schema_diff.go
+[ ] 24. cmd/schema_diff.go
     Inputs: two file paths
     Compare type/field maps.
     Diff struct:
@@ -365,7 +371,7 @@ PHASE 6 | AUTHENTICATION SUPPORT
     - Basic: Custom http.RoundTripper with Authorization header
     - None: No authentication (default)
 
-[ ] 32. Update config structure for simple auth:
+[ ] 25. Update config structure for simple auth:
     type Config struct {
         Endpoint string            `json:"endpoint"`
         Token    string            `json:"token"`
@@ -381,39 +387,39 @@ PHASE 6 | AUTHENTICATION SUPPORT
 PHASE 7 | INTERNAL UTILITIES
 ---------------------------------------------------------------
 
-[ ] 34. internal/io/io.go
+[ ] 26. internal/io/io.go
     Func ReadFileOrStdin(path string) (string, error)
     Func ParseJSONFile(path string, v any) error
     Func WriteJSON(path string, data any) error
 
-[ ] 35. internal/output/output.go
+[ ] 27. internal/output/output.go
     Func PrintJSON(obj any)
     Func PrintPretty(obj any)
     Func PrintRaw(data map[string]any)
 
-[ ] 36. internal/errors
+[ ] 28. internal/errors
     Central error helper for consistent exit codes.
 
 ---------------------------------------------------------------
 PHASE 8 | BUILD / VALIDATION
 ---------------------------------------------------------------
 
-[ ] 37. Build command:
+[ ] 29. Build command:
     go build -o bin/gqlt main.go
     verify binary size < 15MB static
     test: ./bin/gqlt --help
 
-[ ] 38. Manual tests:
+[ ] 30. Manual tests:
     ./gqlt run --url <endpoint> --query '{__typename}'
     ./gqlt run --query-file q.graphql --vars '{"id":"1"}'
     ./gqlt introspect
     ./gqlt describe Query
 
-[ ] 39. CI / Testing:
+[ ] 31. CI / Testing:
     Write unit tests for config merge, IO helpers
     run: go test ./...
 
-[ ] 40. Release binaries:
+[ ] 32. Release binaries:
     for os in linux darwin windows; do GOOS=$os go build -o dist/gqlt-$os main.go; done
     checksum + tag v0.1.0
 
@@ -421,7 +427,7 @@ PHASE 8 | BUILD / VALIDATION
 PHASE 9 | HANDLING FILE UPLOADS
 ---------------------------------------------------------------
 
-[ ] 41. Support file uploads:
+[ ] 33. Support file uploads:
     -f, --file flags parsed as "name=path" (repeatable)
     -F, --files-list string (file containing list of files to upload)
     - Parse file flags into map[name]path
@@ -429,7 +435,7 @@ PHASE 9 | HANDLING FILE UPLOADS
     - Note: File uploads require multipart/form-data implementation
     - For now, file uploads are parsed but not yet implemented
 
-[ ] 42. Example use in shell:
+[ ] 34. Example use in shell:
     # Simple query (formatted JSON)
     gqlt run -u https://api.example.com/graphql -q '{ __typename }'
     
