@@ -61,6 +61,7 @@ func TestFormatter(t *testing.T) {
 			formatter := NewFormatter(mode)
 			if formatter == nil {
 				t.Error("Expected formatter to be created")
+				return
 			}
 			if formatter.mode != mode {
 				t.Errorf("Expected mode '%s', got %s", mode, formatter.mode)

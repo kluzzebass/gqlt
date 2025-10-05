@@ -210,7 +210,7 @@ func TestSchemaEdgeCases(t *testing.T) {
 		t.Errorf("Failed to create invalid structure file: %v", err)
 	}
 
-	_, err = LoadSchema(invalidStructurePath)
+	_, _ = LoadSchema(invalidStructurePath)
 	// This might not error if the JSON is valid but structure is wrong
 	// The important thing is that it doesn't crash
 

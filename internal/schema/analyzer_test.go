@@ -91,6 +91,7 @@ func TestAnalyzer(t *testing.T) {
 	// Test analyzer creation
 	if analyzer == nil {
 		t.Error("Expected analyzer to be created")
+		return
 	}
 	if analyzer.schemaData == nil {
 		t.Error("Expected schemaData to be set")
@@ -309,6 +310,7 @@ func TestAnalyzerFileOperations(t *testing.T) {
 	}
 	if analyzer == nil {
 		t.Error("Expected analyzer to be created")
+		return
 	}
 	if analyzer.schemaData == nil {
 		t.Error("Expected schemaData to be set")
