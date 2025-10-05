@@ -133,9 +133,12 @@ IMPLEMENTATION NOTES:
 - Full integration with run command - CLI flags override config values
 
 Config location search order:
-1. --config flag
-2. ./.gqlt/config.json
-3. $HOME/.config/gqlt/config.json
+1. --config flag (explicit override)
+2. OS-specific default path:
+   - Linux: ~/.config/gqlt/config.json
+   - macOS: ~/Library/Application Support/gqlt/config.json  
+   - Windows: %APPDATA%/gqlt/config.json
+3. ./.gqlt/config.json (only when explicitly specified via --config)
 
 [x] 13. internal/config/config.go:
     type Config struct {
