@@ -8,15 +8,29 @@ import (
 	"strings"
 )
 
-// Input handles input operations
+// Input handles input operations for loading queries, variables, headers, and files.
+// It provides utilities for parsing and loading various types of input data.
 type Input struct{}
 
-// NewInput creates a new input handler
+// NewInput creates a new input handler instance.
+//
+// Example:
+//   input := gqlt.NewInput()
+//   query, err := input.LoadQuery("", "query.graphql")
 func NewInput() *Input {
 	return &Input{}
 }
 
-// LoadQuery loads a GraphQL query from string or file
+// LoadQuery loads a GraphQL query from a string or file.
+// If query is provided, it returns the query string directly.
+// If queryFile is provided, it reads and returns the file contents.
+// If both are provided, query takes precedence.
+//
+// Example:
+//   query, err := input.LoadQuery("", "query.graphql")
+//   if err != nil {
+//       log.Fatal(err)
+//   }
 func (i *Input) LoadQuery(query, queryFile string) (string, error) {
 	if query != "" {
 		return query, nil
@@ -33,7 +47,16 @@ func (i *Input) LoadQuery(query, queryFile string) (string, error) {
 	return "", fmt.Errorf("either query or queryFile must be provided")
 }
 
-// LoadVariables loads variables from string or file
+// LoadVariables loads GraphQL variables from a JSON string or file.
+// If vars is provided, it parses the JSON string directly.
+// If varsFile is provided, it reads and parses the file contents.
+// If both are provided, vars takes precedence.
+//
+// Example:
+//   variables, err := input.LoadVariables(`{"id": "123"}`, "")
+//   if err != nil {
+//       log.Fatal(err)
+//   }
 func (i *Input) LoadVariables(vars, varsFile string) (map[string]interface{}, error) {
 	var varsStr string
 
@@ -60,7 +83,14 @@ func (i *Input) LoadVariables(vars, varsFile string) (map[string]interface{}, er
 	return varsMap, nil
 }
 
-// LoadHeaders parses header strings into a map
+// LoadHeaders parses header strings into a map.
+// Each header string should be in the format "Key: Value".
+//
+// Example:
+//   headers := input.LoadHeaders([]string{
+//       "Authorization: Bearer token",
+//       "Content-Type: application/json",
+//   })
 func (i *Input) LoadHeaders(headers []string) map[string]string {
 	headersMap := make(map[string]string)
 

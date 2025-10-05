@@ -13,21 +13,30 @@ import (
 	"path/filepath"
 )
 
-// Client represents a GraphQL client
+// Client represents a GraphQL client that can execute queries, mutations, and subscriptions
+// against a GraphQL endpoint. It handles authentication, headers, and HTTP communication.
 type Client struct {
 	endpoint   string
 	headers    map[string]string
 	httpClient *http.Client
 }
 
-// Response represents a GraphQL response
+// Response represents a GraphQL response containing data, errors, and extensions.
+// The Data field contains the actual response data, Errors contains any GraphQL errors,
+// and Extensions contains additional metadata from the server.
 type Response struct {
 	Data       interface{}            `json:"data"`
 	Errors     []interface{}          `json:"errors,omitempty"`
 	Extensions map[string]interface{} `json:"extensions,omitempty"`
 }
 
-// NewClient creates a new GraphQL client
+// NewClient creates a new GraphQL client for the specified endpoint.
+// The headers parameter can be nil or contain additional HTTP headers to send with requests.
+//
+// Example:
+//   client := gqlt.NewClient("https://api.example.com/graphql", map[string]string{
+//       "Authorization": "Bearer token",
+//   })
 func NewClient(endpoint string, headers map[string]string) *Client {
 	return &Client{
 		endpoint:   endpoint,
@@ -36,7 +45,11 @@ func NewClient(endpoint string, headers map[string]string) *Client {
 	}
 }
 
-// SetAuth sets basic authentication for the client
+// SetAuth sets basic authentication for the client using the provided username and password.
+// This will add an Authorization header with Basic authentication to all requests.
+//
+// Example:
+//   client.SetAuth("username", "password")
 func (c *Client) SetAuth(username, password string) {
 	c.httpClient = &http.Client{
 		Transport: &basicAuthTransport{
@@ -46,7 +59,14 @@ func (c *Client) SetAuth(username, password string) {
 	}
 }
 
-// SetHeaders sets additional headers for the client
+// SetHeaders sets additional HTTP headers for the client.
+// These headers will be sent with all subsequent requests.
+//
+// Example:
+//   client.SetHeaders(map[string]string{
+//       "Authorization": "Bearer token",
+//       "X-Custom-Header": "value",
+//   })
 func (c *Client) SetHeaders(headers map[string]string) {
 	if c.headers == nil {
 		c.headers = make(map[string]string)
@@ -56,7 +76,17 @@ func (c *Client) SetHeaders(headers map[string]string) {
 	}
 }
 
-// Execute executes a GraphQL operation
+// Execute executes a GraphQL query, mutation, or subscription against the configured endpoint.
+// The query parameter contains the GraphQL operation string, variables contains any variables
+// to be passed to the operation, and operationName specifies which operation to execute
+// (useful when the query contains multiple operations).
+//
+// Example:
+//   response, err := client.Execute(
+//       `query GetUser($id: ID!) { user(id: $id) { name email } }`,
+//       map[string]interface{}{"id": "123"},
+//       "GetUser",
+//   )
 func (c *Client) Execute(query string, variables map[string]interface{}, operationName string) (*Response, error) {
 	// Build GraphQL request payload
 	payload := map[string]interface{}{
@@ -112,7 +142,17 @@ func (c *Client) Execute(query string, variables map[string]interface{}, operati
 	return &result, nil
 }
 
-// ExecuteWithFiles executes a GraphQL operation with file uploads using multipart/form-data
+// ExecuteWithFiles executes a GraphQL operation with file uploads using multipart/form-data.
+// This method is used for GraphQL operations that require file uploads, such as mutations
+// with Upload scalar types. The files parameter maps field names to file paths.
+//
+// Example:
+//   response, err := client.ExecuteWithFiles(
+//       `mutation UploadFile($file: Upload!) { uploadFile(file: $file) { id } }`,
+//       map[string]interface{}{"file": nil}, // File will be provided via files parameter
+//       "UploadFile",
+//       map[string]string{"file": "/path/to/file.jpg"},
+//   )
 func (c *Client) ExecuteWithFiles(query string, variables map[string]interface{}, operationName string, files map[string]string) (*Response, error) {
 	// Create multipart form data
 	var buf bytes.Buffer

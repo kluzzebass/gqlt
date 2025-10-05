@@ -7,12 +7,21 @@ import (
 	"strings"
 )
 
-// Analyzer handles GraphQL schema analysis and description
+// Analyzer handles GraphQL schema analysis and provides utilities for exploring
+// and understanding GraphQL schemas. It can extract type information, field details,
+// and generate human-readable descriptions of schema elements.
 type Analyzer struct {
 	schemaData map[string]interface{}
 }
 
-// NewAnalyzer creates a new schema analyzer
+// NewAnalyzer creates a new schema analyzer from a GraphQL introspection response.
+// The schema parameter should be the result of a GraphQL introspection query.
+//
+// Example:
+//   analyzer, err := gqlt.NewAnalyzer(introspectionResponse)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
 func NewAnalyzer(schema *Response) (*Analyzer, error) {
 	// Extract schema data
 	schemaData, ok := schema.Data.(map[string]interface{})
@@ -30,7 +39,14 @@ func NewAnalyzer(schema *Response) (*Analyzer, error) {
 	}, nil
 }
 
-// LoadAnalyzerFromFile creates an analyzer from a schema file
+// LoadAnalyzerFromFile creates a new schema analyzer by loading a schema from a JSON file.
+// The file should contain a GraphQL introspection response in JSON format.
+//
+// Example:
+//   analyzer, err := gqlt.LoadAnalyzerFromFile("schema.json")
+//   if err != nil {
+//       log.Fatal(err)
+//   }
 func LoadAnalyzerFromFile(filePath string) (*Analyzer, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {

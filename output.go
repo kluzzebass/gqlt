@@ -8,7 +8,8 @@ import (
 	"github.com/fatih/color"
 )
 
-// Formatter defines the interface for output formatting
+// Formatter defines the interface for output formatting.
+// Implementations can format data as JSON, table, YAML, or other formats.
 type Formatter interface {
 	FormatStructured(data interface{}, quiet bool) error
 	FormatStructuredError(err error, code string, quiet bool) error
@@ -16,15 +17,22 @@ type Formatter interface {
 	FormatResponse(response *Response, mode string) error
 }
 
-// FormatterFactory creates a new formatter instance
+// FormatterFactory creates a new formatter instance.
+// This function type is used to register formatters in the registry.
 type FormatterFactory func() Formatter
 
-// FormatterRegistry manages available formatters
+// FormatterRegistry manages available formatters and provides a way to register
+// and retrieve formatters by name.
 type FormatterRegistry struct {
 	formatters map[string]FormatterFactory
 }
 
 // NewFormatterRegistry creates a new formatter registry with default formatters
+// (JSON, Table, YAML) already registered.
+//
+// Example:
+//   registry := gqlt.NewFormatterRegistry()
+//   formatter, err := registry.Get("json")
 func NewFormatterRegistry() *FormatterRegistry {
 	registry := &FormatterRegistry{
 		formatters: make(map[string]FormatterFactory),

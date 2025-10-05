@@ -8,18 +8,20 @@ import (
 	"runtime"
 )
 
-// Config represents the main configuration structure
+// Config represents the main configuration structure that manages multiple named configurations.
+// It allows switching between different GraphQL endpoints and their associated settings.
 type Config struct {
 	Current string                 `json:"current"` // active config name (defaults to "default")
 	Configs map[string]ConfigEntry `json:"configs"` // named configurations
 }
 
-// ConfigEntry represents a single configuration
+// ConfigEntry represents a single configuration for a GraphQL endpoint.
+// It contains the endpoint URL, headers, default output format, and optional documentation.
 type ConfigEntry struct {
-	Endpoint string            `json:"endpoint"`
-	Headers  map[string]string `json:"headers"`
+	Endpoint string            `json:"endpoint"` // GraphQL endpoint URL
+	Headers  map[string]string `json:"headers"`  // HTTP headers to send with requests
 	Defaults struct {
-		Out string `json:"out"`
+		Out string `json:"out"` // default output format (json, pretty, raw)
 	} `json:"defaults"`
 	Comment string `json:"_comment,omitempty"` // AI-friendly documentation
 }
@@ -86,44 +88,70 @@ func getSchemasDir() string {
 }
 
 // Public path functions
+// GetDefaultPath returns the default configuration directory path for the current OS.
+// On Linux: ~/.config/gqlt
+// On macOS: ~/Library/Application Support/gqlt  
+// On Windows: %APPDATA%/gqlt
 func GetDefaultPath() string {
 	return getDefaultPath()
 }
 
+// GetConfigPath returns the path to the main configuration file.
+// This is typically config.json in the default configuration directory.
 func GetConfigPath() string {
 	return getConfigPath()
 }
 
+// GetSchemaPath returns the path to the default schema file.
+// This is typically schema.json in the default configuration directory.
 func GetSchemaPath() string {
 	return getSchemaPath()
 }
 
+// GetSchemaPathForConfig returns the path to the schema file for a specific configuration.
+// This is typically schemas/{configName}.json in the default configuration directory.
 func GetSchemaPathForConfig(configName string) string {
 	return getSchemaPathForConfig(configName)
 }
 
+// GetConfigPathForDir returns the path to the configuration file in a specific directory.
 func GetConfigPathForDir(configDir string) string {
 	return getConfigPathForDir(configDir)
 }
 
+// GetSchemaPathForConfigInDir returns the path to the schema file for a specific configuration
+// in a specific directory.
 func GetSchemaPathForConfigInDir(configName, configDir string) string {
 	return getSchemaPathForConfigInDir(configName, configDir)
 }
 
+// GetJSONSchemaPathForConfigInDir returns the path to the JSON schema file for a specific
+// configuration in a specific directory.
 func GetJSONSchemaPathForConfigInDir(configName, configDir string) string {
 	return getJSONSchemaPathForConfigInDir(configName, configDir)
 }
 
+// GetGraphQLSchemaPathForConfigInDir returns the path to the GraphQL SDL schema file for a
+// specific configuration in a specific directory.
 func GetGraphQLSchemaPathForConfigInDir(configName, configDir string) string {
 	return getGraphQLSchemaPathForConfigInDir(configName, configDir)
 }
 
+// GetSchemasDir returns the path to the schemas directory.
+// This is typically schemas/ in the default configuration directory.
 func GetSchemasDir() string {
 	return getSchemasDir()
 }
 
-// Load reads a configuration file from the specified config directory
-// If configDir is empty, searches in standard locations
+// Load reads a configuration file from the specified config directory.
+// If configDir is empty, it searches in standard locations (current directory, then default path).
+// Returns a Config struct with the loaded configuration or an error if loading fails.
+//
+// Example:
+//   config, err := gqlt.Load("/path/to/config")
+//   if err != nil {
+//       log.Fatal(err)
+//   }
 func Load(configDir string) (*Config, error) {
 	var path string
 	if configDir == "" {
@@ -172,7 +200,14 @@ func Load(configDir string) (*Config, error) {
 	return &config, nil
 }
 
-// Save writes the configuration to the specified config directory
+// Save writes the configuration to the specified config directory.
+// Creates the directory if it doesn't exist and writes the configuration as JSON.
+//
+// Example:
+//   err := config.Save("/path/to/config")
+//   if err != nil {
+//       log.Fatal(err)
+//   }
 func (c *Config) Save(configDir string) error {
 	// Use config directory
 	path := getConfigPathForDir(configDir)
@@ -191,7 +226,13 @@ func (c *Config) Save(configDir string) error {
 	return os.WriteFile(path, data, 0644)
 }
 
-// GetCurrent returns the current active configuration
+// GetCurrent returns the current active configuration entry.
+// If the current configuration doesn't exist, it falls back to the "default" configuration,
+// or creates a default entry if no configurations exist.
+//
+// Example:
+//   current := config.GetCurrent()
+//   fmt.Printf("Current endpoint: %s\n", current.Endpoint)
 func (c *Config) GetCurrent() *ConfigEntry {
 	if entry, exists := c.Configs[c.Current]; exists {
 		return &entry

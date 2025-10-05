@@ -8,24 +8,43 @@ import (
 	"strings"
 )
 
-// Introspect handles GraphQL schema introspection
+// Introspect handles GraphQL schema introspection operations.
+// It provides utilities for introspecting GraphQL schemas and saving them to files.
 type Introspect struct {
 	client *Client
 }
 
-// NewIntrospect creates a new introspection handler
+// NewIntrospect creates a new introspection handler for the specified client.
+//
+// Example:
+//   client := gqlt.NewClient("https://api.example.com/graphql", nil)
+//   introspect := gqlt.NewIntrospect(client)
 func NewIntrospect(client *Client) *Introspect {
 	return &Introspect{
 		client: client,
 	}
 }
 
-// IntrospectSchema performs GraphQL introspection to get the schema
+// IntrospectSchema performs GraphQL introspection to get the schema from the endpoint.
+// Returns a Response containing the complete GraphQL schema information.
+//
+// Example:
+//   schema, err := introspect.IntrospectSchema()
+//   if err != nil {
+//       log.Fatal(err)
+//   }
 func (i *Introspect) IntrospectSchema() (*Response, error) {
 	return i.client.Introspect()
 }
 
-// SaveSchema saves a schema to a JSON file
+// SaveSchema saves a schema response to a JSON file.
+// The file will contain the complete introspection response in formatted JSON.
+//
+// Example:
+//   err := introspect.SaveSchema(schema, "schema.json")
+//   if err != nil {
+//       log.Fatal(err)
+//   }
 func (i *Introspect) SaveSchema(schema *Response, filePath string) error {
 	data, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {
