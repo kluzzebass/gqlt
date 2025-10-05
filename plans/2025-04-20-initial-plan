@@ -306,7 +306,7 @@ PHASE 4 | REFACTOR TO LAYERED ARCHITECTURE
 
 PURPOSE: Separate command parsing from business logic for better testability
 
-[ ] 21. Create internal/graphql package:
+[x] 21. Create internal/graphql package:
     - Move GraphQL execution logic from cmd/run.go
     - Client struct with methods for different operations
     - Separate concerns: HTTP client, request building, response parsing
@@ -322,7 +322,7 @@ PURPOSE: Separate command parsing from business logic for better testability
     func (c *Client) SetHeaders(headers map[string]string)
     func (c *Client) SetAuth(username, password string)
 
-[ ] 22. Create internal/io package:
+[x] 22. Create internal/input package:
     - Move file loading logic from cmd/run.go
     - Pure functions for file operations
     - No Cobra dependencies
@@ -332,7 +332,7 @@ PURPOSE: Separate command parsing from business logic for better testability
     func LoadHeaders(headers []string) (map[string]string, error)
     func ParseFiles(files []string) (map[string]string, error)
 
-[ ] 23. Create internal/output package:
+[x] 23. Create internal/output package:
     - Move output formatting logic from cmd/run.go
     - Pure functions for different output modes
     - No Cobra dependencies
@@ -341,7 +341,7 @@ PURPOSE: Separate command parsing from business logic for better testability
     func FormatPretty(data interface{}) error  
     func FormatRaw(data interface{}) error
 
-[ ] 24. Refactor cmd/run.go:
+[x] 24. Refactor cmd/run.go:
     - Only Cobra command parsing and flag gathering
     - Delegate all business logic to internal packages
     - Much simpler and focused on CLI concerns
@@ -354,7 +354,7 @@ PURPOSE: Separate command parsing from business logic for better testability
         // 5. Format output
     }
 
-[ ] 25. Refactor cmd/config.go:
+[x] 25. Refactor cmd/config.go:
     - Move config business logic to internal/config
     - cmd/config.go only handles CLI parsing
     - internal/config handles all config operations
@@ -369,7 +369,7 @@ PURPOSE: Separate command parsing from business logic for better testability
     func (m *Manager) Delete(name string) error
     // etc.
 
-[ ] 26. Add comprehensive tests:
+[x] 26. Add comprehensive tests:
     - Unit tests for each internal package
     - Integration tests for cmd packages
     - Mock HTTP clients for testing
@@ -386,7 +386,7 @@ BENEFITS:
 PHASE 5 | INTROSPECTION AND DESCRIBE
 ---------------------------------------------------------------
 
-[ ] 27. cmd/introspect.go
+[x] 27. cmd/introspect.go
     - endpoint via flag/config
     - issue introspection query:
       query IntrospectionQuery { __schema { types { name kind fields { name type { name kind } } } } }
@@ -396,7 +396,7 @@ PHASE 5 | INTROSPECTION AND DESCRIBE
        --out path
        --summary (stdout short)
 
-[ ] 28. cmd/describe.go
+[x] 28. cmd/describe.go
     - read schema JSON file
     - build index:
         map[TypeName]TypeMetadata

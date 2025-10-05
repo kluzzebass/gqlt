@@ -4,10 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
-	"runtime"
 
 	"github.com/kluzzebass/gqlt/internal/config"
+	"github.com/kluzzebass/gqlt/internal/paths"
 	"github.com/spf13/cobra"
 )
 
@@ -426,22 +425,13 @@ func loadConfig() (*config.Config, error) {
 }
 
 func getConfigPath() string {
-	// Default to OS-specific config path
-	switch runtime.GOOS {
-	case "darwin":
-		// macOS: Application Support
-		return filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "gqlt", "config.json")
-	case "windows":
-		// Windows: AppData
-		appData := os.Getenv("APPDATA")
-		if appData == "" {
-			appData = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Roaming")
-		}
-		return filepath.Join(appData, "gqlt", "config.json")
-	default:
-		// Linux/Unix: XDG Base Directory
-		return filepath.Join(os.Getenv("HOME"), ".config", "gqlt", "config.json")
+	// Use global configPath if set, otherwise default to OS-specific path
+	if configPath != "" {
+		return configPath
 	}
+
+	// Use the shared default path function
+	return paths.GetConfigPath()
 }
 
 func printJSON(v interface{}) error {

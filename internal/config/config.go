@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
+
+	"github.com/kluzzebass/gqlt/internal/paths"
 )
 
 // Config represents the main configuration structure
@@ -36,28 +37,8 @@ type Schema struct {
 func Load(path string) (*Config, error) {
 	if path == "" {
 		// Search in standard locations based on OS
-		var locations []string
-
-		switch runtime.GOOS {
-		case "darwin":
-			// macOS: Application Support
-			locations = []string{
-				filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "gqlt", "config.json"),
-			}
-		case "windows":
-			// Windows: AppData
-			appData := os.Getenv("APPDATA")
-			if appData == "" {
-				appData = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Roaming")
-			}
-			locations = []string{
-				filepath.Join(appData, "gqlt", "config.json"),
-			}
-		default:
-			// Linux/Unix: XDG Base Directory
-			locations = []string{
-				filepath.Join(os.Getenv("HOME"), ".config", "gqlt", "config.json"),
-			}
+		locations := []string{
+			paths.GetConfigPath(),
 		}
 
 		for _, loc := range locations {
