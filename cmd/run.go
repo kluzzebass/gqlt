@@ -46,8 +46,8 @@ func init() {
 	runCmd.Flags().StringVarP(&vars, "vars", "v", "", "JSON object with variables")
 	runCmd.Flags().StringVarP(&varsFile, "vars-file", "V", "", "Path to JSON file with variables")
 	runCmd.Flags().StringArrayVarP(&headers, "header", "H", []string{}, "HTTP header (key=value, repeatable)")
-	runCmd.Flags().StringArrayVarP(&files, "file", "f", []string{}, "File upload (name=path, repeatable)")
-	runCmd.Flags().StringVarP(&filesList, "files-list", "F", "", "File containing list of files to upload")
+	runCmd.Flags().StringArrayVarP(&files, "file", "f", []string{}, "File upload (name=path, repeatable, e.g. avatar=./photo.jpg)")
+	runCmd.Flags().StringVarP(&filesList, "files-list", "F", "", "File containing list of files to upload (one per line, format: name=path, supports # comments, ~ expansion, and relative paths)")
 	runCmd.Flags().StringVarP(&outMode, "out", "O", "json", "Output mode: json|pretty|raw")
 	runCmd.Flags().StringVarP(&username, "username", "U", "", "Username for basic authentication")
 	runCmd.Flags().StringVarP(&password, "password", "p", "", "Password for basic authentication")
@@ -83,7 +83,31 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 	}
 
 	headersMap := input.LoadHeaders(headers)
-	_, _ = input.ParseFiles(files) // File uploads not yet implemented
+
+	// Parse file uploads
+	filesMap, err := input.ParseFiles(files)
+	if err != nil {
+		return fmt.Errorf("failed to parse files: %w", err)
+	}
+
+	// Parse files from list if provided
+	if filesList != "" {
+		filesFromList, err := input.ParseFilesFromList(filesList)
+		if err != nil {
+			return fmt.Errorf("failed to parse files list: %w", err)
+		}
+
+		// Parse the files from list
+		filesFromListMap, err := input.ParseFiles(filesFromList)
+		if err != nil {
+			return fmt.Errorf("failed to parse files from list: %w", err)
+		}
+
+		// Merge with existing files
+		for name, path := range filesFromListMap {
+			filesMap[name] = path
+		}
+	}
 
 	// Step 10: Run GraphQL call
 	// Create GraphQL client
@@ -94,10 +118,20 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 		client.SetAuth(username, password)
 	}
 
-	// Execute GraphQL operation
-	result, err := client.Execute(queryStr, varsMap, operation)
-	if err != nil {
-		return fmt.Errorf("failed to execute GraphQL operation: %w", err)
+	// Execute GraphQL operation (with or without files)
+	var result *graphql.Response
+	if len(filesMap) > 0 {
+		// Use multipart/form-data for file uploads
+		result, err = client.ExecuteWithFiles(queryStr, varsMap, operation, filesMap)
+		if err != nil {
+			return fmt.Errorf("failed to execute GraphQL operation with files: %w", err)
+		}
+	} else {
+		// Use regular JSON for operations without files
+		result, err = client.Execute(queryStr, varsMap, operation)
+		if err != nil {
+			return fmt.Errorf("failed to execute GraphQL operation: %w", err)
+		}
 	}
 
 	// Step 11: Check for GraphQL errors

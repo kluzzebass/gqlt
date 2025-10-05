@@ -7,13 +7,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 )
 
 // Client represents a GraphQL client
 type Client struct {
-	endpoint  string
-	headers   map[string]string
+	endpoint   string
+	headers    map[string]string
 	httpClient *http.Client
 }
 
@@ -82,6 +85,122 @@ func (c *Client) Execute(query string, variables map[string]interface{}, operati
 
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
+	for k, v := range c.headers {
+		req.Header.Set(k, v)
+	}
+
+	// Execute request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute GraphQL request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Parse JSON response
+	var result Response
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse GraphQL response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// ExecuteWithFiles executes a GraphQL operation with file uploads using multipart/form-data
+func (c *Client) ExecuteWithFiles(query string, variables map[string]interface{}, operationName string, files map[string]string) (*Response, error) {
+	// Create multipart form data
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	// Add GraphQL operation fields
+	operations := map[string]interface{}{
+		"query": query,
+	}
+	if operationName != "" {
+		operations["operationName"] = operationName
+	}
+	if len(variables) > 0 {
+		operations["variables"] = variables
+	}
+
+	operationsJSON, err := json.Marshal(operations)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal operations: %w", err)
+	}
+
+	// Add operations field
+	operationsField, err := writer.CreateFormField("operations")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create operations field: %w", err)
+	}
+	_, err = operationsField.Write(operationsJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write operations: %w", err)
+	}
+
+	// Add map field for file mappings
+	if len(files) > 0 {
+		mapField, err := writer.CreateFormField("map")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create map field: %w", err)
+		}
+
+		// Create file mapping JSON
+		fileMap := make(map[string][]string)
+		for name := range files {
+			fileMap[name] = []string{"variables." + name}
+		}
+
+		mapJSON, err := json.Marshal(fileMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal file map: %w", err)
+		}
+
+		_, err = mapField.Write(mapJSON)
+		if err != nil {
+			return nil, fmt.Errorf("failed to write file map: %w", err)
+		}
+
+		// Add files
+		for name, path := range files {
+			file, err := os.Open(path)
+			if err != nil {
+				return nil, fmt.Errorf("failed to open file %s: %w", path, err)
+			}
+			defer file.Close()
+
+			part, err := writer.CreateFormFile(name, filepath.Base(path))
+			if err != nil {
+				return nil, fmt.Errorf("failed to create form file for %s: %w", name, err)
+			}
+
+			_, err = io.Copy(part, file)
+			if err != nil {
+				return nil, fmt.Errorf("failed to copy file %s: %w", path, err)
+			}
+		}
+	}
+
+	// Close the writer
+	err = writer.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(context.Background(), "POST", c.endpoint, &buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 	for k, v := range c.headers {
 		req.Header.Set(k, v)
 	}

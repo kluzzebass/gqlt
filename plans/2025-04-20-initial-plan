@@ -484,15 +484,16 @@ would actually be a step backward from what we have.
 PHASE 8 | HANDLING FILE UPLOADS
 ---------------------------------------------------------------
 
-[ ] 35. Support file uploads:
+[x] 35. Support file uploads:
     -f, --file flags parsed as "name=path" (repeatable)
     -F, --files-list string (file containing list of files to upload)
     - Parse file flags into map[name]path
     - Validate file existence before attach
-    - Note: File uploads require multipart/form-data implementation
-    - For now, file uploads are parsed but not yet implemented
+    - Implemented multipart/form-data for file uploads
+    - Added ExecuteWithFiles method to GraphQL client
+    - Added ParseFilesFromList function for batch file uploads
 
-[ ] 36. Example use in shell:
+[x] 36. Example use in shell:
     # Simple query (formatted JSON)
     gqlt run -u https://api.example.com/graphql -q '{ __typename }'
     

@@ -3,6 +3,7 @@ package input
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -115,13 +116,164 @@ func TestParseFiles(t *testing.T) {
 		t.Errorf("Expected empty result, got %v", result)
 	}
 
-	// Test with files list (currently returns empty map as not implemented)
-	files := []string{"file1:file1.txt", "file2:file2.txt"}
+	// Test with valid file specifications
+	files := []string{"file1=test1.txt", "file2=test2.txt"}
+
+	// Create temporary files for testing
+	tempDir := t.TempDir()
+	file1 := filepath.Join(tempDir, "test1.txt")
+	file2 := filepath.Join(tempDir, "test2.txt")
+
+	err = os.WriteFile(file1, []byte("content1"), 0644)
+	if err != nil {
+		t.Errorf("Failed to create test file 1: %v", err)
+	}
+
+	err = os.WriteFile(file2, []byte("content2"), 0644)
+	if err != nil {
+		t.Errorf("Failed to create test file 2: %v", err)
+	}
+
+	// Update file paths to use temp files
+	files[0] = "file1=" + file1
+	files[1] = "file2=" + file2
+
 	result, err = ParseFiles(files)
 	if err != nil {
 		t.Errorf("ParseFiles failed: %v", err)
 	}
+	if len(result) != 2 {
+		t.Errorf("Expected 2 files, got %d", len(result))
+	}
+	if result["file1"] != file1 {
+		t.Errorf("Expected file1 path %s, got %s", file1, result["file1"])
+	}
+	if result["file2"] != file2 {
+		t.Errorf("Expected file2 path %s, got %s", file2, result["file2"])
+	}
+
+	// Test with invalid format
+	invalidFiles := []string{"invalid-format"}
+	_, err = ParseFiles(invalidFiles)
+	if err == nil {
+		t.Error("Expected error for invalid file format")
+	}
+
+	// Test with non-existent file
+	nonExistentFiles := []string{"file1=non-existent.txt"}
+	_, err = ParseFiles(nonExistentFiles)
+	if err == nil {
+		t.Error("Expected error for non-existent file")
+	}
+}
+
+func TestParseFilesFromList(t *testing.T) {
+	// Test with empty files list path
+	result, err := ParseFilesFromList("")
+	if err != nil {
+		t.Errorf("ParseFilesFromList failed: %v", err)
+	}
 	if len(result) != 0 {
-		t.Errorf("Expected empty result (not implemented), got %v", result)
+		t.Errorf("Expected empty result, got %v", result)
+	}
+
+	// Test with files list file
+	tempDir := t.TempDir()
+	filesListPath := filepath.Join(tempDir, "files.txt")
+
+	// Create files list content
+	filesListContent := `# This is a comment
+file1=test1.txt
+file2=./test2.txt
+file3=../test3.txt
+
+# Another comment
+file4=test4.txt`
+
+	err = os.WriteFile(filesListPath, []byte(filesListContent), 0644)
+	if err != nil {
+		t.Errorf("Failed to create files list: %v", err)
+	}
+
+	result, err = ParseFilesFromList(filesListPath)
+	if err != nil {
+		t.Errorf("ParseFilesFromList failed: %v", err)
+	}
+	if len(result) != 4 {
+		t.Errorf("Expected 4 files, got %d", len(result))
+	}
+
+	// Verify paths were resolved to absolute paths
+	for i, file := range result {
+		if !strings.Contains(file, "=") {
+			t.Errorf("Expected file %d to contain '=', got '%s'", i, file)
+		}
+		parts := strings.SplitN(file, "=", 2)
+		if len(parts) != 2 {
+			t.Errorf("Expected file %d to be in 'name=path' format, got '%s'", i, file)
+		}
+		// Check that the path is absolute
+		if !filepath.IsAbs(parts[1]) {
+			t.Errorf("Expected file %d path to be absolute, got '%s'", i, parts[1])
+		}
+	}
+
+	// Test with invalid format in list
+	invalidListContent := `file1=test1.txt
+invalid-format
+file2=test2.txt`
+
+	invalidListPath := filepath.Join(tempDir, "invalid.txt")
+	err = os.WriteFile(invalidListPath, []byte(invalidListContent), 0644)
+	if err != nil {
+		t.Errorf("Failed to create invalid list: %v", err)
+	}
+
+	_, err = ParseFilesFromList(invalidListPath)
+	if err == nil {
+		t.Error("Expected error for invalid format in list")
+	}
+}
+
+func TestResolveFilePath(t *testing.T) {
+	// Test basic path resolution
+	line := "file1=./test.txt"
+	result, err := resolveFilePath(line)
+	if err != nil {
+		t.Errorf("resolveFilePath failed: %v", err)
+	}
+	if !strings.HasPrefix(result, "file1=") {
+		t.Errorf("Expected result to start with 'file1=', got '%s'", result)
+	}
+	path := strings.TrimPrefix(result, "file1=")
+	if !filepath.IsAbs(path) {
+		t.Errorf("Expected resolved path to be absolute, got '%s'", path)
+	}
+
+	// Test ~ expansion
+	line = "file2=~/test.txt"
+	result, err = resolveFilePath(line)
+	if err != nil {
+		t.Errorf("resolveFilePath with ~ failed: %v", err)
+	}
+	if !strings.HasPrefix(result, "file2=") {
+		t.Errorf("Expected result to start with 'file2=', got '%s'", result)
+	}
+	path = strings.TrimPrefix(result, "file2=")
+	if !filepath.IsAbs(path) {
+		t.Errorf("Expected resolved path to be absolute, got '%s'", path)
+	}
+	if !strings.Contains(path, "test.txt") {
+		t.Errorf("Expected path to contain 'test.txt', got '%s'", path)
+	}
+
+	// Test invalid line (no =)
+	line = "invalid-line"
+	result, err = resolveFilePath(line)
+	if err != nil {
+		t.Errorf("resolveFilePath with invalid line should not error: %v", err)
+	}
+	if result != line {
+		t.Errorf("Expected invalid line to be returned as-is, got '%s'", result)
 	}
 }

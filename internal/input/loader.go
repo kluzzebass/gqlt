@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -68,9 +69,106 @@ func LoadHeaders(headers []string) map[string]string {
 }
 
 // ParseFiles parses file upload specifications
-// Currently returns empty map as file uploads are not yet implemented
 func ParseFiles(files []string) (map[string]string, error) {
-	// TODO: Implement file upload parsing
-	// This will handle multipart/form-data for file uploads
-	return make(map[string]string), nil
+	filesMap := make(map[string]string)
+
+	for _, file := range files {
+		// Parse "name=path" format
+		parts := strings.SplitN(file, "=", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid file format '%s', expected 'name=path'", file)
+		}
+
+		name := strings.TrimSpace(parts[0])
+		path := strings.TrimSpace(parts[1])
+
+		if name == "" {
+			return nil, fmt.Errorf("file name cannot be empty in '%s'", file)
+		}
+
+		if path == "" {
+			return nil, fmt.Errorf("file path cannot be empty in '%s'", file)
+		}
+
+		// Validate file exists
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			return nil, fmt.Errorf("file does not exist: %s", path)
+		}
+
+		filesMap[name] = path
+	}
+
+	return filesMap, nil
+}
+
+// ParseFilesFromList parses file upload specifications from a file
+func ParseFilesFromList(filesListPath string) ([]string, error) {
+	if filesListPath == "" {
+		return []string{}, nil
+	}
+
+	data, err := os.ReadFile(filesListPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read files list: %w", err)
+	}
+
+	lines := strings.Split(string(data), "\n")
+	var files []string
+
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue // Skip empty lines and comments
+		}
+
+		// Validate format - just check for = and use everything after it as the filename
+		if !strings.Contains(line, "=") {
+			return nil, fmt.Errorf("invalid file format at line %d: '%s', expected 'name=path'", i+1, line)
+		}
+
+		// Resolve the path to handle relative paths, ~, etc.
+		resolvedLine, err := resolveFilePath(line)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve path at line %d: %v", i+1, err)
+		}
+
+		files = append(files, resolvedLine)
+	}
+
+	return files, nil
+}
+
+// resolveFilePath resolves a file path, handling ~ expansion and relative paths
+func resolveFilePath(line string) (string, error) {
+	// Split the line into name and path
+	parts := strings.SplitN(line, "=", 2)
+	if len(parts) != 2 {
+		return line, nil // Return as-is if no = found
+	}
+
+	name := strings.TrimSpace(parts[0])
+	path := strings.TrimSpace(parts[1])
+
+	// Handle ~ expansion
+	if strings.HasPrefix(path, "~/") {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to get home directory: %v", err)
+		}
+		path = filepath.Join(homeDir, path[2:])
+	} else if path == "~" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to get home directory: %v", err)
+		}
+		path = homeDir
+	}
+
+	// Resolve relative paths to absolute paths
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve absolute path for '%s': %v", path, err)
+	}
+
+	return name + "=" + absPath, nil
 }
