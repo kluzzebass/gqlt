@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/kluzzebass/gqlt"
@@ -12,9 +13,11 @@ import (
 
 // SDKServer wraps the official MCP SDK server with gqlt functionality
 type SDKServer struct {
-	server *mcp.Server
-	config *gqlt.Config
-	client *gqlt.Client
+	server      *mcp.Server
+	config      *gqlt.Config
+	client      *gqlt.Client
+	schemaCache map[string]interface{} // endpoint -> schema data
+	cacheMutex  sync.RWMutex
 }
 
 // NewSDKServer creates a new MCP server using the official SDK
@@ -29,9 +32,10 @@ func NewSDKServer(config *gqlt.Config) (*SDKServer, error) {
 	client := gqlt.NewClient("", nil)
 
 	sdkServer := &SDKServer{
-		server: server,
-		config: config,
-		client: client,
+		server:      server,
+		config:      config,
+		client:      client,
+		schemaCache: make(map[string]interface{}),
 	}
 
 	// Register all tools using the official SDK pattern
@@ -71,12 +75,6 @@ func (s *SDKServer) registerTools() error {
 		Name:        "execute_query",
 		Description: "Execute a GraphQL query, mutation, or subscription",
 	}, s.handleExecuteQuery)
-
-	// Add schema introspection tool
-	mcp.AddTool(s.server, &mcp.Tool{
-		Name:        "introspect_schema",
-		Description: "Get complete GraphQL schema information via introspection",
-	}, s.handleIntrospectSchema)
 
 	// Add query validation tool
 	mcp.AddTool(s.server, &mcp.Tool{
@@ -121,17 +119,6 @@ type ExecuteQueryOutput struct {
 	Data      interface{} `json:"data" jsonschema:"The GraphQL response data"`
 	Errors    interface{} `json:"errors,omitempty" jsonschema:"Any GraphQL errors"`
 	ElapsedMs int64       `json:"elapsed_ms" jsonschema:"Query execution time in milliseconds"`
-}
-
-// IntrospectSchemaInput defines the input schema for the introspect_schema tool
-type IntrospectSchemaInput struct {
-	Endpoint string            `json:"endpoint" jsonschema:"GraphQL endpoint URL"`
-	Headers  map[string]string `json:"headers,omitempty" jsonschema:"HTTP headers to include"`
-}
-
-// IntrospectSchemaOutput defines the output schema for the introspect_schema tool
-type IntrospectSchemaOutput struct {
-	Schema interface{} `json:"schema" jsonschema:"The complete GraphQL schema"`
 }
 
 // ValidateQueryInput defines the input schema for the validate_query tool
@@ -208,37 +195,6 @@ func (s *SDKServer) handleExecuteQuery(ctx context.Context, req *mcp.CallToolReq
 	}, nil
 }
 
-func (s *SDKServer) handleIntrospectSchema(ctx context.Context, req *mcp.CallToolRequest, input IntrospectSchemaInput) (
-	*mcp.CallToolResult,
-	IntrospectSchemaOutput,
-	error,
-) {
-	// Create a new client for this specific endpoint
-	client := gqlt.NewClient(input.Endpoint, nil)
-
-	// Set headers if provided
-	if len(input.Headers) > 0 {
-		client.SetHeaders(input.Headers)
-	}
-
-	// Introspect the schema
-	result, err := client.Introspect()
-	if err != nil {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{
-					Text: fmt.Sprintf("Schema introspection failed: %v", err),
-				},
-			},
-			IsError: true,
-		}, IntrospectSchemaOutput{}, nil
-	}
-
-	return nil, IntrospectSchemaOutput{
-		Schema: result.Data,
-	}, nil
-}
-
 func (s *SDKServer) handleValidateQuery(ctx context.Context, req *mcp.CallToolRequest, input ValidateQueryInput) (
 	*mcp.CallToolResult,
 	ValidateQueryOutput,
@@ -273,35 +229,241 @@ func (s *SDKServer) handleDescribeType(ctx context.Context, req *mcp.CallToolReq
 	DescribeTypeOutput,
 	error,
 ) {
-	// Create a new client for this specific endpoint
-	client := gqlt.NewClient(input.Endpoint, nil)
+	// Check cache first
+	s.cacheMutex.RLock()
+	schemaData, exists := s.schemaCache[input.Endpoint]
+	s.cacheMutex.RUnlock()
 
-	// Set headers if provided
-	if len(input.Headers) > 0 {
-		client.SetHeaders(input.Headers)
+	// If not in cache, introspect and cache it
+	if !exists {
+		client := gqlt.NewClient(input.Endpoint, nil)
+
+		// Set headers if provided
+		if len(input.Headers) > 0 {
+			client.SetHeaders(input.Headers)
+		}
+
+		// Introspect the schema
+		result, err := client.Introspect()
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{
+						Text: fmt.Sprintf("Schema introspection failed: %v", err),
+					},
+				},
+				IsError: true,
+			}, DescribeTypeOutput{}, nil
+		}
+
+		// Cache the schema
+		s.cacheMutex.Lock()
+		s.schemaCache[input.Endpoint] = result.Data
+		schemaData = result.Data
+		s.cacheMutex.Unlock()
 	}
 
-	// Get the schema first
-	result, err := client.Introspect()
+	// Parse the schema to find the specific type
+	typeInfo, err := s.extractTypeInfo(schemaData, input.TypeName, input.Endpoint)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
 				&mcp.TextContent{
-					Text: fmt.Sprintf("Schema introspection failed: %v", err),
+					Text: fmt.Sprintf("Failed to extract type info: %v", err),
 				},
 			},
 			IsError: true,
 		}, DescribeTypeOutput{}, nil
 	}
 
-	// For now, just return a placeholder - we can improve this later
-	typeInfo := fmt.Sprintf("Type analysis for '%s' on endpoint '%s':\n", input.TypeName, input.Endpoint)
-	typeInfo += "Schema introspection completed. Type details would be extracted from the schema here."
-	typeInfo += fmt.Sprintf("\n\nSchema data available: %v", result.Data != nil)
-
 	return nil, DescribeTypeOutput{
 		TypeInfo: typeInfo,
 	}, nil
+}
+
+// extractTypeInfo parses the schema data to extract information about a specific type
+func (s *SDKServer) extractTypeInfo(schemaData interface{}, typeName, endpoint string) (string, error) {
+	// Parse the schema structure
+	schemaMap, ok := schemaData.(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("invalid schema data format")
+	}
+
+	// Navigate to the schema types
+	__schema, ok := schemaMap["__schema"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("schema missing __schema field")
+	}
+
+	types, ok := __schema["types"].([]interface{})
+	if !ok {
+		return "", fmt.Errorf("schema missing types array")
+	}
+
+	// Find the specific type
+	var targetType map[string]interface{}
+	for _, typeItem := range types {
+		if typeDef, ok := typeItem.(map[string]interface{}); ok {
+			if name, ok := typeDef["name"].(string); ok && name == typeName {
+				targetType = typeDef
+				break
+			}
+		}
+	}
+
+	if targetType == nil {
+		return "", fmt.Errorf("type '%s' not found in schema", typeName)
+	}
+
+	// Format the type information
+	return s.formatTypeDefinition(targetType, typeName, endpoint), nil
+}
+
+// formatTypeDefinition formats a type definition into a readable string
+func (s *SDKServer) formatTypeDefinition(typeDef map[string]interface{}, typeName, endpoint string) string {
+	result := fmt.Sprintf("Type: %s (from %s)\n\n", typeName, endpoint)
+
+	// Get type kind
+	if kind, ok := typeDef["kind"].(string); ok {
+		result += fmt.Sprintf("Kind: %s\n", kind)
+	}
+
+	// Get description
+	if description, ok := typeDef["description"].(string); ok && description != "" {
+		result += fmt.Sprintf("Description: %s\n", description)
+	}
+
+	// Handle different type kinds
+	switch typeDef["kind"] {
+	case "OBJECT", "INTERFACE":
+		s.formatObjectType(typeDef, &result)
+	case "ENUM":
+		s.formatEnumType(typeDef, &result)
+	case "SCALAR":
+		s.formatScalarType(typeDef, &result)
+	case "UNION":
+		s.formatUnionType(typeDef, &result)
+	case "INPUT_OBJECT":
+		s.formatInputObjectType(typeDef, &result)
+	}
+
+	return result
+}
+
+// formatObjectType formats object/interface types with their fields
+func (s *SDKServer) formatObjectType(typeDef map[string]interface{}, result *string) {
+	if fields, ok := typeDef["fields"].([]interface{}); ok && len(fields) > 0 {
+		*result += "\nFields:\n"
+		for _, field := range fields {
+			if fieldDef, ok := field.(map[string]interface{}); ok {
+				s.formatField(fieldDef, result)
+			}
+		}
+	}
+}
+
+// formatEnumType formats enum types with their values
+func (s *SDKServer) formatEnumType(typeDef map[string]interface{}, result *string) {
+	if enumValues, ok := typeDef["enumValues"].([]interface{}); ok && len(enumValues) > 0 {
+		*result += "\nValues:\n"
+		for _, value := range enumValues {
+			if valueDef, ok := value.(map[string]interface{}); ok {
+				if name, ok := valueDef["name"].(string); ok {
+					*result += fmt.Sprintf("  - %s", name)
+					if description, ok := valueDef["description"].(string); ok && description != "" {
+						*result += fmt.Sprintf(" (%s)", description)
+					}
+					*result += "\n"
+				}
+			}
+		}
+	}
+}
+
+// formatScalarType formats scalar types
+func (s *SDKServer) formatScalarType(typeDef map[string]interface{}, result *string) {
+	*result += "\nThis is a scalar type.\n"
+}
+
+// formatUnionType formats union types with their possible types
+func (s *SDKServer) formatUnionType(typeDef map[string]interface{}, result *string) {
+	if possibleTypes, ok := typeDef["possibleTypes"].([]interface{}); ok && len(possibleTypes) > 0 {
+		*result += "\nPossible Types:\n"
+		for _, possibleType := range possibleTypes {
+			if typeRef, ok := possibleType.(map[string]interface{}); ok {
+				if name, ok := typeRef["name"].(string); ok {
+					*result += fmt.Sprintf("  - %s\n", name)
+				}
+			}
+		}
+	}
+}
+
+// formatInputObjectType formats input object types with their input fields
+func (s *SDKServer) formatInputObjectType(typeDef map[string]interface{}, result *string) {
+	if inputFields, ok := typeDef["inputFields"].([]interface{}); ok && len(inputFields) > 0 {
+		*result += "\nInput Fields:\n"
+		for _, field := range inputFields {
+			if fieldDef, ok := field.(map[string]interface{}); ok {
+				s.formatField(fieldDef, result)
+			}
+		}
+	}
+}
+
+// formatField formats a field definition
+func (s *SDKServer) formatField(fieldDef map[string]interface{}, result *string) {
+	if name, ok := fieldDef["name"].(string); ok {
+		*result += fmt.Sprintf("  - %s", name)
+
+		// Add type information
+		if typeInfo, ok := fieldDef["type"].(map[string]interface{}); ok {
+			*result += fmt.Sprintf(": %s", s.formatType(typeInfo))
+		}
+
+		// Add description
+		if description, ok := fieldDef["description"].(string); ok && description != "" {
+			*result += fmt.Sprintf(" - %s", description)
+		}
+
+		// Add arguments if present
+		if args, ok := fieldDef["args"].([]interface{}); ok && len(args) > 0 {
+			*result += "\n    Arguments:"
+			for _, arg := range args {
+				if argDef, ok := arg.(map[string]interface{}); ok {
+					if argName, ok := argDef["name"].(string); ok {
+						*result += fmt.Sprintf("\n      - %s", argName)
+						if argType, ok := argDef["type"].(map[string]interface{}); ok {
+							*result += fmt.Sprintf(": %s", s.formatType(argType))
+						}
+					}
+				}
+			}
+		}
+
+		*result += "\n"
+	}
+}
+
+// formatType formats a type reference
+func (s *SDKServer) formatType(typeInfo map[string]interface{}) string {
+	if name, ok := typeInfo["name"].(string); ok {
+		// Handle non-null and list wrappers
+		if kind, ok := typeInfo["kind"].(string); ok {
+			switch kind {
+			case "NON_NULL":
+				if ofType, ok := typeInfo["ofType"].(map[string]interface{}); ok {
+					return s.formatType(ofType) + "!"
+				}
+			case "LIST":
+				if ofType, ok := typeInfo["ofType"].(map[string]interface{}); ok {
+					return "[" + s.formatType(ofType) + "]"
+				}
+			}
+		}
+		return name
+	}
+	return "Unknown"
 }
 
 // TODO: Add resource and prompt handlers later
