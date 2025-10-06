@@ -1,7 +1,5 @@
 package main
 
-//go:generate go run generate_docs.go
-
 import (
 	"github.com/kluzzebass/gqlt"
 	"github.com/spf13/cobra"
@@ -14,11 +12,6 @@ var configDir string
 var configName string
 var outputFormat string
 var quietMode bool
-
-// GetRootCommand returns the root command for documentation generation
-func GetRootCommand() *cobra.Command {
-	return rootCmd
-}
 
 var rootCmd = &cobra.Command{
 	Use:   "gqlt",

@@ -1,0 +1,11 @@
+---
+description: How to wrangle the Cobra
+alwaysApply: true
+---
+
+When creating cobra commands, always make sure that
+
+- examples are included for anything but the simplest commands.
+- you use the `Examples` property for examples.
+- you don't include examples in the `Long` property.
+- command functions are named after the entire command path, so that the command `validate schema` becomes `validateSchema()`.

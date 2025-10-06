@@ -90,9 +90,9 @@ func init() {
 
 func validateQuery(cmd *cobra.Command, args []string) error {
 	// Get configuration from flags
-	configDir := cmd.Flag("config-dir").Value.String()
-	outputFormat := cmd.Flag("format").Value.String()
-	quietMode := cmd.Flag("quiet").Value.String() == "true"
+	configDir := cmd.Root().Flag("config-dir").Value.String()
+	outputFormat := cmd.Root().Flag("format").Value.String()
+	quietMode := cmd.Root().Flag("quiet").Value.String() == "true"
 
 	formatter := gqlt.NewFormatter(outputFormat)
 
@@ -219,9 +219,9 @@ func validateQuery(cmd *cobra.Command, args []string) error {
 
 func validateConfig(cmd *cobra.Command, args []string) error {
 	// Get configuration from flags
-	configDir := cmd.Flag("config-dir").Value.String()
-	outputFormat := cmd.Flag("format").Value.String()
-	quietMode := cmd.Flag("quiet").Value.String() == "true"
+	configDir := cmd.Root().Flag("config-dir").Value.String()
+	outputFormat := cmd.Root().Flag("format").Value.String()
+	quietMode := cmd.Root().Flag("quiet").Value.String() == "true"
 
 	formatter := gqlt.NewFormatter(outputFormat)
 
@@ -281,9 +281,9 @@ func validateConfig(cmd *cobra.Command, args []string) error {
 
 func validateSchema(cmd *cobra.Command, args []string) error {
 	// Get configuration from flags
-	configDir := cmd.Flag("config-dir").Value.String()
-	outputFormat := cmd.Flag("format").Value.String()
-	quietMode := cmd.Flag("quiet").Value.String() == "true"
+	configDir := cmd.Root().Flag("config-dir").Value.String()
+	outputFormat := cmd.Root().Flag("format").Value.String()
+	quietMode := cmd.Root().Flag("quiet").Value.String() == "true"
 	endpointURL := cmd.Flag("url").Value.String()
 
 	formatter := gqlt.NewFormatter(outputFormat)

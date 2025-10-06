@@ -37,5 +37,5 @@ go.work.sum
 bin/
 dist/
 .gqlt/
-*.gqlt
+gqlt
 

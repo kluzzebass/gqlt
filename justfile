@@ -45,18 +45,27 @@ bump-major:
 build:
     @version=$(cat VERSION) && \
     echo "Building gqlt v$version..." && \
-    go build -ldflags "-X main.version=$version" -o gqlt ./cmd && \
-    echo "Built gqlt v$version"
+    mkdir -p dist && \
+    CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=$version" -o dist/gqlt ./cmd && \
+    echo "Built gqlt v$version to dist/gqlt"
+
+# Check if build is needed (without building)
+check-build:
+    @if go list -f '{{{{.Stale}}}}' ./cmd | grep -q "true"; then \
+        echo "Build needed: source files or dependencies have changed"; \
+    else \
+        echo "Build not needed: binary is up to date"; \
+    fi
 
 # Build for all platforms
 build-all:
     @version=$(cat VERSION) && \
     echo "Building gqlt v$version for all platforms..." && \
-    GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$version" -o dist/gqlt-linux-amd64 ./cmd && \
-    GOOS=linux GOARCH=arm64 go build -ldflags "-X main.version=$version" -o dist/gqlt-linux-arm64 ./cmd && \
-    GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=$version" -o dist/gqlt-darwin-amd64 ./cmd && \
-    GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.version=$version" -o dist/gqlt-darwin-arm64 ./cmd && \
-    GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=$version" -o dist/gqlt-windows-amd64.exe ./cmd && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X main.version=$version" -o dist/gqlt-linux-amd64 ./cmd && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w -X main.version=$version" -o dist/gqlt-linux-arm64 ./cmd && \
+    CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w -X main.version=$version" -o dist/gqlt-darwin-amd64 ./cmd && \
+    CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w -X main.version=$version" -o dist/gqlt-darwin-arm64 ./cmd && \
+    CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X main.version=$version" -o dist/gqlt-windows-amd64.exe ./cmd && \
     echo "Built binaries for all platforms in dist/"
 
 # Create distribution directory
@@ -129,11 +138,11 @@ update-deps:
 
 # Run the CLI with help
 help:
-    @./gqlt --help
+    @./dist/gqlt --help
 
 # Run the CLI with version
 version:
-    @./gqlt --version
+    @./dist/gqlt --version
 
 # Install the binary to $GOPATH/bin
 install:
@@ -282,13 +291,11 @@ release-notes:
     echo "- macOS (arm64): gqlt-$version-darwin-arm64.tar.gz" && \
     echo "- Windows (amd64): gqlt-$version-windows-amd64.zip"
 
-# Generate documentation from Cobra commands
-docs:
-	@echo "Generating documentation..."
+# Generate comprehensive README.md
+readme:
 	@just build
-	@./gqlt docs --format md --output README.md
-	@./gqlt docs --format man --tree --output man
-	@echo "Documentation generated successfully!"
+	@./generate_readme.sh
+	@echo "Comprehensive README.md generated!"
 
 # Show project info
 info:
@@ -365,6 +372,8 @@ help-just:
     @echo "  release-notes        - Show release notes template"
     @echo ""
     @echo "Documentation:"
-    @echo "  docs                 - Generate documentation from Cobra commands"
-    @echo "  man                  - Generate and view man page"
-    @echo "  readme               - Generate and view README"
+    @echo "  readme               - Generate comprehensive README.md from all commands"
+    @echo ""
+    @echo "Note: Use 'gqlt docs' command directly for other documentation formats:"
+    @echo "  gqlt docs --format md --tree --output docs/  - Generate markdown tree"
+    @echo "  gqlt docs --format man --tree --output man/  - Generate man pages"

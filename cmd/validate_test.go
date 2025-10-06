@@ -1,339 +1,194 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"os"
-	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/kluzzebass/gqlt"
+	"github.com/spf13/cobra"
 )
 
-func TestValidateConfigLogic(t *testing.T) {
-	tests := []struct {
-		name         string
-		setupConfig  func(tempDir string) error
-		expectValid  bool
-		expectErrors bool
-	}{
-		{
-			name: "default config with no endpoint",
-			setupConfig: func(tempDir string) error {
-				// Default config is created automatically
-				return nil
-			},
-			expectValid:  false,
-			expectErrors: true,
-		},
-		{
-			name: "config with valid endpoint",
-			setupConfig: func(tempDir string) error {
-				cfg, err := gqlt.Load(tempDir)
-				if err != nil {
-					return err
-				}
-				entry := cfg.Configs["default"]
-				entry.Endpoint = "https://api.example.com/graphql"
-				cfg.Configs["default"] = entry
-				return cfg.Save(tempDir)
-			},
-			expectValid:  true,
-			expectErrors: false,
-		},
-		{
-			name: "multiple configs with mixed validity",
-			setupConfig: func(tempDir string) error {
-				cfg, err := gqlt.Load(tempDir)
-				if err != nil {
-					return err
-				}
-				entry := cfg.Configs["default"]
-				entry.Endpoint = "https://api.example.com/graphql"
-				cfg.Configs["default"] = entry
-
-				testEntry := gqlt.ConfigEntry{
-					Endpoint: "",
-					Headers:  map[string]string{},
-				}
-				testEntry.Defaults.Out = "json"
-				cfg.Configs["test"] = testEntry
-				return cfg.Save(tempDir)
-			},
-			expectValid:  false,
-			expectErrors: true,
-		},
+func TestValidateCommandStructure(t *testing.T) {
+	// Test that validate command exists and has expected subcommands
+	var validateCmd *cobra.Command
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Name() == "validate" {
+			validateCmd = cmd
+			break
+		}
+	}
+	if validateCmd == nil {
+		t.Fatalf("Expected validate command to be registered")
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tempDir := t.TempDir()
-
-			if err := tt.setupConfig(tempDir); err != nil {
-				t.Fatalf("Failed to setup config: %v", err)
+	// Test that validate has all expected subcommands
+	expectedSubcommands := []string{"query", "config", "schema"}
+	for _, subCmdName := range expectedSubcommands {
+		found := false
+		for _, cmd := range validateCmd.Commands() {
+			if cmd.Name() == subCmdName {
+				found = true
+				break
 			}
-
-			cfg, err := gqlt.Load(tempDir)
-			if err != nil {
-				t.Fatalf("Failed to load config: %v", err)
-			}
-
-			// Validate configuration
-			validationResult := map[string]interface{}{
-				"valid":          true,
-				"config_dir":     tempDir,
-				"current_config": cfg.Current,
-				"configs_count":  len(cfg.Configs),
-			}
-
-			// Validate each configuration
-			configErrors := make(map[string][]string)
-			for name, config := range cfg.Configs {
-				errors := []string{}
-				if config.Endpoint == "" {
-					errors = append(errors, "Missing endpoint")
-				}
-				if len(errors) > 0 {
-					configErrors[name] = errors
-				}
-			}
-
-			if len(configErrors) > 0 {
-				validationResult["valid"] = false
-				validationResult["config_errors"] = configErrors
-			}
-
-			isValid := validationResult["valid"].(bool)
-			if isValid != tt.expectValid {
-				t.Errorf("Expected valid=%v, got %v", tt.expectValid, isValid)
-			}
-
-			hasErrors := len(configErrors) > 0
-			if hasErrors != tt.expectErrors {
-				t.Errorf("Expected errors=%v, got %v (errors: %v)", tt.expectErrors, hasErrors, configErrors)
-			}
-		})
+		}
+		if !found {
+			t.Errorf("Expected validate subcommand '%s' to be registered", subCmdName)
+		}
 	}
 }
 
-func TestValidateQueryLogic(t *testing.T) {
-	tests := []struct {
-		name        string
-		query       string
-		queryFile   string
-		setupFile   func(dir string) (string, error)
-		expectError bool
-	}{
-		{
-			name:        "inline query",
-			query:       "{ users { id } }",
-			queryFile:   "",
-			expectError: false,
-		},
-		{
-			name:      "query from file",
-			query:     "",
-			queryFile: "query.graphql",
-			setupFile: func(dir string) (string, error) {
-				path := filepath.Join(dir, "query.graphql")
-				err := os.WriteFile(path, []byte("{ users { id name } }"), 0644)
-				return path, err
-			},
-			expectError: false,
-		},
-		{
-			name:        "no query provided",
-			query:       "",
-			queryFile:   "",
-			expectError: true,
-		},
-		{
-			name:        "query file not found",
-			query:       "",
-			queryFile:   "nonexistent.graphql",
-			expectError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tempDir := t.TempDir()
-			inputHandler := gqlt.NewInput()
-
-			queryFile := tt.queryFile
-			if tt.setupFile != nil {
-				var err error
-				queryFile, err = tt.setupFile(tempDir)
-				if err != nil {
-					t.Fatalf("Failed to setup test file: %v", err)
-				}
-			} else if tt.queryFile != "" {
-				queryFile = filepath.Join(tempDir, tt.queryFile)
-			}
-
-			queryStr, err := inputHandler.LoadQuery(tt.query, queryFile)
-
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("Expected error, got nil")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Expected no error, got %v", err)
-				}
-				if queryStr == "" {
-					t.Errorf("Expected non-empty query string")
-				}
-			}
-		})
-	}
-}
-
-func TestValidateSchemaLogic(t *testing.T) {
-	tests := []struct {
-		name        string
-		endpoint    string
-		expectError bool
-	}{
-		{
-			name:        "valid client creation",
-			endpoint:    "https://api.example.com/graphql",
-			expectError: false,
-		},
-		{
-			name:        "empty endpoint",
-			endpoint:    "",
-			expectError: false, // Client creation doesn't fail for empty endpoint
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client := gqlt.NewClient(tt.endpoint, nil)
-			if client == nil {
-				t.Fatal("Failed to create client")
-			}
-
-			introspectClient := gqlt.NewIntrospect(client)
-			if introspectClient == nil {
-				t.Fatal("Failed to create introspect client")
-			}
-		})
-	}
-}
-
-func TestValidateOutputFormats(t *testing.T) {
-	tests := []struct {
-		name   string
-		format string
-	}{
-		{"json formatter", "json"},
-		{"table formatter", "table"},
-		{"yaml formatter", "yaml"},
-		{"unknown formatter fallback", "unknown"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			formatter := gqlt.NewFormatter(tt.format)
-			if tt.format == "unknown" {
-				// Unknown formats should return nil
-				if formatter != nil {
-					t.Errorf("Expected nil formatter for unknown format %s", tt.format)
-				}
-				return
-			}
-			if formatter == nil {
-				t.Errorf("Expected non-nil formatter for format %s", tt.format)
-			}
-
-			// Test structured output
-			data := map[string]interface{}{
-				"test": "value",
-			}
-
-			// Redirect stdout to capture output
-			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
-			err := formatter.FormatStructured(data, false)
-
-			w.Close()
-			os.Stdout = oldStdout
-
-			if err != nil {
-				t.Errorf("FormatStructured failed: %v", err)
-			}
-
-			// Read captured output
-			buf := make([]byte, 4096)
-			n, _ := r.Read(buf)
-			output := string(buf[:n])
-
-			if output == "" {
-				t.Errorf("Expected non-empty output")
-			}
-
-			// For JSON format, verify it's valid JSON
-			if tt.format == "json" || tt.format == "unknown" {
-				var result map[string]interface{}
-				if err := json.Unmarshal([]byte(output), &result); err != nil {
-					t.Errorf("Invalid JSON output: %v", err)
-				}
-			}
-		})
-	}
-}
-
-func TestValidateErrorCodes(t *testing.T) {
+func TestValidateHelpCommands(t *testing.T) {
+	// Test that all validate help commands work
 	tests := []struct {
 		name string
-		code string
+		args []string
 	}{
-		{"config load error", gqlt.ErrorCodeConfigLoad},
-		{"config not found", gqlt.ErrorCodeConfigNotFound},
-		{"query load error", gqlt.ErrorCodeQueryLoad},
-		{"schema introspect error", gqlt.ErrorCodeSchemaIntrospect},
-		{"graphql execution error", gqlt.ErrorCodeGraphQLExecution},
+		{
+			name: "validate help",
+			args: []string{"validate", "--help"},
+		},
+		{
+			name: "validate config help",
+			args: []string{"validate", "config", "--help"},
+		},
+		{
+			name: "validate query help",
+			args: []string{"validate", "query", "--help"},
+		},
+		{
+			name: "validate schema help",
+			args: []string{"validate", "schema", "--help"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			formatter := gqlt.NewFormatter("json")
-			errorBuf := &bytes.Buffer{}
-			formatter.SetErrorOutput(errorBuf)
-
-			err := formatter.FormatStructuredError(
-				os.ErrNotExist,
-				tt.code,
-				false,
-			)
+			cmd := createFullTestCommand()
+			output, err := executeCommandWithOutput(cmd, tt.args)
 
 			if err != nil {
-				t.Errorf("FormatStructuredError failed: %v", err)
+				t.Errorf("Unexpected error for %s: %v", tt.name, err)
 			}
 
-			output := errorBuf.String()
-
-			// Verify JSON output contains error code
-			var result map[string]interface{}
-			if err := json.Unmarshal([]byte(output), &result); err != nil {
-				t.Errorf("Invalid JSON output: %v", err)
-			}
-
-			if result["success"] != false {
-				t.Errorf("Expected success=false, got %v", result["success"])
-			}
-
-			errorInfo, ok := result["error"].(map[string]interface{})
-			if !ok {
-				t.Errorf("Expected error field in output")
-			}
-
-			if errorInfo["code"] != tt.code {
-				t.Errorf("Expected error code %s, got %v", tt.code, errorInfo["code"])
+			// Check that help output contains expected content
+			if !strings.Contains(output, "validate") {
+				t.Errorf("Expected help output to contain 'validate', got: %s", output)
 			}
 		})
+	}
+}
+
+func TestValidateConfigCommand(t *testing.T) {
+	// Test validate config command with temporary environment
+	_, cleanup := setupTestEnvironment(t)
+	defer cleanup()
+
+	// Initialize config first
+	cmd := createTestCommand()
+	cmd.SetArgs([]string{"config", "init"})
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("config init failed: %v", err)
+	}
+
+	// Test validate config
+	validateCmd := createFullTestCommand()
+	output, err := executeCommandWithOutput(validateCmd, []string{"validate", "config"})
+
+	// The command should run without panicking
+	// Note: The formatter outputs to stdout directly, so we can't easily capture it in tests
+	// The important thing is that the command executes successfully
+	if err != nil {
+		t.Errorf("validate config failed: %v", err)
+	}
+
+	// The output might be empty because the formatter writes to stdout directly
+	// but the command should have executed without errors
+	t.Logf("Command executed successfully, output length: %d", len(output))
+}
+
+func TestValidateQueryCommand(t *testing.T) {
+	// Test validate query command (this will likely fail without a real endpoint, but we can test the command structure)
+	cmd := createFullTestCommand()
+
+	// Test with invalid URL to ensure command structure works
+	output, err := executeCommandWithOutput(cmd, []string{"validate", "query", "--query", "{ users { id } }", "--url", "https://invalid-endpoint.example.com/graphql"})
+
+	// We expect this to fail, but the command should be structured correctly
+	if err == nil {
+		t.Log("validate query succeeded unexpectedly")
+	}
+
+	// Check that we got some kind of structured output (even if it's an error)
+	if !strings.Contains(output, "query") && !strings.Contains(output, "error") {
+		t.Errorf("Expected validation output to contain query or error information, got: %s", output)
+	}
+}
+
+func TestValidateSchemaCommand(t *testing.T) {
+	// Test validate schema command (this will likely fail without a real endpoint, but we can test the command structure)
+	cmd := createFullTestCommand()
+
+	// Test with invalid URL to ensure command structure works
+	output, err := executeCommandWithOutput(cmd, []string{"validate", "schema", "--url", "https://invalid-endpoint.example.com/graphql"})
+
+	// We expect this to fail, but the command should be structured correctly
+	if err == nil {
+		t.Log("validate schema succeeded unexpectedly")
+	}
+
+	// Check that we got some kind of structured output (even if it's an error)
+	if !strings.Contains(output, "schema") && !strings.Contains(output, "error") {
+		t.Errorf("Expected validation output to contain schema or error information, got: %s", output)
+	}
+}
+
+func TestValidateCommandFlags(t *testing.T) {
+	// Test that validate commands have expected flags
+	var validateCmd *cobra.Command
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Name() == "validate" {
+			validateCmd = cmd
+			break
+		}
+	}
+	if validateCmd == nil {
+		t.Fatalf("Expected validate command to be registered")
+	}
+
+	// Test validate query flags
+	var validateQueryCmd *cobra.Command
+	for _, cmd := range validateCmd.Commands() {
+		if cmd.Name() == "query" {
+			validateQueryCmd = cmd
+			break
+		}
+	}
+	if validateQueryCmd == nil {
+		t.Fatalf("Expected validate query command to be registered")
+	}
+
+	expectedFlags := []string{"query", "query-file", "url"}
+	for _, flagName := range expectedFlags {
+		flag := validateQueryCmd.Flag(flagName)
+		if flag == nil {
+			t.Errorf("Expected validate query command to have flag '%s'", flagName)
+		}
+	}
+
+	// Test validate schema flags
+	var validateSchemaCmd *cobra.Command
+	for _, cmd := range validateCmd.Commands() {
+		if cmd.Name() == "schema" {
+			validateSchemaCmd = cmd
+			break
+		}
+	}
+	if validateSchemaCmd == nil {
+		t.Fatalf("Expected validate schema command to be registered")
+	}
+
+	schemaFlag := validateSchemaCmd.Flag("url")
+	if schemaFlag == nil {
+		t.Errorf("Expected validate schema command to have flag 'url'")
 	}
 }

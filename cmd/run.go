@@ -13,31 +13,15 @@ var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Execute a GraphQL operation against an endpoint",
 	Long: `Execute a GraphQL operation (query or mutation) against a GraphQL endpoint.
-You can provide the query inline, from a file, or via stdin.
-
-QUERY SOURCES:
-  - Inline: --query "query { ... }"
-  - File: --query-file query.graphql
-  - Stdin: echo "query { ... }" | gqlt run --url https://api.example.com/graphql
-
-VARIABLES:
-  - Inline: --vars '{"key": "value"}'
-  - File: --vars-file variables.json
-
-AUTHENTICATION (in order of precedence):
-  1. Basic auth: --username + --password
-  2. Bearer token: --token
-  3. API key: --api-key
-
-OUTPUT MODES:
-  - json: Structured JSON (default)
-  - pretty: Colorized formatted JSON
-  - raw: Unformatted JSON`,
+You can provide the query inline, from a file, or via stdin.`,
 	Example: `# Basic query
 gqlt run --url https://api.example.com/graphql --query "{ users { id name } }"
 
 # Query with variables
 gqlt run --url https://api.example.com/graphql --query "query($id: ID!) { user(id: $id) { name } }" --vars '{"id": "123"}'
+
+# Query from stdin
+echo "{ users { id name } }" | gqlt run --url https://api.example.com/graphql
 
 # Mutation with file upload
 gqlt run --url https://api.example.com/graphql --query "mutation($file: Upload!) { uploadFile(file: $file) }" --file avatar=./photo.jpg
@@ -45,10 +29,10 @@ gqlt run --url https://api.example.com/graphql --query "mutation($file: Upload!)
 # Using configuration
 gqlt run --query "{ users { id name } }"  # Uses configured endpoint
 
-# With authentication
-gqlt run --token "bearer-token" --query "{ me { id } }"
-gqlt run --username user --password pass --query "{ me { id } }"
-gqlt run --api-key "api-key" --query "{ me { id } }"
+# Authentication (precedence: Basic Auth > Bearer Token > API Key)
+gqlt run --username user --password pass --query "{ me { id } }"  # Basic auth (highest precedence)
+gqlt run --token "bearer-token" --query "{ me { id } }"          # Bearer token
+gqlt run --api-key "api-key" --query "{ me { id } }"             # API key (lowest precedence)
 
 # Structured output for AI agents
 gqlt run --format json --quiet --query "{ users { id } }"
