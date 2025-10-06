@@ -72,7 +72,7 @@ func TestValidateSubcommands(t *testing.T) {
 
 func TestConfigSubcommands(t *testing.T) {
 	// Test that config has all expected subcommands
-	expectedSubcommands := []string{"show", "list", "create", "delete", "use", "set", "set-token", "set-username", "set-password", "init", "validate", "describe", "examples", "clone"}
+	expectedSubcommands := []string{"show", "list", "create", "delete", "use", "set", "init", "validate", "clone"}
 
 	for _, subCmdName := range expectedSubcommands {
 		found := false
@@ -518,7 +518,7 @@ func TestConfigSetTokenNonExistentConfig(t *testing.T) {
 	errorCmd.SetOut(&buf)
 	errorCmd.SetErr(&buf)
 	errorCmd.SetArgs([]string{"config", "set-token", "nonexistent", "test-token", "--format", "json"})
-	err = errorCmd.Execute()
+	_ = errorCmd.Execute() // Ignore error, we expect structured error output
 
 	// The command should return structured error output, not a Go error
 	output := buf.String()

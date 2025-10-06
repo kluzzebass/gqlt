@@ -17,23 +17,21 @@ AI-FRIENDLY FEATURES:
 - Structured JSON output with validation results
 - Machine-readable error codes
 - Detailed validation information
-- Quiet mode for automation
+- Quiet mode for automation`,
+	Example: `# Validate a query against a schema
+gqlt validate query --query "{ users { id name } }" --url https://api.example.com/graphql
 
-EXAMPLES:
-  # Validate a query against a schema
-  gqlt validate query --query "{ users { id name } }" --url https://api.example.com/graphql
-  
-  # Validate query from file
-  gqlt validate query --query-file query.graphql --url https://api.example.com/graphql
-  
-  # Validate configuration
-  gqlt validate config
-  
-  # Validate schema
-  gqlt validate schema --url https://api.example.com/graphql
-  
-  # Structured output for AI agents
-  gqlt validate query --query "{ users { id } }" --format json --quiet`,
+# Validate query from file
+gqlt validate query --query-file query.graphql --url https://api.example.com/graphql
+
+# Validate configuration
+gqlt validate config
+
+# Validate schema
+gqlt validate schema --url https://api.example.com/graphql
+
+# Structured output for AI agents
+gqlt validate query --query "{ users { id } }" --format json --quiet`,
 }
 
 func init() {
@@ -44,12 +42,10 @@ var validateQueryCmd = &cobra.Command{
 	Use:   "query",
 	Short: "Validate a GraphQL query against a schema",
 	Long: `Validate a GraphQL query against a schema.
-Returns structured validation results including syntax errors, type errors, and field availability.
-
-EXAMPLES:
-  gqlt validate query --query "{ users { id name } }" --url https://api.example.com/graphql
-  gqlt validate query --query-file query.graphql --url https://api.example.com/graphql
-  gqlt validate query --query "{ users { id } }" --format json --quiet`,
+Returns structured validation results including syntax errors, type errors, and field availability.`,
+	Example: `gqlt validate query --query "{ users { id name } }" --url https://api.example.com/graphql
+gqlt validate query --query-file query.graphql --url https://api.example.com/graphql
+gqlt validate query --query "{ users { id } }" --format json --quiet`,
 	Args: cobra.NoArgs,
 	RunE: validateQuery,
 }
@@ -65,11 +61,9 @@ var validateConfigCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Validate configuration files",
 	Long: `Validate configuration files for syntax and completeness.
-Returns structured validation results with detailed error information.
-
-EXAMPLES:
-  gqlt validate config
-  gqlt validate config --format json --quiet`,
+Returns structured validation results with detailed error information.`,
+	Example: `gqlt validate config
+gqlt validate config --format json --quiet`,
 	Args: cobra.NoArgs,
 	RunE: validateConfig,
 }
@@ -78,11 +72,9 @@ var validateSchemaCmd = &cobra.Command{
 	Use:   "schema",
 	Short: "Validate a GraphQL schema",
 	Long: `Validate a GraphQL schema for correctness and completeness.
-Returns structured validation results with schema analysis.
-
-EXAMPLES:
-  gqlt validate schema --url https://api.example.com/graphql
-  gqlt validate schema --url https://api.example.com/graphql --format json --quiet`,
+Returns structured validation results with schema analysis.`,
+	Example: `gqlt validate schema --url https://api.example.com/graphql
+gqlt validate schema --url https://api.example.com/graphql --format json --quiet`,
 	Args: cobra.NoArgs,
 	RunE: validateSchema,
 }

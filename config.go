@@ -1,11 +1,13 @@
 package gqlt
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 // Config represents the main configuration structure that manages multiple named configurations.
@@ -16,10 +18,16 @@ type Config struct {
 }
 
 // ConfigEntry represents a single configuration for a GraphQL endpoint.
-// It contains the endpoint URL, headers, default output format, and optional documentation.
+// It contains the endpoint URL, headers, authentication credentials, default output format, and optional documentation.
 type ConfigEntry struct {
 	Endpoint string            `json:"endpoint"` // GraphQL endpoint URL
 	Headers  map[string]string `json:"headers"`  // HTTP headers to send with requests
+	Auth     struct {
+		Token    string `json:"token,omitempty"`    // Bearer token for authentication
+		Username string `json:"username,omitempty"` // Username for basic authentication
+		Password string `json:"password,omitempty"` // Password for basic authentication
+		APIKey   string `json:"api_key,omitempty"`  // API key for authentication
+	} `json:"auth"`
 	Defaults struct {
 		Out string `json:"out"` // default output format (json, pretty, raw)
 	} `json:"defaults"`
@@ -249,6 +257,44 @@ func (c *Config) GetCurrent() *ConfigEntry {
 	return &defaultEntry
 }
 
+// GetHeaders returns the HTTP headers for this configuration entry,
+// including computed authentication headers based on stored credentials.
+func (e *ConfigEntry) GetHeaders() map[string]string {
+	headers := make(map[string]string)
+
+	// Copy existing headers
+	for k, v := range e.Headers {
+		headers[k] = v
+	}
+
+	// Compute authentication headers based on stored credentials
+	// Priority: Basic Auth > Bearer Token > API Key
+
+	// Basic Authentication (requires both username and password)
+	if e.Auth.Username != "" && e.Auth.Password != "" {
+		// Only set if Authorization header isn't already set
+		if _, exists := headers["Authorization"]; !exists {
+			headers["Authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte(e.Auth.Username+":"+e.Auth.Password))
+		}
+	}
+
+	// Bearer Token (if no basic auth and token is set)
+	if e.Auth.Token != "" {
+		if _, exists := headers["Authorization"]; !exists {
+			headers["Authorization"] = "Bearer " + e.Auth.Token
+		}
+	}
+
+	// API Key (if no other auth and API key is set)
+	if e.Auth.APIKey != "" {
+		if _, exists := headers["X-API-Key"]; !exists {
+			headers["X-API-Key"] = e.Auth.APIKey
+		}
+	}
+
+	return headers
+}
+
 // SetCurrent sets the current active configuration
 func (c *Config) SetCurrent(name string) error {
 	if _, exists := c.Configs[name]; !exists {
@@ -294,20 +340,27 @@ func (c *Config) SetValue(name, key, value string) error {
 	switch key {
 	case "endpoint":
 		entry.Endpoint = value
-	case "headers.Authorization":
-		if entry.Headers == nil {
-			entry.Headers = make(map[string]string)
-		}
-		entry.Headers["Authorization"] = value
-	case "headers.X-API-Key":
-		if entry.Headers == nil {
-			entry.Headers = make(map[string]string)
-		}
-		entry.Headers["X-API-Key"] = value
+	case "auth.token":
+		entry.Auth.Token = value
+	case "auth.username":
+		entry.Auth.Username = value
+	case "auth.password":
+		entry.Auth.Password = value
+	case "auth.api_key":
+		entry.Auth.APIKey = value
 	case "defaults.out":
 		entry.Defaults.Out = value
 	default:
-		return fmt.Errorf("unknown configuration key: %s", key)
+		// Handle headers.<name> pattern
+		if strings.HasPrefix(key, "headers.") {
+			headerName := strings.TrimPrefix(key, "headers.")
+			if entry.Headers == nil {
+				entry.Headers = make(map[string]string)
+			}
+			entry.Headers[headerName] = value
+		} else {
+			return fmt.Errorf("unknown configuration key: %s", key)
+		}
 	}
 
 	c.Configs[name] = entry

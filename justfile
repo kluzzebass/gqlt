@@ -280,10 +280,15 @@ release-notes:
     echo "- Linux (arm64): gqlt-$version-linux-arm64.tar.gz" && \
     echo "- macOS (amd64): gqlt-$version-darwin-amd64.tar.gz" && \
     echo "- macOS (arm64): gqlt-$version-darwin-arm64.tar.gz" && \
-    echo "- Windows (amd64): gqlt-$version-windows-amd64.zip" && \
-    echo "" && \
-    echo "## Checksums" && \
-    echo "Run \`sha256sum dist/*\` to verify file integrity"
+    echo "- Windows (amd64): gqlt-$version-windows-amd64.zip"
+
+# Generate documentation from Cobra commands
+docs:
+	@echo "Generating documentation..."
+	@just build
+	@./gqlt docs --format md --output README.md
+	@./gqlt docs --format man --tree --output man
+	@echo "Documentation generated successfully!"
 
 # Show project info
 info:
@@ -358,3 +363,8 @@ help-just:
     @echo "  dev                  - Quick development build and test"
     @echo "  info                 - Show project information"
     @echo "  release-notes        - Show release notes template"
+    @echo ""
+    @echo "Documentation:"
+    @echo "  docs                 - Generate documentation from Cobra commands"
+    @echo "  man                  - Generate and view man page"
+    @echo "  readme               - Generate and view README"

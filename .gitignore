@@ -26,13 +26,16 @@ go.work.sum
 
 # env file
 .env
+.env.*
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
+*.code-workspace
 
 # gqlt specific
 bin/
 dist/
 .gqlt/
 *.gqlt
+

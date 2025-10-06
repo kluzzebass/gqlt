@@ -267,8 +267,7 @@ func TestValidateOutputFormats(t *testing.T) {
 			}
 
 			// Read captured output
-			var buf []byte
-			buf = make([]byte, 4096)
+			buf := make([]byte, 4096)
 			n, _ := r.Read(buf)
 			output := string(buf[:n])
 

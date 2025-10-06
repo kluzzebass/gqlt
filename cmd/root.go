@@ -1,5 +1,7 @@
 package main
 
+//go:generate go run generate_docs.go
+
 import (
 	"github.com/kluzzebass/gqlt"
 	"github.com/spf13/cobra"
@@ -13,6 +15,11 @@ var configName string
 var outputFormat string
 var quietMode bool
 
+// GetRootCommand returns the root command for documentation generation
+func GetRootCommand() *cobra.Command {
+	return rootCmd
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "gqlt",
 	Short: "A minimal, composable command-line client for running GraphQL operations",
@@ -23,45 +30,33 @@ AI-FRIENDLY FEATURES:
 - Structured JSON output with --format json
 - Machine-readable error codes for automation
 - Quiet mode (--quiet) for script integration
-- Comprehensive help with examples
+- Comprehensive help with examples`,
+	Example: `# Basic query execution
+gqlt run --url https://api.example.com/graphql --query "{ users { id name } }"
 
-COMMON PATTERNS:
-  # Basic query execution
-  gqlt run --url https://api.example.com/graphql --query "{ users { id name } }"
-  
-  # Using configuration
-  gqlt config create production
-  gqlt config set production endpoint https://api.example.com/graphql
-  gqlt run --query "{ users { id name } }"
-  
-  # File uploads
-  gqlt run --query "mutation($file: Upload!) { uploadFile(file: $file) }" --file avatar=./photo.jpg
-  
-  # Introspection
-  gqlt introspect --url https://api.example.com/graphql
-  
-  # Schema analysis
-  gqlt describe User --url https://api.example.com/graphql
+# Using configuration
+gqlt config create production
+gqlt config set production endpoint https://api.example.com/graphql
+gqlt run --query "{ users { id name } }"
 
-AUTHENTICATION:
-  # Bearer token
-  gqlt run --token "your-token" --query "{ me { id } }"
-  
-  # Basic auth
-  gqlt run --username user --password pass --query "{ me { id } }"
-  
-  # API key
-  gqlt run --api-key "your-api-key" --query "{ me { id } }"
+# File uploads
+gqlt run --query "mutation($file: Upload!) { uploadFile(file: $file) }" --file avatar=./photo.jpg
 
-OUTPUT FORMATS:
-  # JSON (default, structured)
-  gqlt run --format json --query "{ users { id } }"
-  
-  # Table format
-  gqlt config list --format table
-  
-  # YAML format
-  gqlt config show --format yaml`,
+# Introspection
+gqlt introspect --url https://api.example.com/graphql
+
+# Schema analysis
+gqlt describe User --url https://api.example.com/graphql
+
+# Authentication
+gqlt run --token "your-token" --query "{ me { id } }"
+gqlt run --username user --password pass --query "{ me { id } }"
+gqlt run --api-key "your-api-key" --query "{ me { id } }"
+
+# Output formats
+gqlt run --format json --query "{ users { id } }"
+gqlt config list --format table
+gqlt config show --format yaml`,
 	Version: getVersionInfo(),
 }
 

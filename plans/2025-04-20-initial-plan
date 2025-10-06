@@ -570,20 +570,44 @@ Status: ✅ COMPLETED - First release v0.1.0 created successfully!
 PHASE 11 | DOCUMENTATION GENERATION
 ---------------------------------------------------------------
 
-[ ] 43. internal/docs/generator.go
-    - go generate directive: //go:generate go run internal/docs/generator.go
-    - single Cobra command structure parser
-    - extract help text, descriptions, flags, and examples
-    - generate both README.md and gqlt.1 from same source
-    - support multiple output formats (markdown, manpage)
-    - include usage examples and configuration guides
+[x] 43. gqlt docs command implementation
+    - Integrated documentation generation into gqlt command itself
+    - Registry-based generator system for extensibility
+    - Support for multiple output formats (markdown, man page)
+    - Tree mode for generating separate files per command
+    - Single file mode for comprehensive documentation
+    - Uses Cobra's built-in doc.GenMarkdown and doc.GenMan functions
 
-[ ] 44. Documentation workflow
-    - go generate ./... (runs all //go:generate directives)
-    - single parser generates both README.md and gqlt.1
-    - automated documentation updates in CI/CD
-    - no duplication - one source of truth for documentation
-    - uses standard Go tooling
+[x] 44. Documentation generator registry
+    - DocsGenerator interface for consistent output
+    - MarkdownGenerator for README.md generation
+    - ManPageGenerator for man page generation
+    - Support for --format, --output, and --tree flags
+    - Intelligent output path handling (files vs directories)
+    - Integration with gqlt.Version() for version information
+
+[x] 45. Enhanced command help system
+    - Moved examples from Long fields to dedicated Example fields
+    - Comprehensive help text with AI-friendly features
+    - Structured output modes (json, table, yaml)
+    - Machine-readable error codes and quiet mode
+    - Updated all commands with proper examples and descriptions
+
+[x] 46. Documentation workflow integration
+    - justfile recipes for documentation management
+    - gqlt docs --format md --output README.md
+    - gqlt docs --format man --tree --output man
+    - Single source of truth: Cobra command structure
+    - Automated documentation updates via justfile
+    - No duplication - examples and help text in one place
+
+Status: ✅ COMPLETED - Advanced documentation generation system!
+- Built comprehensive gqlt docs command with registry pattern
+- Generates both README.md and man pages from Cobra structure
+- Enhanced all commands with proper examples and help text
+- Integrated with justfile for automated documentation workflow
+- Single source of truth: Cobra command definitions
+- AI-friendly structured output and error handling
 
 ---------------------------------------------------------------
 PHASE 12 | LIBRARY AND AI AGENT OPTIMIZATION

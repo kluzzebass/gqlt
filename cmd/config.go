@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/kluzzebass/gqlt"
@@ -26,46 +25,37 @@ This allows you to store different settings for different environments (producti
 AI-FRIENDLY FEATURES:
 - Structured output with --format json|table|yaml
 - Machine-readable error codes
-- Quiet mode for automation
+- Quiet mode for automation`,
+	Example: `# Initialize and setup
+gqlt config init
+gqlt config create production
+gqlt config set production endpoint https://api.prod.com/graphql
+gqlt config set production headers '{"Authorization": "Bearer token"}'
+gqlt config use production
 
-COMMON WORKFLOWS:
-  # Initialize and setup
-  gqlt config init
-  gqlt config create production
-  gqlt config set production endpoint https://api.prod.com/graphql
-  gqlt config set production headers '{"Authorization": "Bearer token"}'
-  gqlt config use production
-  
-  # Environment management
-  gqlt config create staging
-  gqlt config set staging endpoint https://api.staging.com/graphql
-  gqlt config create local
-  gqlt config set local endpoint http://localhost:4000/graphql
-  
-  # Configuration inspection
-  gqlt config list --format table
-  gqlt config show production --format json
-  gqlt config validate
+# Environment management
+gqlt config create staging
+gqlt config set staging endpoint https://api.staging.com/graphql
+gqlt config create local
+gqlt config set local endpoint http://localhost:4000/graphql
 
-EXAMPLES:
-  # Basic setup
-  gqlt config init
-  gqlt config create myapi
-  gqlt config set myapi endpoint https://api.example.com/graphql
-  gqlt config use myapi
-  
-  # With authentication
-  gqlt config set-token myapi "your-bearer-token"
-  gqlt config set-username myapi "username"
-  gqlt config set-password myapi "password"
-  gqlt config set myapi headers '{"X-API-Key": "api-key"}'
-  
-  # Clone configuration
-  gqlt config clone production staging
-  
-  # Structured output for AI agents
-  gqlt config list --format json --quiet
-  gqlt config show --format yaml`,
+# Configuration inspection
+gqlt config list --format table
+gqlt config show production --format json
+gqlt config validate
+
+# With authentication
+gqlt config set myapi auth.token "your-bearer-token"
+gqlt config set myapi auth.username "username"
+gqlt config set myapi auth.password "password"
+gqlt config set myapi auth.api_key "api-key"
+
+# Clone configuration
+gqlt config clone production staging
+
+# Structured output for AI agents
+gqlt config list --format json --quiet
+gqlt config show --format yaml`,
 }
 
 func init() {
@@ -91,8 +81,11 @@ var configCreateCmd = &cobra.Command{
 	Use:   "create <name>",
 	Short: "Create a new configuration",
 	Long:  "Create a new named configuration with default values.",
-	Args:  cobra.ExactArgs(1),
-	RunE:  configCreate,
+	Example: `gqlt config create production
+gqlt config create staging
+gqlt config create local`,
+	Args: cobra.ExactArgs(1),
+	RunE: configCreate,
 }
 
 var configDeleteCmd = &cobra.Command{
@@ -117,24 +110,45 @@ var configSetCmd = &cobra.Command{
 	Long: `Set a configuration value for a named configuration.
 
 Available keys:
-  endpoint              - GraphQL endpoint URL
-  headers.Authorization - Authorization header
-  headers.X-API-Key     - API key header
-  defaults.out          - Default output mode (json|pretty|raw)
+  endpoint                    - GraphQL endpoint URL (required)
+  headers.<name>              - Custom HTTP header (e.g., headers.X-Custom "value")
+  headers.Authorization       - Authorization header (e.g., "Bearer token")
+  headers.X-API-Key           - API key header
+  auth.token                  - Bearer token for authentication
+  auth.username               - Username for basic authentication
+  auth.password               - Password for basic authentication
+  auth.api_key                - API key for authentication
+  defaults.out                - Default output mode (json|pretty|raw)
 
-Examples:
-  gqlt config set production endpoint https://api.example.com/graphql
-  gqlt config set production headers.Authorization "Bearer token123"
-  gqlt config set production defaults.out pretty`,
+Authentication precedence:
+  1. Basic auth (auth.username + auth.password)
+  2. Bearer token (auth.token)
+  3. API key (auth.api_key)
+  4. Custom headers (headers.Authorization, headers.X-API-Key)`,
+	Example: `# Basic configuration
+gqlt config set production endpoint https://api.example.com/graphql
+gqlt config set production defaults.out pretty
+
+# Authentication methods
+gqlt config set production auth.token "your-bearer-token"
+gqlt config set production auth.username "admin"
+gqlt config set production auth.password "secret"
+gqlt config set production auth.api_key "api-key-123"
+
+# Custom headers
+gqlt config set production headers.X-Custom "custom-value"
+gqlt config set production headers.Authorization "Bearer manual-token"
+gqlt config set production headers.X-API-Key "manual-api-key"`,
 	Args: cobra.ExactArgs(3),
 	RunE: configSet,
 }
 
 var configInitCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Initialize configuration file",
-	Long:  "Create a new configuration file with default settings.",
-	RunE:  configInit,
+	Use:     "init",
+	Short:   "Initialize configuration file",
+	Long:    "Create a new configuration file with default settings.",
+	Example: `gqlt config init`,
+	RunE:    configInit,
 }
 
 var configValidateCmd = &cobra.Command{
@@ -142,20 +156,6 @@ var configValidateCmd = &cobra.Command{
 	Short: "Validate configuration",
 	Long:  "Check the configuration file for errors and provide suggestions.",
 	RunE:  configValidate,
-}
-
-var configDescribeCmd = &cobra.Command{
-	Use:   "describe",
-	Short: "Show configuration schema",
-	Long:  "Show the configuration schema and available options.",
-	RunE:  configDescribe,
-}
-
-var configExamplesCmd = &cobra.Command{
-	Use:   "examples",
-	Short: "Show usage examples",
-	Long:  "Show common usage examples and templates.",
-	RunE:  configExamples,
 }
 
 var configCloneCmd = &cobra.Command{
@@ -166,30 +166,6 @@ var configCloneCmd = &cobra.Command{
 	RunE:  configClone,
 }
 
-var configSetTokenCmd = &cobra.Command{
-	Use:   "set-token <name> <token>",
-	Short: "Set bearer token for a configuration",
-	Long:  "Set the Authorization header with Bearer token for a named configuration.",
-	Args:  cobra.ExactArgs(2),
-	RunE:  configSetToken,
-}
-
-var configSetUsernameCmd = &cobra.Command{
-	Use:   "set-username <name> <username>",
-	Short: "Set username for basic authentication",
-	Long:  "Set the username for basic authentication (requires password to be set separately).",
-	Args:  cobra.ExactArgs(2),
-	RunE:  configSetUsername,
-}
-
-var configSetPasswordCmd = &cobra.Command{
-	Use:   "set-password <name> <password>",
-	Short: "Set password for basic authentication",
-	Long:  "Set the password for basic authentication (requires username to be set separately).",
-	Args:  cobra.ExactArgs(2),
-	RunE:  configSetPassword,
-}
-
 func init() {
 	configCmd.AddCommand(configShowCmd)
 	configCmd.AddCommand(configListCmd)
@@ -197,13 +173,8 @@ func init() {
 	configCmd.AddCommand(configDeleteCmd)
 	configCmd.AddCommand(configUseCmd)
 	configCmd.AddCommand(configSetCmd)
-	configCmd.AddCommand(configSetTokenCmd)
-	configCmd.AddCommand(configSetUsernameCmd)
-	configCmd.AddCommand(configSetPasswordCmd)
 	configCmd.AddCommand(configInitCmd)
 	configCmd.AddCommand(configValidateCmd)
-	configCmd.AddCommand(configDescribeCmd)
-	configCmd.AddCommand(configExamplesCmd)
 	configCmd.AddCommand(configCloneCmd)
 }
 
@@ -371,82 +342,6 @@ func configValidate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func configDescribe(cmd *cobra.Command, args []string) error {
-	schema := gqlt.GetSchema()
-
-	description := fmt.Sprintf(`Configuration Schema:
-
-endpoint: %s
-headers: %s
-defaults.out: %s
-
-Example configuration:`, schema.Endpoint, schema.Headers, schema.DefaultsOut)
-
-	fmt.Print(description)
-	fmt.Println()
-
-	example := map[string]interface{}{
-		"current": "default",
-		"configs": map[string]interface{}{
-			"default": map[string]interface{}{
-				"endpoint": "https://api.example.com/graphql",
-				"headers": map[string]string{
-					"Authorization": "Bearer your-token-here",
-				},
-				"defaults": map[string]string{
-					"out": "pretty",
-				},
-			},
-		},
-	}
-
-	jsonData, _ := json.MarshalIndent(example, "", "  ")
-	fmt.Println(string(jsonData))
-
-	return nil
-}
-
-func configExamples(cmd *cobra.Command, args []string) error {
-	examples := `Configuration Examples:
-
-1. Initialize configuration:
-   gqlt config init
-
-2. Create environment-specific configs:
-   gqlt config create production
-   gqlt config create staging
-   gqlt config create local
-
-3. Clone existing configurations:
-   gqlt config clone production staging
-   gqlt config clone default local
-
-4. Configure endpoints:
-   gqlt config set production endpoint https://api.company.com/graphql
-   gqlt config set staging endpoint https://staging-api.company.com/graphql
-   gqlt config set local endpoint http://localhost:4000/graphql
-
-5. Configure authentication:
-   gqlt config set-token production "prod-token"
-   gqlt config set-token staging "staging-token"
-   gqlt config set-username local "admin"
-   gqlt config set-password local "secret"
-
-6. Configure output modes:
-   gqlt config set production defaults.out json
-   gqlt config set staging defaults.out pretty
-
-7. Switch between configurations:
-   gqlt config use production
-   gqlt run -q '{ me { name } }'
-
-8. Override specific values:
-   gqlt run -q '{ me { name } }' -u https://override.com/graphql`
-
-	fmt.Print(examples)
-	return nil
-}
-
 func configClone(cmd *cobra.Command, args []string) error {
 	sourceName := args[0]
 	targetName := args[1]
@@ -477,132 +372,6 @@ func configClone(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Cloned configuration '%s' to '%s'\n", sourceName, targetName)
 	return nil
-}
-
-func configSetToken(cmd *cobra.Command, args []string) error {
-	cfg, err := loadConfig()
-	if err != nil {
-		quietMode := cmd.Flag("quiet").Value.String() == "true"
-		formatter := setupFormatter(cmd)
-		return formatter.FormatStructuredError(err, "CONFIG_LOAD_ERROR", quietMode)
-	}
-
-	name := args[0]
-	token := args[1]
-
-	// Check if configuration exists
-	entry, exists := cfg.Configs[name]
-	if !exists {
-		quietMode := cmd.Flag("quiet").Value.String() == "true"
-		formatter := setupFormatter(cmd)
-		return formatter.FormatStructuredError(fmt.Errorf("configuration '%s' does not exist", name), "CONFIG_NOT_FOUND", quietMode)
-	}
-
-	// Set the Authorization header with Bearer token
-	if entry.Headers == nil {
-		entry.Headers = make(map[string]string)
-	}
-	entry.Headers["Authorization"] = "Bearer " + token
-	cfg.Configs[name] = entry
-
-	if err := cfg.Save(configDir); err != nil {
-		quietMode := cmd.Flag("quiet").Value.String() == "true"
-		formatter := setupFormatter(cmd)
-		return formatter.FormatStructuredError(fmt.Errorf("failed to save config: %w", err), "CONFIG_SAVE_ERROR", quietMode)
-	}
-
-	quietMode := cmd.Flag("quiet").Value.String() == "true"
-
-	if !quietMode {
-		fmt.Printf("Set bearer token for configuration '%s'\n", name)
-	}
-
-	formatter := setupFormatter(cmd)
-	return formatter.FormatStructured(map[string]string{"message": "Bearer token set", "name": name}, quietMode)
-}
-
-func configSetUsername(cmd *cobra.Command, args []string) error {
-	cfg, err := loadConfig()
-	if err != nil {
-		quietMode := cmd.Flag("quiet").Value.String() == "true"
-		formatter := setupFormatter(cmd)
-		return formatter.FormatStructuredError(err, "CONFIG_LOAD_ERROR", quietMode)
-	}
-
-	name := args[0]
-	username := args[1]
-
-	// Check if configuration exists
-	entry, exists := cfg.Configs[name]
-	if !exists {
-		quietMode := cmd.Flag("quiet").Value.String() == "true"
-		formatter := setupFormatter(cmd)
-		return formatter.FormatStructuredError(fmt.Errorf("configuration '%s' does not exist", name), "CONFIG_NOT_FOUND", quietMode)
-	}
-
-	// Set the username in headers (for basic auth, we'll store both username and password)
-	if entry.Headers == nil {
-		entry.Headers = make(map[string]string)
-	}
-	entry.Headers["X-Username"] = username
-	cfg.Configs[name] = entry
-
-	if err := cfg.Save(configDir); err != nil {
-		quietMode := cmd.Flag("quiet").Value.String() == "true"
-		formatter := setupFormatter(cmd)
-		return formatter.FormatStructuredError(fmt.Errorf("failed to save config: %w", err), "CONFIG_SAVE_ERROR", quietMode)
-	}
-
-	quietMode := cmd.Flag("quiet").Value.String() == "true"
-
-	if !quietMode {
-		fmt.Printf("Set username for configuration '%s'\n", name)
-	}
-
-	formatter := setupFormatter(cmd)
-	return formatter.FormatStructured(map[string]string{"message": "Username set", "name": name}, quietMode)
-}
-
-func configSetPassword(cmd *cobra.Command, args []string) error {
-	cfg, err := loadConfig()
-	if err != nil {
-		quietMode := cmd.Flag("quiet").Value.String() == "true"
-		formatter := setupFormatter(cmd)
-		return formatter.FormatStructuredError(err, "CONFIG_LOAD_ERROR", quietMode)
-	}
-
-	name := args[0]
-	password := args[1]
-
-	// Check if configuration exists
-	entry, exists := cfg.Configs[name]
-	if !exists {
-		quietMode := cmd.Flag("quiet").Value.String() == "true"
-		formatter := setupFormatter(cmd)
-		return formatter.FormatStructuredError(fmt.Errorf("configuration '%s' does not exist", name), "CONFIG_NOT_FOUND", quietMode)
-	}
-
-	// Set the password in headers (for basic auth, we'll store both username and password)
-	if entry.Headers == nil {
-		entry.Headers = make(map[string]string)
-	}
-	entry.Headers["X-Password"] = password
-	cfg.Configs[name] = entry
-
-	if err := cfg.Save(configDir); err != nil {
-		quietMode := cmd.Flag("quiet").Value.String() == "true"
-		formatter := setupFormatter(cmd)
-		return formatter.FormatStructuredError(fmt.Errorf("failed to save config: %w", err), "CONFIG_SAVE_ERROR", quietMode)
-	}
-
-	quietMode := cmd.Flag("quiet").Value.String() == "true"
-
-	if !quietMode {
-		fmt.Printf("Set password for configuration '%s'\n", name)
-	}
-
-	formatter := setupFormatter(cmd)
-	return formatter.FormatStructured(map[string]string{"message": "Password set", "name": name}, quietMode)
 }
 
 // Helper functions

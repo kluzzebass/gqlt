@@ -12,6 +12,20 @@ var introspectCmd = &cobra.Command{
 	Short: "Fetch and cache GraphQL schema via introspection",
 	Long: `Fetch the GraphQL schema from an endpoint using introspection
 and save it to a local cache file for use with other commands.`,
+	Example: `# Fetch schema from URL
+gqlt introspect --url https://api.example.com/graphql
+
+# Fetch schema with authentication
+gqlt introspect --url https://api.example.com/graphql --token "bearer-token"
+
+# Force refresh cached schema
+gqlt introspect --refresh
+
+# Show schema summary
+gqlt introspect --summary
+
+# Save to specific file
+gqlt introspect --output schema.json`,
 	RunE: introspect,
 }
 

@@ -15,30 +15,6 @@ var runCmd = &cobra.Command{
 	Long: `Execute a GraphQL operation (query or mutation) against a GraphQL endpoint.
 You can provide the query inline, from a file, or via stdin.
 
-EXAMPLES:
-  # Basic query
-  gqlt run --url https://api.example.com/graphql --query "{ users { id name } }"
-  
-  # Query with variables
-  gqlt run --url https://api.example.com/graphql --query "query($id: ID!) { user(id: $id) { name } }" --vars '{"id": "123"}'
-  
-  # Mutation with file upload
-  gqlt run --url https://api.example.com/graphql --query "mutation($file: Upload!) { uploadFile(file: $file) }" --file avatar=./photo.jpg
-  
-  # Using configuration
-  gqlt run --query "{ users { id name } }"  # Uses configured endpoint
-  
-  # With authentication
-  gqlt run --token "bearer-token" --query "{ me { id } }"
-  gqlt run --username user --password pass --query "{ me { id } }"
-  gqlt run --api-key "api-key" --query "{ me { id } }"
-  
-  # Structured output for AI agents
-  gqlt run --format json --quiet --query "{ users { id } }"
-  
-  # Multiple file uploads
-  gqlt run --query "mutation($files: [Upload!]!) { uploadFiles(files: $files) }" --files-list files.txt
-
 QUERY SOURCES:
   - Inline: --query "query { ... }"
   - File: --query-file query.graphql
@@ -57,6 +33,28 @@ OUTPUT MODES:
   - json: Structured JSON (default)
   - pretty: Colorized formatted JSON
   - raw: Unformatted JSON`,
+	Example: `# Basic query
+gqlt run --url https://api.example.com/graphql --query "{ users { id name } }"
+
+# Query with variables
+gqlt run --url https://api.example.com/graphql --query "query($id: ID!) { user(id: $id) { name } }" --vars '{"id": "123"}'
+
+# Mutation with file upload
+gqlt run --url https://api.example.com/graphql --query "mutation($file: Upload!) { uploadFile(file: $file) }" --file avatar=./photo.jpg
+
+# Using configuration
+gqlt run --query "{ users { id name } }"  # Uses configured endpoint
+
+# With authentication
+gqlt run --token "bearer-token" --query "{ me { id } }"
+gqlt run --username user --password pass --query "{ me { id } }"
+gqlt run --api-key "api-key" --query "{ me { id } }"
+
+# Structured output for AI agents
+gqlt run --format json --quiet --query "{ users { id } }"
+
+# Multiple file uploads
+gqlt run --query "mutation($files: [Upload!]!) { uploadFiles(files: $files) }" --files-list files.txt`,
 	RunE: runGraphQL,
 }
 

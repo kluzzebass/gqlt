@@ -15,6 +15,17 @@ var describeCmd = &cobra.Command{
 	Short: "Describe GraphQL types and fields from cached schema",
 	Long: `Describe GraphQL types and fields from a cached schema file.
 Use this to explore the GraphQL schema structure.`,
+	Example: `# Describe a type
+gqlt describe User
+
+# Describe a field
+gqlt describe Query.users
+
+# Describe with JSON output
+gqlt describe User --json
+
+# Show summary only
+gqlt describe User --summary`,
 	Args: cobra.ExactArgs(1),
 	RunE: describe,
 }
