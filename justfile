@@ -49,14 +49,6 @@ build:
     CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=$version" -o dist/gqlt ./cmd && \
     echo "Built gqlt v$version to dist/gqlt"
 
-# Check if build is needed (without building)
-check-build:
-    @if go list -f '{{{{.Stale}}}}' ./cmd | grep -q "true"; then \
-        echo "Build needed: source files or dependencies have changed"; \
-    else \
-        echo "Build not needed: binary is up to date"; \
-    fi
-
 # Build for all platforms
 build-all:
     @version=$(cat VERSION) && \
