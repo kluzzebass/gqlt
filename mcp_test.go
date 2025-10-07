@@ -113,6 +113,7 @@ func TestSDKServer_handleExecuteQuery_InvalidEndpoint(t *testing.T) {
 
 	if result == nil {
 		t.Error("Result should not be nil for failed execution")
+		return
 	}
 
 	if !result.IsError {
@@ -182,6 +183,7 @@ func TestSDKServer_handleDescribeType_InvalidType(t *testing.T) {
 
 	if result == nil {
 		t.Error("Result should not be nil for failed execution")
+		return
 	}
 
 	if !result.IsError {
