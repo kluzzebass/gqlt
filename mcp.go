@@ -1,4 +1,4 @@
-package mcp
+package gqlt
 
 import (
 	"context"
@@ -8,33 +8,30 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kluzzebass/gqlt"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // SDKServer wraps the official MCP SDK server with gqlt functionality
 type SDKServer struct {
 	server      *mcp.Server
-	config      *gqlt.Config
-	client      *gqlt.Client
+	client      *Client
 	schemaCache map[string]interface{} // endpoint -> schema data
 	cacheMutex  sync.RWMutex
 }
 
 // NewSDKServer creates a new MCP server using the official SDK
-func NewSDKServer(config *gqlt.Config) (*SDKServer, error) {
+func NewSDKServer() (*SDKServer, error) {
 	// Create the official MCP server following the SDK pattern
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "gqlt-mcp-server",
-		Version: gqlt.Version(),
+		Version: Version(),
 	}, nil)
 
 	// Create gqlt client
-	client := gqlt.NewClient("", nil)
+	client := NewClient("", nil)
 
 	sdkServer := &SDKServer{
 		server:      server,
-		config:      config,
 		client:      client,
 		schemaCache: make(map[string]interface{}),
 	}
@@ -65,23 +62,11 @@ func (s *SDKServer) Stop(ctx context.Context) error {
 
 // registerTools registers all MCP tools with the server
 func (s *SDKServer) registerTools() error {
-	// Add a simple test tool using the official SDK pattern
-	mcp.AddTool(s.server, &mcp.Tool{
-		Name:        "test_tool",
-		Description: "A simple test tool to verify the MCP server is working",
-	}, s.handleTestTool)
-
 	// Add GraphQL execution tool
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "execute_query",
 		Description: "Execute a GraphQL query, mutation, or subscription",
 	}, s.handleExecuteQuery)
-
-	// Add query validation tool
-	mcp.AddTool(s.server, &mcp.Tool{
-		Name:        "validate_query",
-		Description: "Check GraphQL query validity against schema",
-	}, s.handleValidateQuery)
 
 	// Add type description tool
 	mcp.AddTool(s.server, &mcp.Tool{
@@ -102,16 +87,6 @@ func (s *SDKServer) registerTools() error {
 
 // Tool handlers
 
-// TestToolInput defines the input schema for the test tool
-type TestToolInput struct {
-	Message string `json:"message" jsonschema:"A test message to echo back"`
-}
-
-// TestToolOutput defines the output schema for the test tool
-type TestToolOutput struct {
-	Response string `json:"response" jsonschema:"The response from the test tool"`
-}
-
 // ExecuteQueryInput defines the input schema for the execute_query tool
 type ExecuteQueryInput struct {
 	Query         string                 `json:"query" jsonschema:"The GraphQL query string"`
@@ -126,19 +101,6 @@ type ExecuteQueryOutput struct {
 	Data      interface{} `json:"data" jsonschema:"The GraphQL response data"`
 	Errors    interface{} `json:"errors,omitempty" jsonschema:"Any GraphQL errors"`
 	ElapsedMs int64       `json:"elapsed_ms" jsonschema:"Query execution time in milliseconds"`
-}
-
-// ValidateQueryInput defines the input schema for the validate_query tool
-type ValidateQueryInput struct {
-	Query    string            `json:"query" jsonschema:"The GraphQL query to validate"`
-	Endpoint string            `json:"endpoint" jsonschema:"GraphQL endpoint URL"`
-	Headers  map[string]string `json:"headers,omitempty" jsonschema:"HTTP headers to include"`
-}
-
-// ValidateQueryOutput defines the output schema for the validate_query tool
-type ValidateQueryOutput struct {
-	Valid   bool   `json:"valid" jsonschema:"Whether the query is valid"`
-	Message string `json:"message" jsonschema:"Validation result message"`
 }
 
 // DescribeTypeInput defines the input schema for the describe_type tool
@@ -167,26 +129,13 @@ type ListTypesOutput struct {
 	Count     int      `json:"count" jsonschema:"Total number of matching types"`
 }
 
-func (s *SDKServer) handleTestTool(ctx context.Context, req *mcp.CallToolRequest, input TestToolInput) (
-	*mcp.CallToolResult,
-	TestToolOutput,
-	error,
-) {
-	message := "Hello from gqlt MCP server!"
-	if input.Message != "" {
-		message = fmt.Sprintf("Echo: %s", input.Message)
-	}
-
-	return nil, TestToolOutput{Response: message}, nil
-}
-
 func (s *SDKServer) handleExecuteQuery(ctx context.Context, req *mcp.CallToolRequest, input ExecuteQueryInput) (
 	*mcp.CallToolResult,
 	ExecuteQueryOutput,
 	error,
 ) {
 	// Create a new client for this specific endpoint
-	client := gqlt.NewClient(input.Endpoint, nil)
+	client := NewClient(input.Endpoint, nil)
 
 	// Set headers if provided
 	if len(input.Headers) > 0 {
@@ -216,35 +165,6 @@ func (s *SDKServer) handleExecuteQuery(ctx context.Context, req *mcp.CallToolReq
 	}, nil
 }
 
-func (s *SDKServer) handleValidateQuery(ctx context.Context, req *mcp.CallToolRequest, input ValidateQueryInput) (
-	*mcp.CallToolResult,
-	ValidateQueryOutput,
-	error,
-) {
-	// Create a new client for this specific endpoint
-	client := gqlt.NewClient(input.Endpoint, nil)
-
-	// Set headers if provided
-	if len(input.Headers) > 0 {
-		client.SetHeaders(input.Headers)
-	}
-
-	// Validate by attempting to execute (simplified approach)
-	// In a real implementation, you'd want proper query validation
-	_, err := client.Execute(input.Query, nil, "")
-	if err != nil {
-		return nil, ValidateQueryOutput{
-			Valid:   false,
-			Message: fmt.Sprintf("Query validation failed: %v", err),
-		}, nil
-	}
-
-	return nil, ValidateQueryOutput{
-		Valid:   true,
-		Message: "Query is valid",
-	}, nil
-}
-
 func (s *SDKServer) handleDescribeType(ctx context.Context, req *mcp.CallToolRequest, input DescribeTypeInput) (
 	*mcp.CallToolResult,
 	DescribeTypeOutput,
@@ -257,7 +177,7 @@ func (s *SDKServer) handleDescribeType(ctx context.Context, req *mcp.CallToolReq
 
 	// If not in cache, introspect and cache it
 	if !exists {
-		client := gqlt.NewClient(input.Endpoint, nil)
+		client := NewClient(input.Endpoint, nil)
 
 		// Set headers if provided
 		if len(input.Headers) > 0 {
@@ -314,7 +234,7 @@ func (s *SDKServer) handleListTypes(ctx context.Context, req *mcp.CallToolReques
 
 	// If not in cache, introspect and cache it
 	if !exists {
-		client := gqlt.NewClient(input.Endpoint, nil)
+		client := NewClient(input.Endpoint, nil)
 
 		// Set headers if provided
 		if len(input.Headers) > 0 {
