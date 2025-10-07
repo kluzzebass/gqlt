@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
 	"sync"
 	"time"
 
@@ -88,6 +89,12 @@ func (s *SDKServer) registerTools() error {
 		Description: "Analyze specific GraphQL types and fields",
 	}, s.handleDescribeType)
 
+	// Add list types tool
+	mcp.AddTool(s.server, &mcp.Tool{
+		Name:        "list_types",
+		Description: "List GraphQL type names with optional filtering",
+	}, s.handleListTypes)
+
 	return nil
 }
 
@@ -144,6 +151,20 @@ type DescribeTypeInput struct {
 // DescribeTypeOutput defines the output schema for the describe_type tool
 type DescribeTypeOutput struct {
 	TypeInfo string `json:"type_info" jsonschema:"Information about the GraphQL type"`
+}
+
+// ListTypesInput defines the input schema for the list_types tool
+type ListTypesInput struct {
+	Endpoint string            `json:"endpoint" jsonschema:"GraphQL endpoint URL"`
+	Filter   string            `json:"filter,omitempty" jsonschema:"Optional regex pattern to filter type names (e.g., 'Input.*', '.*Type', 'User.*')"`
+	Kind     string            `json:"kind,omitempty" jsonschema:"Optional type kind filter (OBJECT, ENUM, SCALAR, UNION, INPUT_OBJECT, INTERFACE)"`
+	Headers  map[string]string `json:"headers,omitempty" jsonschema:"HTTP headers to include"`
+}
+
+// ListTypesOutput defines the output schema for the list_types tool
+type ListTypesOutput struct {
+	TypeNames []string `json:"type_names" jsonschema:"List of matching type names"`
+	Count     int      `json:"count" jsonschema:"Total number of matching types"`
 }
 
 func (s *SDKServer) handleTestTool(ctx context.Context, req *mcp.CallToolRequest, input TestToolInput) (
@@ -278,6 +299,64 @@ func (s *SDKServer) handleDescribeType(ctx context.Context, req *mcp.CallToolReq
 
 	return nil, DescribeTypeOutput{
 		TypeInfo: typeInfo,
+	}, nil
+}
+
+func (s *SDKServer) handleListTypes(ctx context.Context, req *mcp.CallToolRequest, input ListTypesInput) (
+	*mcp.CallToolResult,
+	ListTypesOutput,
+	error,
+) {
+	// Check cache first
+	s.cacheMutex.RLock()
+	schemaData, exists := s.schemaCache[input.Endpoint]
+	s.cacheMutex.RUnlock()
+
+	// If not in cache, introspect and cache it
+	if !exists {
+		client := gqlt.NewClient(input.Endpoint, nil)
+
+		// Set headers if provided
+		if len(input.Headers) > 0 {
+			client.SetHeaders(input.Headers)
+		}
+
+		// Introspect the schema
+		result, err := client.Introspect()
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{
+						Text: fmt.Sprintf("Schema introspection failed: %v", err),
+					},
+				},
+				IsError: true,
+			}, ListTypesOutput{}, nil
+		}
+
+		// Cache the schema
+		s.cacheMutex.Lock()
+		s.schemaCache[input.Endpoint] = result.Data
+		schemaData = result.Data
+		s.cacheMutex.Unlock()
+	}
+
+	// Parse the schema to find matching types
+	typeNames, err := s.listMatchingTypes(schemaData, input.Filter, input.Kind)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{
+					Text: fmt.Sprintf("Failed to list types: %v", err),
+				},
+			},
+			IsError: true,
+		}, ListTypesOutput{}, nil
+	}
+
+	return nil, ListTypesOutput{
+		TypeNames: typeNames,
+		Count:     len(typeNames),
 	}, nil
 }
 
@@ -464,6 +543,75 @@ func (s *SDKServer) formatType(typeInfo map[string]interface{}) string {
 		return name
 	}
 	return "Unknown"
+}
+
+// listMatchingTypes finds types matching the given filter and kind
+func (s *SDKServer) listMatchingTypes(schemaData interface{}, filter, kind string) ([]string, error) {
+	// Parse the schema structure
+	schemaMap, ok := schemaData.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid schema data format")
+	}
+
+	// Navigate to the schema types
+	__schema, ok := schemaMap["__schema"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("schema missing __schema field")
+	}
+
+	types, ok := __schema["types"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("schema missing types array")
+	}
+
+	var matchingTypes []string
+
+	// Iterate through all types
+	for _, typeItem := range types {
+		if typeDef, ok := typeItem.(map[string]interface{}); ok {
+			if name, ok := typeDef["name"].(string); ok {
+				// Skip introspection types
+				if name == "" || name[0] == '_' {
+					continue
+				}
+
+				// Check kind filter
+				if kind != "" {
+					if typeKind, ok := typeDef["kind"].(string); ok {
+						if typeKind != kind {
+							continue
+						}
+					} else {
+						continue
+					}
+				}
+
+				// Check name filter (regex matching)
+				if filter != "" {
+					if !s.matchesRegex(name, filter) {
+						continue
+					}
+				}
+
+				matchingTypes = append(matchingTypes, name)
+			}
+		}
+	}
+
+	return matchingTypes, nil
+}
+
+// matchesRegex performs regex pattern matching
+func (s *SDKServer) matchesRegex(name, pattern string) bool {
+	// Compile the regex pattern
+	regex, err := regexp.Compile(pattern)
+	if err != nil {
+		// If regex compilation fails, fall back to exact match
+		return name == pattern
+	}
+
+	// Check if the name matches the pattern
+	return regex.MatchString(name)
 }
 
 // TODO: Add resource and prompt handlers later
