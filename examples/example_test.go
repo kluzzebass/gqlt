@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kluzzebass/gqlt"
@@ -91,7 +92,7 @@ func TestMockServerBasic(t *testing.T) {
 // TestTestHelperBasic tests basic test helper functionality
 func TestTestHelperBasic(t *testing.T) {
 	// Test field path splitting
-	fields := splitFieldPath("user.name")
+	fields := strings.Split("user.name", ".")
 	expected := []string{"user", "name"}
 	if len(fields) != len(expected) {
 		t.Errorf("Expected %v, got %v", expected, fields)
@@ -104,7 +105,7 @@ func TestTestHelperBasic(t *testing.T) {
 	}
 
 	// Test nested field path
-	fields = splitFieldPath("user.profile.email")
+	fields = strings.Split("user.profile.email", ".")
 	expected = []string{"user", "profile", "email"}
 	if len(fields) != len(expected) {
 		t.Errorf("Expected %v, got %v", expected, fields)

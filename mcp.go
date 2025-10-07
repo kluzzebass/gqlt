@@ -446,20 +446,20 @@ func (s *SDKServer) formatField(fieldDef map[string]interface{}, result *string)
 
 // formatType formats a type reference
 func (s *SDKServer) formatType(typeInfo map[string]interface{}) string {
-	if name, ok := typeInfo["name"].(string); ok {
-		// Handle non-null and list wrappers
-		if kind, ok := typeInfo["kind"].(string); ok {
-			switch kind {
-			case "NON_NULL":
-				if ofType, ok := typeInfo["ofType"].(map[string]interface{}); ok {
-					return s.formatType(ofType) + "!"
-				}
-			case "LIST":
-				if ofType, ok := typeInfo["ofType"].(map[string]interface{}); ok {
-					return "[" + s.formatType(ofType) + "]"
-				}
+	if kind, ok := typeInfo["kind"].(string); ok {
+		switch kind {
+		case "NON_NULL":
+			if ofType, ok := typeInfo["ofType"].(map[string]interface{}); ok {
+				return s.formatType(ofType) + "!"
+			}
+		case "LIST":
+			if ofType, ok := typeInfo["ofType"].(map[string]interface{}); ok {
+				return "[" + s.formatType(ofType) + "]"
 			}
 		}
+	}
+
+	if name, ok := typeInfo["name"].(string); ok {
 		return name
 	}
 	return "Unknown"

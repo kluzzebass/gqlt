@@ -101,7 +101,11 @@ func main() {
 		log.Printf("Failed to load config: %v", err)
 	} else {
 		fmt.Printf("Current config: %s\n", cfg.Current)
-		fmt.Printf("Available configs: %v\n", getConfigNames(cfg.Configs))
+		configNames := make([]string, 0, len(cfg.Configs))
+		for name := range cfg.Configs {
+			configNames = append(configNames, name)
+		}
+		fmt.Printf("Available configs: %v\n", configNames)
 
 		// Create a new configuration
 		cfg.Configs["example"] = gqlt.ConfigEntry{
@@ -152,13 +156,4 @@ func main() {
 	}
 	headersMap := inputHandler.LoadHeaders(headersList)
 	fmt.Printf("Loaded headers: %+v\n", headersMap)
-}
-
-// Helper function to get configuration names
-func getConfigNames(configs map[string]gqlt.ConfigEntry) []string {
-	names := make([]string, 0, len(configs))
-	for name := range configs {
-		names = append(names, name)
-	}
-	return names
 }

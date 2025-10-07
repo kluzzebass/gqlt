@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kluzzebass/gqlt"
@@ -43,7 +44,7 @@ func (h *GraphQLTestHelper) AssertFieldExists(response *gqlt.Response, fieldPath
 	}
 
 	// Simple field path support (e.g., "user.name")
-	fields := splitFieldPath(fieldPath)
+	fields := strings.Split(fieldPath, ".")
 	current := data
 
 	for i, field := range fields {
@@ -79,7 +80,7 @@ func (h *GraphQLTestHelper) GetFieldValue(response *gqlt.Response, fieldPath str
 		h.t.Fatal("Expected response data to be a map")
 	}
 
-	fields := splitFieldPath(fieldPath)
+	fields := strings.Split(fieldPath, ".")
 	current := data
 
 	for i, field := range fields {
@@ -164,30 +165,6 @@ func (h *GraphQLTestHelper) SetAuth(authType string, credentials map[string]stri
 // SetHeaders sets custom headers for the client
 func (h *GraphQLTestHelper) SetHeaders(headers map[string]string) {
 	h.client.SetHeaders(headers)
-}
-
-// Helper function to split field paths like "user.name" into ["user", "name"]
-func splitFieldPath(path string) []string {
-	// Simple implementation - can be enhanced for more complex paths
-	var fields []string
-	var current string
-
-	for _, char := range path {
-		if char == '.' {
-			if current != "" {
-				fields = append(fields, current)
-				current = ""
-			}
-		} else {
-			current += string(char)
-		}
-	}
-
-	if current != "" {
-		fields = append(fields, current)
-	}
-
-	return fields
 }
 
 // ExampleTestWithHelper demonstrates using the test helper
