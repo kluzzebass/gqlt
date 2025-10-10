@@ -3,17 +3,122 @@ description: How to create and follow plans
 alwaysApply: false
 ---
 
+## Plan Creation
+
 - Sufficiently large tasks should not be started without a plan. If need be, ask to create a plan.
-- A plan must contain at least
-  - A description of the purpose of the feature in question.
-  - High level phases that end up with testable/verifiable functionality or artifacts.
-  - Low level numbered steps that describe implementation details, and possibly even sample code. Step numbering MUST not be reset for each phase, but kept unique for the plan in its entirety.
-  - Checkboxes for each phase and step so that progress can be recorded. This will make it easier to resume a plan at a later point.
-- Before implementing a plan, analyze the plan for logical errors and make sure the order of operations makes sense.
-- Each phase MUST be testable, or at least manually verifyable.
-- Within reason, implement tests.
-- A plan is not a race to the finish line. It is more important to do each step correctly than to finish all steps.
-- Unless explicitly told not to, ask before proceeding with the next step.
-- After each step has been approved, mark it as completed in the plan.
-- If you're uncertain about a step, STOP and ask for clarification.
-- If you encounter steps that seem complex, offer to split it into multiple steps, especially if those steps would make it easier to test.
+- Plans are stored in the `plans/` directory with sequential numbering: `001-descriptive-name.md`, `002-another-plan.md`, etc.
+
+### Plan Header (Required)
+
+Every plan must begin with a standardized header containing:
+
+1. **Title** - Clear, descriptive H1 or H2 heading
+   - Format: `# [Project] [Feature/Area] Plan` or `## [Feature Name] ([Brief Description])`
+   - Example: `# mcpipboy MVP Development Plan` or `## Testing Improvements Plan (Testable CLI Commands)`
+
+2. **Date** - Creation date for historical reference
+   - Format: `**Date:** YYYY-MM-DD`
+   - Example: `**Date:** 2025-10-09`
+
+3. **Purpose** (Optional but recommended) - Brief description of what the plan aims to accomplish
+   - Format: `## Purpose` section with 1-3 sentences
+   - Should clearly state the goal and context
+
+4. **Testing Strategy** (Optional but recommended) - Define how testing will be done
+   - Format: `## Testing Strategy` section with brief description
+   - Examples: "Write automated unit tests for all new functions", "Manual testing via CLI", "Integration tests using external tool X"
+   - Helps set expectations for what "How to test" sections should contain
+   - Can specify coverage targets, testing tools, or validation approaches
+
+5. **Execution Mode** (Optional) - Define whether to request approval between steps
+   - Format: `**Execution Mode:** [autonomous|supervised]`
+   - `autonomous` - Proceed through all steps without asking for approval between steps
+   - `supervised` - Ask before proceeding with each step (default if not specified)
+   - Examples: Use autonomous for well-defined plans with comprehensive tests; use supervised for complex/risky changes
+
+6. **Progress Legend** - Standard legend for checkbox states
+   - Must include: `Progress legend: [x] Completed, [ ] Pending`
+   - Place after purpose/testing strategy, before first step
+
+### Plan Structure (Required)
+
+Plans consist of a flat, sequentially numbered list of steps:
+
+- **Step 0** - Always "Planning document and alignment"
+  - Contains plan creation, requirements analysis, architecture decisions
+  - Architecture decisions should document both what was chosen AND what was rejected
+    - Explain why alternatives were not suitable (limitations, trade-offs, constraints)
+    - Document the decision-making process, not just the outcome
+    - Future readers benefit from understanding why certain paths were NOT taken
+  - Marked complete when plan is finalized and ready to implement
+
+- **Steps 1-N** - Implementation steps
+  - Each step is numbered sequentially (1, 2, 3, ..., N)
+  - Step numbers are NEVER reset or reused - each step has a unique number
+  - Each step should be a discrete, testable unit of work
+  - Format: `### [checkbox] N) Step Title`
+  - Example: `### [ ] 1) Create database schema`
+
+- **Optional Grouping** - Steps can be grouped under H2 headings for readability
+  - Use when multiple related steps form a logical group (e.g., implementing several similar tools)
+  - Step numbering continues sequentially across groups - never reset
+  - Format: `## Group Name` followed by numbered steps
+  - Example: `## UUID Tool Implementation` with `### [ ] 5) Add UUID v4 generation`, `### [ ] 6) Add UUID v7 generation`
+  - Groups are for organization only - they don't have checkboxes or separate tracking
+
+- **Step Content** - Each step must include:
+  - Brief but technically detailed description of what the step accomplishes
+    - Include specific function names, struct names, class names, file paths
+    - This is engineering documentation, not executive summary - be specific
+    - Both humans and AI agents should understand exactly what needs to be done
+  - Unnumbered sub-tasks as implementation details (bullet points without checkboxes)
+  - `How to test` section with specific, executable validation steps
+  - Optional: `Status` updates as work progresses
+  - A step is either complete [x] or not [ ] - no partial completion tracking
+
+- **Plan Footer** - After all steps, include:
+  - `## Success Criteria` - List of high-level outcomes that define completion
+  - Optional: `## Notes` - Additional context or considerations
+
+## Plan as Living Documentation
+
+Plans are not just blueprints - they are living documents that reflect what was actually built:
+
+- **Make the map fit the terrain** - If implementation differs from the plan, update the plan to match reality
+- Plans serve multiple purposes:
+  - Guide for current implementation
+  - Historical record of what was actually built and why
+  - Context for future AI agents to understand the system
+  - Source material for documentation and commit messages
+  - A context window WE control
+- When decisions change during implementation:
+  - Update the step description to reflect what was actually done
+  - Document why the change was made in the Status section
+  - Add or modify sub-tasks to match the actual implementation
+  - Keep the plan accurate so future readers understand reality, not outdated intentions
+- A completed plan should tell the true story of what was built, not what was originally imagined
+
+## Plan Execution
+
+**Before Starting:**
+- Analyze the plan for logical errors and ensure the order of operations makes sense
+- Understand the testing strategy defined in the plan header
+- Check the Execution Mode to determine whether to ask for approval between steps
+
+**During Implementation:**
+- A plan is not a race - doing each step correctly is more important than finishing quickly
+- Follow the Execution Mode specified in the plan header:
+  - `autonomous` mode: Proceed through steps without asking for approval
+  - `supervised` mode (default): Ask before proceeding with the next step
+- If uncertain about a step, STOP and ask for clarification regardless of execution mode
+- If a step seems too complex, offer to split it into multiple smaller steps
+
+**Progress Tracking:**
+- Mark completed steps with [x] after approval
+- Update the plan as you go to reflect actual implementation decisions and outcomes
+
+**Testing:**
+- Follow the testing strategy defined in the plan header for each step
+
+**Style:**
+- Do NOT use emojis in plans!
