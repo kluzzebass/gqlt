@@ -108,6 +108,7 @@ type DescribeTypeInput struct {
 	TypeName string            `json:"typeName" jsonschema:"The GraphQL type name to describe"`
 	Endpoint string            `json:"endpoint" jsonschema:"GraphQL endpoint URL"`
 	Headers  map[string]string `json:"headers,omitempty" jsonschema:"HTTP headers to include"`
+	NoCache  bool              `json:"noCache,omitempty" jsonschema:"Skip cache and force fresh schema introspection"`
 }
 
 // DescribeTypeOutput defines the output schema for the describe_type tool
@@ -121,6 +122,7 @@ type ListTypesInput struct {
 	Filter   string            `json:"filter,omitempty" jsonschema:"Optional regex pattern to filter type names (e.g., 'Input.*', '.*Type', 'User.*')"`
 	Kind     string            `json:"kind,omitempty" jsonschema:"Optional type kind filter (OBJECT, ENUM, SCALAR, UNION, INPUT_OBJECT, INTERFACE)"`
 	Headers  map[string]string `json:"headers,omitempty" jsonschema:"HTTP headers to include"`
+	NoCache  bool              `json:"noCache,omitempty" jsonschema:"Skip cache and force fresh schema introspection"`
 }
 
 // ListTypesOutput defines the output schema for the list_types tool
@@ -170,13 +172,18 @@ func (s *SDKServer) handleDescribeType(ctx context.Context, req *mcp.CallToolReq
 	DescribeTypeOutput,
 	error,
 ) {
-	// Check cache first
-	s.cacheMutex.RLock()
-	schemaData, exists := s.schemaCache[input.Endpoint]
-	s.cacheMutex.RUnlock()
+	var schemaData interface{}
+	var exists bool
 
-	// If not in cache, introspect and cache it
-	if !exists {
+	// Check cache first, unless NoCache is true
+	if !input.NoCache {
+		s.cacheMutex.RLock()
+		schemaData, exists = s.schemaCache[input.Endpoint]
+		s.cacheMutex.RUnlock()
+	}
+
+	// If not in cache or NoCache is true, introspect and cache it
+	if !exists || input.NoCache {
 		client := NewClient(input.Endpoint, nil)
 
 		// Set headers if provided
@@ -227,13 +234,18 @@ func (s *SDKServer) handleListTypes(ctx context.Context, req *mcp.CallToolReques
 	ListTypesOutput,
 	error,
 ) {
-	// Check cache first
-	s.cacheMutex.RLock()
-	schemaData, exists := s.schemaCache[input.Endpoint]
-	s.cacheMutex.RUnlock()
+	var schemaData interface{}
+	var exists bool
 
-	// If not in cache, introspect and cache it
-	if !exists {
+	// Check cache first, unless NoCache is true
+	if !input.NoCache {
+		s.cacheMutex.RLock()
+		schemaData, exists = s.schemaCache[input.Endpoint]
+		s.cacheMutex.RUnlock()
+	}
+
+	// If not in cache or NoCache is true, introspect and cache it
+	if !exists || input.NoCache {
 		client := NewClient(input.Endpoint, nil)
 
 		// Set headers if provided

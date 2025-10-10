@@ -748,6 +748,70 @@ gqlt introspect --output schema.json
       --use-config string   use specific configuration by name (overrides current selection)
 ```
 
+## Mcp
+
+
+Start MCP (Model Context Protocol) server for AI agent integration
+
+### Synopsis
+
+Start an MCP server that provides GraphQL query execution and schema exploration to AI agents via JSON-RPC 2.0.
+This allows AI agents to execute GraphQL queries, introspect schemas, and explore types
+through a standardized protocol using stdin/stdout communication.
+
+The MCP server provides tools for:
+- execute_query: Run GraphQL queries, mutations, and subscriptions
+- describe_type: Analyze specific GraphQL types and fields with detailed information
+- list_types: List GraphQL type names with optional regex filtering
+
+```
+gqlt mcp [flags]
+```
+
+### Examples
+
+```
+# Start MCP server (stdin/stdout mode)
+gqlt mcp
+
+# For Cursor integration, add to mcp.json:
+{
+  "mcpServers": {
+    "gqlt": {
+      "command": "gqlt",
+      "args": ["mcp"],
+      "env": {}
+    }
+  }
+}
+
+# For Claude Desktop, add to ~/.config/claude-desktop/config.json:
+{
+  "mcpServers": {
+    "gqlt": {
+      "command": "gqlt",
+      "args": ["mcp"],
+      "env": {}
+    }
+  }
+}
+```
+
+### Options
+
+```
+  -h, --help   help for mcp
+```
+
+### Options inherited from parent commands
+
+```
+      --config-dir string   config directory (default is OS-specific)
+      --format string       Output format: json|table|yaml (default: json) (default "json")
+      --quiet               Quiet mode - suppress non-essential output for automation
+      --use-config string   use specific configuration by name (overrides current selection)
+```
+
 ## Run
 
 
@@ -757,25 +821,6 @@ Execute a GraphQL operation against an endpoint
 
 Execute a GraphQL operation (query or mutation) against a GraphQL endpoint.
 You can provide the query inline, from a file, or via stdin.
-
-QUERY SOURCES:
-  - Inline: --query "query { ... }"
-  - File: --query-file query.graphql
-  - Stdin: echo "query { ... }" | gqlt run --url https://api.example.com/graphql
-
-VARIABLES:
-  - Inline: --vars '{"key": "value"}'
-  - File: --vars-file variables.json
-
-AUTHENTICATION (in order of precedence):
-  1. Basic auth: --username + --password
-  2. Bearer token: --token
-  3. API key: --api-key
-
-OUTPUT MODES:
-  - json: Structured JSON (default)
-  - pretty: Colorized formatted JSON
-  - raw: Unformatted JSON
 
 ```
 gqlt run [flags]
@@ -790,16 +835,19 @@ gqlt run --url https://api.example.com/graphql --query "{ users { id name } }"
 # Query with variables
 gqlt run --url https://api.example.com/graphql --query "query($id: ID!) { user(id: $id) { name } }" --vars '{"id": "123"}'
 
+# Query from stdin
+echo "{ users { id name } }" | gqlt run --url https://api.example.com/graphql
+
 # Mutation with file upload
 gqlt run --url https://api.example.com/graphql --query "mutation($file: Upload!) { uploadFile(file: $file) }" --file avatar=./photo.jpg
 
 # Using configuration
 gqlt run --query "{ users { id name } }"  # Uses configured endpoint
 
-# With authentication
-gqlt run --token "bearer-token" --query "{ me { id } }"
-gqlt run --username user --password pass --query "{ me { id } }"
-gqlt run --api-key "api-key" --query "{ me { id } }"
+# Authentication (precedence: Basic Auth > Bearer Token > API Key)
+gqlt run --username user --password pass --query "{ me { id } }"  # Basic auth (highest precedence)
+gqlt run --token "bearer-token" --query "{ me { id } }"          # Bearer token
+gqlt run --api-key "api-key" --query "{ me { id } }"             # API key (lowest precedence)
 
 # Structured output for AI agents
 gqlt run --format json --quiet --query "{ users { id } }"

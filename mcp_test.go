@@ -365,3 +365,141 @@ func TestSDKServer_formatType(t *testing.T) {
 		})
 	}
 }
+
+func TestSDKServer_handleDescribeType_NoCache(t *testing.T) {
+	server, err := NewSDKServer()
+	if err != nil {
+		t.Fatalf("Failed to create SDK server: %v", err)
+	}
+
+	endpoint := "https://countries.trevorblades.com/graphql"
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+
+	// First call - should cache the schema
+	input1 := DescribeTypeInput{
+		TypeName: "Country",
+		Endpoint: endpoint,
+		NoCache:  false,
+	}
+
+	result1, output1, err := server.handleDescribeType(ctx, req, input1)
+	if err != nil {
+		t.Fatalf("handleDescribeType failed: %v", err)
+	}
+
+	if result1 != nil {
+		t.Error("Result should be nil for successful execution")
+	}
+
+	if output1.TypeInfo == "" {
+		t.Error("Type info should not be empty")
+	}
+
+	// Verify schema is cached
+	server.cacheMutex.RLock()
+	_, exists := server.schemaCache[endpoint]
+	server.cacheMutex.RUnlock()
+
+	if !exists {
+		t.Error("Schema should be cached after first call")
+	}
+
+	// Second call with NoCache=true - should bypass cache and re-introspect
+	input2 := DescribeTypeInput{
+		TypeName: "Country",
+		Endpoint: endpoint,
+		NoCache:  true,
+	}
+
+	result2, output2, err := server.handleDescribeType(ctx, req, input2)
+	if err != nil {
+		t.Fatalf("handleDescribeType failed: %v", err)
+	}
+
+	if result2 != nil {
+		t.Error("Result should be nil for successful execution")
+	}
+
+	if output2.TypeInfo == "" {
+		t.Error("Type info should not be empty")
+	}
+
+	// Verify schema is still cached (updated with fresh data)
+	server.cacheMutex.RLock()
+	_, exists = server.schemaCache[endpoint]
+	server.cacheMutex.RUnlock()
+
+	if !exists {
+		t.Error("Schema should still be cached after NoCache call")
+	}
+}
+
+func TestSDKServer_handleListTypes_NoCache(t *testing.T) {
+	server, err := NewSDKServer()
+	if err != nil {
+		t.Fatalf("Failed to create SDK server: %v", err)
+	}
+
+	endpoint := "https://countries.trevorblades.com/graphql"
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+
+	// First call - should cache the schema
+	input1 := ListTypesInput{
+		Endpoint: endpoint,
+		Kind:     "OBJECT",
+		NoCache:  false,
+	}
+
+	result1, output1, err := server.handleListTypes(ctx, req, input1)
+	if err != nil {
+		t.Fatalf("handleListTypes failed: %v", err)
+	}
+
+	if result1 != nil {
+		t.Error("Result should be nil for successful execution")
+	}
+
+	if len(output1.TypeNames) == 0 {
+		t.Error("Type names should not be empty")
+	}
+
+	// Verify schema is cached
+	server.cacheMutex.RLock()
+	_, exists := server.schemaCache[endpoint]
+	server.cacheMutex.RUnlock()
+
+	if !exists {
+		t.Error("Schema should be cached after first call")
+	}
+
+	// Second call with NoCache=true - should bypass cache and re-introspect
+	input2 := ListTypesInput{
+		Endpoint: endpoint,
+		Kind:     "OBJECT",
+		NoCache:  true,
+	}
+
+	result2, output2, err := server.handleListTypes(ctx, req, input2)
+	if err != nil {
+		t.Fatalf("handleListTypes failed: %v", err)
+	}
+
+	if result2 != nil {
+		t.Error("Result should be nil for successful execution")
+	}
+
+	if len(output2.TypeNames) == 0 {
+		t.Error("Type names should not be empty")
+	}
+
+	// Verify schema is still cached (updated with fresh data)
+	server.cacheMutex.RLock()
+	_, exists = server.schemaCache[endpoint]
+	server.cacheMutex.RUnlock()
+
+	if !exists {
+		t.Error("Schema should still be cached after NoCache call")
+	}
+}
