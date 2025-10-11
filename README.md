@@ -1104,7 +1104,6 @@ gqlt run --query "mutation($files: [Upload!]!) { uploadFiles(files: $files) }" -
   -H, --header stringArray   HTTP header (key=value, repeatable)
   -h, --help                 help for run
   -o, --operation string     Operation name
-  -O, --out string           Output mode: json|pretty|raw (default "json")
   -p, --password string      Password for basic authentication
   -q, --query string         Inline GraphQL document
   -Q, --query-file string    Path to .graphql file
