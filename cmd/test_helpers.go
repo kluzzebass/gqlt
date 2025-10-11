@@ -53,13 +53,53 @@ func setupTestEnvironment(t *testing.T) (string, func()) {
 }
 
 // executeCommandWithOutput executes a command and captures its output
+// This includes both cobra output and formatter output to stdout/stderr
 func executeCommandWithOutput(cmd *cobra.Command, args []string) (string, error) {
 	var buf bytes.Buffer
+	
+	// Redirect os.Stdout and os.Stderr to capture formatter output
+	oldStdout := os.Stdout
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	os.Stderr = w
+	
+	// Also set cobra's output (for help text, etc.)
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 	cmd.SetArgs(args)
-	err := cmd.Execute()
-	return buf.String(), err
+	
+	// Execute command in goroutine
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- cmd.Execute()
+		w.Close()
+	}()
+	
+	// Read all output
+	output := make([]byte, 0)
+	readBuf := make([]byte, 1024)
+	for {
+		n, err := r.Read(readBuf)
+		if n > 0 {
+			output = append(output, readBuf[:n]...)
+		}
+		if err != nil {
+			break
+		}
+	}
+	
+	// Wait for command to finish
+	cmdErr := <-errChan
+	
+	// Restore stdout/stderr
+	os.Stdout = oldStdout
+	os.Stderr = oldStderr
+	r.Close()
+	
+	// Combine pipe output with buffer output
+	combined := string(output) + buf.String()
+	return combined, cmdErr
 }
 
 // getExpectedConfigPath returns the expected config path for the given temp directory
