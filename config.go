@@ -28,17 +28,13 @@ type ConfigEntry struct {
 		Password string `json:"password,omitempty"` // Password for basic authentication
 		APIKey   string `json:"api_key,omitempty"`  // API key for authentication
 	} `json:"auth"`
-	Defaults struct {
-		Out string `json:"out"` // default output format (json, raw)
-	} `json:"defaults"`
 	Comment string `json:"_comment,omitempty"` // AI-friendly documentation
 }
 
 // Schema represents the configuration schema for AI understanding
 type Schema struct {
-	Endpoint    string `json:"endpoint"`
-	Headers     string `json:"headers"`
-	DefaultsOut string `json:"defaults.out"`
+	Endpoint string `json:"endpoint"`
+	Headers  string `json:"headers"`
 }
 
 // Path functions
@@ -348,8 +344,6 @@ func (c *Config) SetValue(name, key, value string) error {
 		entry.Auth.Password = value
 	case "auth.api_key":
 		entry.Auth.APIKey = value
-	case "defaults.out":
-		entry.Defaults.Out = value
 	default:
 		// Handle headers.<name> pattern
 		if strings.HasPrefix(key, "headers.") {
@@ -391,9 +385,8 @@ func (c *Config) Validate() []string {
 // GetSchema returns the configuration schema for AI understanding
 func GetSchema() *Schema {
 	return &Schema{
-		Endpoint:    "GraphQL endpoint URL (required)",
-		Headers:     "HTTP headers to include with requests",
-		DefaultsOut: "Default output mode: json|raw",
+		Endpoint: "GraphQL endpoint URL (required)",
+		Headers:  "HTTP headers to include with requests",
 	}
 }
 
@@ -412,11 +405,6 @@ func getDefaultConfigEntry() ConfigEntry {
 	return ConfigEntry{
 		Endpoint: "",
 		Headers:  make(map[string]string),
-		Defaults: struct {
-			Out string `json:"out"`
-		}{
-			Out: "json",
-		},
-		Comment: "Default configuration - used when no specific config is active",
+		Comment:  "Default configuration - used when no specific config is active",
 	}
 }

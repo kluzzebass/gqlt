@@ -52,7 +52,6 @@ var (
 	headers   []string
 	files     []string
 	filesList string
-	outMode   string
 	username  string
 	password  string
 	token     string
@@ -72,7 +71,6 @@ func init() {
 	runCmd.Flags().StringArrayVarP(&headers, "header", "H", []string{}, "HTTP header (key=value, repeatable)")
 	runCmd.Flags().StringArrayVarP(&files, "file", "f", []string{}, "File upload (name=path, repeatable, e.g. avatar=./photo.jpg)")
 	runCmd.Flags().StringVarP(&filesList, "files-list", "F", "", "File containing list of files to upload (one per line, format: name=path, supports # comments, ~ expansion, and relative paths)")
-	runCmd.Flags().StringVarP(&outMode, "out", "O", "json", "Output mode: json|raw")
 	runCmd.Flags().StringVarP(&username, "username", "U", "", "Username for basic authentication")
 	runCmd.Flags().StringVarP(&password, "password", "p", "", "Password for basic authentication")
 	runCmd.Flags().StringVarP(&token, "token", "t", "", "Bearer token for authentication")
@@ -193,14 +191,7 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Step 11: Check for GraphQL errors
-	if len(result.Errors) > 0 {
-		formatter := gqlt.NewFormatter(outputFormat)
-		formatter.FormatStructuredError(fmt.Errorf("GraphQL errors occurred"), "GRAPHQL_ERRORS", quietMode)
-		os.Exit(2)
-	}
-
-	// Step 12: Output formatting
+	// Step 11: Output formatting
 	formatter := gqlt.NewFormatter(outputFormat)
 
 	// Use structured output for non-json formats (table, yaml)
@@ -216,8 +207,17 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 		return formatter.FormatStructured(responseData, quietMode)
 	}
 
-	// Use GraphQL formatting for json format with output modes (json, raw)
-	return formatter.FormatResponse(result, outMode)
+	// For JSON format, output the complete GraphQL response as compact JSON
+	if err := formatter.FormatResponse(result, "compact"); err != nil {
+		return err
+	}
+
+	// Exit with error code if there were GraphQL errors (after outputting the response)
+	if len(result.Errors) > 0 {
+		os.Exit(2)
+	}
+
+	return nil
 }
 
 // mergeConfigWithFlags merges configuration values with CLI flags
@@ -240,10 +240,6 @@ func mergeConfigWithFlags(cfg *gqlt.Config) {
 	// Only set values from config if CLI flags are not provided
 	if url == "" && current.Endpoint != "" {
 		url = current.Endpoint
-	}
-
-	if outMode == "json" && current.Defaults.Out != "" {
-		outMode = current.Defaults.Out
 	}
 
 	// Merge headers from config

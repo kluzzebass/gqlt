@@ -300,16 +300,10 @@ func (f *JSONFormatter) FormatStructuredErrorWithContext(err error, code string,
 	return f.formatStructuredJSONToError(output)
 }
 
-// FormatResponse formats a GraphQL response
+// FormatResponse formats a GraphQL response as compact JSON
 func (f *JSONFormatter) FormatResponse(response *Response, mode string) error {
-	switch mode {
-	case "json":
-		return f.formatJSON(response)
-	case "raw":
-		return f.formatRaw(response)
-	default:
-		return fmt.Errorf("unknown output mode: %s (valid modes: json, raw)", mode)
-	}
+	encoder := json.NewEncoder(f.getOutput())
+	return encoder.Encode(response)
 }
 
 func (f *JSONFormatter) formatStructuredJSON(output *StructuredOutput) error {
@@ -622,22 +616,6 @@ func (f *YAMLFormatter) formatStructuredYAMLToError(output *StructuredOutput) er
 	}
 
 	return nil
-}
-
-// FormatResponse formats and prints the GraphQL response
-// This old FormatResponse method is no longer needed - it's been moved to JSONFormatter
-
-// formatJSON outputs formatted JSON with just the data field (strips GraphQL envelope)
-func (f *JSONFormatter) formatJSON(response *Response) error {
-	encoder := json.NewEncoder(f.getOutput())
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(response.Data)
-}
-
-// formatRaw outputs the complete Response structure (data, errors, extensions) as compact JSON
-func (f *JSONFormatter) formatRaw(response *Response) error {
-	encoder := json.NewEncoder(f.getOutput())
-	return encoder.Encode(response)
 }
 
 // FormatJSON formats data as JSON with indentation

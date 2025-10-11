@@ -156,9 +156,6 @@ func ExampleTestWithConfiguration(t *testing.T) {
 			Headers: map[string]string{
 				"Authorization": "Bearer test-token",
 			},
-			Defaults: struct {
-				Out string `json:"out"`
-			}{Out: "json"},
 		}
 
 		// Save configuration

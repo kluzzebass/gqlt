@@ -113,9 +113,6 @@ func main() {
 			Headers: map[string]string{
 				"Authorization": "Bearer example-token",
 			},
-			Defaults: struct {
-				Out string `json:"out"`
-			}{Out: "json"},
 		}
 
 		// Save configuration

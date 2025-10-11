@@ -22,7 +22,7 @@ func TestRunCommandStructure(t *testing.T) {
 
 func TestRunCommandFlags(t *testing.T) {
 	// Test that run command has expected flags
-	expectedFlags := []string{"url", "query", "query-file", "vars", "vars-file", "header", "file", "files-list", "out", "username", "password", "token", "api-key", "operation"}
+	expectedFlags := []string{"url", "query", "query-file", "vars", "vars-file", "header", "file", "files-list", "username", "password", "token", "api-key", "operation"}
 
 	for _, flagName := range expectedFlags {
 		flag := runCmd.Flag(flagName)

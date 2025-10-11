@@ -36,10 +36,6 @@ func TestGetDefaultConfig(t *testing.T) {
 	if defaultEntry.Endpoint != "" {
 		t.Errorf("Expected default endpoint to be empty, got %s", defaultEntry.Endpoint)
 	}
-
-	if defaultEntry.Defaults.Out != "json" {
-		t.Errorf("Expected default output to be 'json', got %s", defaultEntry.Defaults.Out)
-	}
 }
 
 func TestConfigOperations(t *testing.T) {
@@ -174,11 +170,6 @@ func TestValidate(t *testing.T) {
 	config.Configs["test"] = ConfigEntry{
 		Endpoint: "",
 		Headers:  make(map[string]string),
-		Defaults: struct {
-			Out string `json:"out"`
-		}{
-			Out: "json",
-		},
 	}
 	errors = config.Validate()
 	if len(errors) == 0 {
@@ -288,10 +279,6 @@ func TestGetSchema(t *testing.T) {
 
 	if schema.Headers == "" {
 		t.Error("Expected schema headers description to be non-empty")
-	}
-
-	if schema.DefaultsOut == "" {
-		t.Error("Expected schema defaults.out description to be non-empty")
 	}
 }
 

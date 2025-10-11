@@ -55,11 +55,23 @@ func LoadAnalyzerFromFile(filePath string) (*Analyzer, error) {
 		return nil, fmt.Errorf("failed to read schema file: %w", err)
 	}
 
+	// Try parsing as JSON first
 	var result Response
-	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse schema file: %w", err)
+	if err := json.Unmarshal(data, &result); err == nil {
+		return NewAnalyzer(&result)
 	}
 
+	// If JSON parsing failed, try SDL
+	sdl := string(data)
+	introspectionData, sdlErr := SDLToIntrospection(sdl)
+	if sdlErr != nil {
+		return nil, fmt.Errorf("failed to parse schema file as JSON or SDL: %w", sdlErr)
+	}
+
+	// Create Response from SDL introspection data
+	result = Response{
+		Data: introspectionData,
+	}
 	return NewAnalyzer(&result)
 }
 

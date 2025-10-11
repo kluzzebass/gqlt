@@ -112,10 +112,11 @@ type ExecuteQueryOutput struct {
 
 // DescribeTypeInput defines the input schema for the describe_type tool
 type DescribeTypeInput struct {
-	TypeName string            `json:"typeName" jsonschema:"The GraphQL type name to describe"`
-	Endpoint string            `json:"endpoint" jsonschema:"GraphQL endpoint URL"`
-	Headers  map[string]string `json:"headers,omitempty" jsonschema:"HTTP headers to include"`
-	NoCache  bool              `json:"noCache,omitempty" jsonschema:"Skip cache and force fresh schema introspection"`
+	TypeName   string            `json:"typeName" jsonschema:"The GraphQL type name to describe"`
+	Endpoint   string            `json:"endpoint,omitempty" jsonschema:"GraphQL endpoint URL (required if schemaFile not provided)"`
+	SchemaFile string            `json:"schemaFile,omitempty" jsonschema:"Local schema file path (JSON or SDL format, alternative to endpoint)"`
+	Headers    map[string]string `json:"headers,omitempty" jsonschema:"HTTP headers to include (only used with endpoint)"`
+	NoCache    bool              `json:"noCache,omitempty" jsonschema:"Skip cache and force fresh schema introspection (only used with endpoint)"`
 }
 
 // DescribeTypeOutput defines the output schema for the describe_type tool
@@ -125,11 +126,12 @@ type DescribeTypeOutput struct {
 
 // ListTypesInput defines the input schema for the list_types tool
 type ListTypesInput struct {
-	Endpoint string            `json:"endpoint" jsonschema:"GraphQL endpoint URL"`
-	Filter   string            `json:"filter,omitempty" jsonschema:"Optional regex pattern to filter type names (e.g., 'Input.*', '.*Type', 'User.*')"`
-	Kind     string            `json:"kind,omitempty" jsonschema:"Optional type kind filter (OBJECT, ENUM, SCALAR, UNION, INPUT_OBJECT, INTERFACE)"`
-	Headers  map[string]string `json:"headers,omitempty" jsonschema:"HTTP headers to include"`
-	NoCache  bool              `json:"noCache,omitempty" jsonschema:"Skip cache and force fresh schema introspection"`
+	Endpoint   string            `json:"endpoint,omitempty" jsonschema:"GraphQL endpoint URL (required if schemaFile not provided)"`
+	SchemaFile string            `json:"schemaFile,omitempty" jsonschema:"Local schema file path (JSON or SDL format, alternative to endpoint)"`
+	Filter     string            `json:"filter,omitempty" jsonschema:"Optional regex pattern to filter type names (e.g., 'Input.*', '.*Type', 'User.*')"`
+	Kind       string            `json:"kind,omitempty" jsonschema:"Optional type kind filter (OBJECT, ENUM, SCALAR, UNION, INPUT_OBJECT, INTERFACE)"`
+	Headers    map[string]string `json:"headers,omitempty" jsonschema:"HTTP headers to include (only used with endpoint)"`
+	NoCache    bool              `json:"noCache,omitempty" jsonschema:"Skip cache and force fresh schema introspection (only used with endpoint)"`
 }
 
 // ListTypesOutput defines the output schema for the list_types tool
@@ -200,12 +202,46 @@ func (s *SDKServer) handleDescribeType(ctx context.Context, req *mcp.CallToolReq
 	error,
 ) {
 	var schemaData interface{}
+	var cacheKey string
+
+	// If SchemaFile is provided, load from local file
+	if input.SchemaFile != "" {
+		analyzer, err := LoadAnalyzerFromFile(input.SchemaFile)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{
+						Text: fmt.Sprintf("Failed to load schema file: %v", err),
+					},
+				},
+				IsError: true,
+			}, DescribeTypeOutput{}, nil
+		}
+
+		// Extract type info using the same logic as endpoint-based introspection
+		typeInfo, err := s.extractTypeInfo(map[string]interface{}{"__schema": analyzer.schemaData}, input.TypeName, input.SchemaFile)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{
+						Text: fmt.Sprintf("Type not found: %v", err),
+					},
+				},
+				IsError: true,
+			}, DescribeTypeOutput{}, nil
+		}
+
+		return nil, DescribeTypeOutput{TypeInfo: typeInfo}, nil
+	}
+
+	// Use endpoint for schema introspection
+	cacheKey = input.Endpoint
 	var exists bool
 
 	// Check cache first, unless NoCache is true
 	if !input.NoCache {
 		s.cacheMutex.RLock()
-		schemaData, exists = s.schemaCache[input.Endpoint]
+		schemaData, exists = s.schemaCache[cacheKey]
 		s.cacheMutex.RUnlock()
 	}
 
@@ -253,13 +289,13 @@ func (s *SDKServer) handleDescribeType(ctx context.Context, req *mcp.CallToolReq
 
 		// Cache the schema
 		s.cacheMutex.Lock()
-		s.schemaCache[input.Endpoint] = result.Data
+		s.schemaCache[cacheKey] = result.Data
 		schemaData = result.Data
 		s.cacheMutex.Unlock()
 	}
 
 	// Parse the schema to find the specific type
-	typeInfo, err := s.extractTypeInfo(schemaData, input.TypeName, input.Endpoint)
+	typeInfo, err := s.extractTypeInfo(schemaData, input.TypeName, cacheKey)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -282,12 +318,52 @@ func (s *SDKServer) handleListTypes(ctx context.Context, req *mcp.CallToolReques
 	error,
 ) {
 	var schemaData interface{}
+	var cacheKey string
+
+	// If SchemaFile is provided, load from local file
+	if input.SchemaFile != "" {
+		analyzer, err := LoadAnalyzerFromFile(input.SchemaFile)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{
+						Text: fmt.Sprintf("Failed to load schema file: %v", err),
+					},
+				},
+				IsError: true,
+			}, ListTypesOutput{TypeNames: []string{}, Count: 0}, nil
+		}
+
+		// Get schema data from analyzer
+		schemaData = analyzer.schemaData
+
+		// List matching types
+		typeNames, err := s.listMatchingTypes(map[string]interface{}{"__schema": schemaData}, input.Filter, input.Kind)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{
+						Text: fmt.Sprintf("Failed to list types: %v", err),
+					},
+				},
+				IsError: true,
+			}, ListTypesOutput{TypeNames: []string{}, Count: 0}, nil
+		}
+
+		return nil, ListTypesOutput{
+			TypeNames: typeNames,
+			Count:     len(typeNames),
+		}, nil
+	}
+
+	// Use endpoint for schema introspection
+	cacheKey = input.Endpoint
 	var exists bool
 
 	// Check cache first, unless NoCache is true
 	if !input.NoCache {
 		s.cacheMutex.RLock()
-		schemaData, exists = s.schemaCache[input.Endpoint]
+		schemaData, exists = s.schemaCache[cacheKey]
 		s.cacheMutex.RUnlock()
 	}
 
@@ -335,7 +411,7 @@ func (s *SDKServer) handleListTypes(ctx context.Context, req *mcp.CallToolReques
 
 		// Cache the schema
 		s.cacheMutex.Lock()
-		s.schemaCache[input.Endpoint] = result.Data
+		s.schemaCache[cacheKey] = result.Data
 		schemaData = result.Data
 		s.cacheMutex.Unlock()
 	}

@@ -86,14 +86,14 @@ func TestGetOutputAndGetErrorOutput(t *testing.T) {
 			// Test default output (should be os.Stdout) - use interface methods
 			outputBuf := &bytes.Buffer{}
 			formatter.SetOutput(outputBuf)
-			
+
 			// Test that we can set and get output
 			testData := map[string]string{"test": "data"}
 			err := formatter.FormatStructured(testData, false)
 			if err != nil {
 				t.Errorf("FormatStructured failed: %v", err)
 			}
-			
+
 			output := outputBuf.String()
 			if len(output) == 0 {
 				t.Errorf("Expected output in custom buffer")
@@ -102,14 +102,14 @@ func TestGetOutputAndGetErrorOutput(t *testing.T) {
 			// Test default error output (should be os.Stderr) - use interface methods
 			errorBuf := &bytes.Buffer{}
 			formatter.SetErrorOutput(errorBuf)
-			
+
 			// Test that we can set and get error output
 			testError := fmt.Errorf("test error")
 			err = formatter.FormatStructuredError(testError, "TEST_ERROR", false)
 			if err != nil {
 				t.Errorf("FormatStructuredError failed: %v", err)
 			}
-			
+
 			errorOutput := errorBuf.String()
 			if len(errorOutput) == 0 {
 				t.Errorf("Expected error output in custom error buffer")
@@ -358,7 +358,7 @@ func TestErrorCodes(t *testing.T) {
 func TestFormatResponse(t *testing.T) {
 	// Test all formatter types with FormatResponse
 	formats := []string{"json", "table", "yaml"}
-	modes := []string{"json", "raw"}
+	modes := []string{"compact"}
 
 	// Test cases with different response types
 	testCases := []struct {
@@ -423,7 +423,7 @@ func TestFormatResponse(t *testing.T) {
 					for _, tc := range testCases {
 						t.Run(tc.name, func(t *testing.T) {
 							outputBuf.Reset() // Clear buffer for each test
-							
+
 							err := formatter.FormatResponse(tc.response, mode)
 							if err != nil {
 								t.Errorf("FormatResponse failed for %s format, %s mode with %s: %v", format, mode, tc.name, err)
@@ -452,7 +452,7 @@ func TestFormatResponse(t *testing.T) {
 
 func TestFormatter(t *testing.T) {
 	// Test all formatter modes with comprehensive test cases
-	modes := []string{"json", "raw"}
+	modes := []string{"compact"}
 
 	// Test cases with different response types
 	testCases := []struct {
@@ -515,7 +515,7 @@ func TestFormatter(t *testing.T) {
 			for _, tc := range testCases {
 				t.Run(tc.name, func(t *testing.T) {
 					outputBuf.Reset() // Clear buffer for each test
-					
+
 					err := formatter.FormatResponse((*Response)(tc.response), mode)
 					if err != nil {
 						t.Errorf("Format failed for %s mode with %s: %v", mode, tc.name, err)
@@ -667,33 +667,33 @@ func TestFormatterPerformance(t *testing.T) {
 	t.Run("concurrent formatting", func(t *testing.T) {
 		// Test concurrent access to formatters - each goroutine gets its own formatter
 		done := make(chan bool, 10)
-		
+
 		for i := 0; i < 10; i++ {
 			go func(id int) {
 				defer func() { done <- true }()
-				
+
 				// Each goroutine gets its own formatter instance
 				formatter := NewFormatter("json")
 				outputBuf := &bytes.Buffer{}
 				formatter.SetOutput(outputBuf)
-				
+
 				data := map[string]interface{}{
 					"id":   id,
 					"data": fmt.Sprintf("concurrent test %d", id),
 				}
-				
+
 				err := formatter.FormatStructured(data, false)
 				if err != nil {
 					t.Errorf("Concurrent FormatStructured failed for goroutine %d: %v", id, err)
 				}
-				
+
 				output := outputBuf.String()
 				if len(output) == 0 {
 					t.Errorf("Expected output for goroutine %d", id)
 				}
 			}(i)
 		}
-		
+
 		// Wait for all goroutines to complete
 		for i := 0; i < 10; i++ {
 			<-done
