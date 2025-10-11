@@ -371,12 +371,16 @@ How to test:
 - All helpers work correctly
 - Documentation is clear
 
-Status: Already exists - cmd/test_helpers.go has excellent helpers:
-- createTestCommand() and createFullTestCommand()
-- setupTestEnvironment() for temp directories
-- executeCommandWithOutput() for command testing
-- getExpectedConfigPath() helper
-All helpers documented and working well
+Status: Complete - Enhanced cmd/test_helpers.go with critical fix:
+- createTestCommand() and createFullTestCommand() (already existed)
+- setupTestEnvironment() for temp directories (already existed)
+- executeCommandWithOutput() FIXED to redirect os.Stdout/Stderr using pipes
+  - Previously: Only captured cobra output, formatters wrote directly to stdout (pollution)
+  - Now: Redirects os.Stdout/Stderr during test execution, captures ALL output
+  - Uses goroutine + pipe to properly capture formatter writes
+  - Restores stdout/stderr after test completes
+- getExpectedConfigPath() helper (already existed)
+- RESULT: Zero test output pollution - all tests run clean
 
 ### [x] 21) Add benchmark tests for performance
 
@@ -428,12 +432,12 @@ Status: Partially exists - justfile already has test and test-coverage targets. 
 - [x] New testutil package with 90.8% coverage - excellent reusable mock server
 - [x] All packages have improved unit tests with table-driven patterns
 - [x] Table-driven tests added for client, schema, and analyzer functions
-- [x] No test output pollution in new tests
-- [x] All tests pass consistently (67 tests passing)
+- [x] **No test output pollution** - SOLVED via os.Stdout/Stderr redirection in test helper
+- [x] All tests pass consistently (308 test cases passing)
 - [x] Test execution is fast (< 3 seconds for unit tests)
 - [x] Mock server infrastructure is comprehensive and reusable
-- [x] Test helpers already exist and work well (cmd/test_helpers.go)
-- [x] Justfile has basic testing commands (test, test-coverage)
+- [x] Test helpers enhanced with stdout capture fix (cmd/test_helpers.go)
+- [x] Justfile has verbose testing (test recipe now uses -v flag)
 
 **Partially Achieved:**
 - [~] MCP server has good unit tests but no protocol integration tests (deferred - SDK handles protocol)
@@ -485,11 +489,12 @@ Status: Partially exists - justfile already has test and test-coverage targets. 
 - Total Test Cases: 308 (across all packages)
 - Test Execution Time: ~3 seconds
 - Most Valuable Outcomes:
-  1. Mock GraphQL server (internal/testutil) - 90.8% coverage, highly reusable
-  2. Enhanced client tests - comprehensive table-driven patterns
-  3. Enhanced schema tests - all GraphQL type kinds covered
-  4. Architectural insights about formatter design
-  5. Foundation for future test improvements
+  1. **FIXED test output pollution** - executeCommandWithOutput now redirects os.Stdout/Stderr
+  2. Mock GraphQL server (internal/testutil) - 90.8% coverage, highly reusable
+  3. Enhanced client tests - comprehensive table-driven patterns
+  4. Enhanced schema tests - all GraphQL type kinds covered
+  5. Architectural insights about formatter design
+  6. Foundation for future test improvements
 
 **Coverage Summary:**
 - Core package: 67.5% (improved from 65.4%)
