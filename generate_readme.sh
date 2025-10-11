@@ -28,7 +28,7 @@ echo -e "${YELLOW}Creating comprehensive README.md...${NC}"
 cat > README.md << 'EOF'
 # gqlt
 
-A triple-threat GraphQL tool: CLI client, MCP server, and Go library. A veritable Kinder Egg! 🥚
+A triple-threat GraphQL tool: CLI client, MCP server, and Go library.
 
 ## Overview
 
