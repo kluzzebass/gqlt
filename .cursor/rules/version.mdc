@@ -1,0 +1,5 @@
+---
+description: Version handling
+alwaysApply: true
+---
+Do not ever touch VERSION directly!!!
