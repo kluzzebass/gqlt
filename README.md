@@ -169,12 +169,28 @@ Add to `~/.config/claude-desktop/config.json` (macOS/Linux) or `%APPDATA%\Claude
 ```
 
 **Available MCP Tools:**
-- `execute_query`: Run GraphQL queries, mutations, and subscriptions
+- `execute_query`: Run GraphQL queries, mutations, and subscriptions (supports file uploads)
 - `describe_type`: Analyze specific GraphQL types with detailed field information
 - `list_types`: List and filter GraphQL type names (supports regex patterns and kind filtering)
 - `version`: Get the current version of gqlt
 
-Schema-related tools (`describe_type` and `list_types`) support the `noCache` parameter to force fresh schema introspection when needed.
+**File Upload Support:**
+The `execute_query` tool supports file uploads for mutations with Upload scalar types. Provide local file paths:
+
+```json
+{
+  "query": "mutation($file: Upload!) { uploadFile(file: $file) { id url } }",
+  "variables": {"file": null},
+  "endpoint": "https://api.example.com/graphql",
+  "files": {
+    "file": "/Users/you/photos/avatar.jpg"
+  }
+}
+```
+
+**Tool Parameters:**
+- Schema-related tools (`describe_type` and `list_types`) support `noCache` parameter to force fresh schema introspection
+- `execute_query` supports `files` parameter for file uploads via local filesystem paths
 
 ### Mode 3: Go Library
 
@@ -982,9 +998,10 @@ This allows AI agents to execute GraphQL queries, introspect schemas, and explor
 through a standardized protocol using stdin/stdout communication.
 
 The MCP server provides tools for:
-- execute_query: Run GraphQL queries, mutations, and subscriptions
+- execute_query: Run GraphQL queries, mutations, and subscriptions (supports file uploads via local paths)
 - describe_type: Analyze specific GraphQL types and fields with detailed information
 - list_types: List GraphQL type names with optional regex filtering
+- version: Get the current version of gqlt
 
 ```
 gqlt mcp [flags]

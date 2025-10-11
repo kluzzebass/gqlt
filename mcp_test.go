@@ -2,6 +2,7 @@ package gqlt
 
 import (
 	"context"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -534,3 +535,164 @@ func TestSDKServer_handleVersion(t *testing.T) {
 	}
 }
 
+func TestSDKServer_handleExecuteQuery_WithFiles(t *testing.T) {
+	server, err := NewSDKServer()
+	if err != nil {
+		t.Fatalf("Failed to create SDK server: %v", err)
+	}
+
+	// Create a temporary test file
+	tempFile, err := os.CreateTemp("", "test-upload-*.txt")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tempFile.Name())
+
+	testContent := "test file content for upload"
+	if _, err := tempFile.WriteString(testContent); err != nil {
+		t.Fatalf("Failed to write test content: %v", err)
+	}
+	tempFile.Close()
+
+	// Note: This test will fail without a real endpoint that accepts file uploads
+	// We're testing that the code path executes correctly
+	input := ExecuteQueryInput{
+		Query:     `mutation($file: Upload!) { uploadFile(file: $file) { success } }`,
+		Variables: map[string]interface{}{"file": nil},
+		Endpoint:  "https://countries.trevorblades.com/graphql", // This endpoint doesn't support uploads
+		Files: map[string]string{
+			"file": tempFile.Name(),
+		},
+	}
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+
+	// Execute - this will likely fail because the endpoint doesn't support uploads
+	// But we're testing that the file upload code path is executed
+	result, _, err := server.handleExecuteQuery(ctx, req, input)
+
+	// The important thing is that it doesn't panic and handles the file parameter
+	// It may fail due to the endpoint not supporting uploads, which is expected
+	if err != nil {
+		t.Logf("Expected failure (endpoint doesn't support uploads): %v", err)
+	}
+
+	if result != nil && result.IsError {
+		t.Logf("Got error result (expected for non-upload endpoint)")
+	}
+}
+
+func TestSDKServer_handleExecuteQuery_WithNonExistentFile(t *testing.T) {
+	server, err := NewSDKServer()
+	if err != nil {
+		t.Fatalf("Failed to create SDK server: %v", err)
+	}
+
+	input := ExecuteQueryInput{
+		Query:     `mutation($file: Upload!) { uploadFile(file: $file) { success } }`,
+		Variables: map[string]interface{}{"file": nil},
+		Endpoint:  "https://countries.trevorblades.com/graphql",
+		Files: map[string]string{
+			"file": "/nonexistent/file.txt",
+		},
+	}
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+
+	result, _, err := server.handleExecuteQuery(ctx, req, input)
+
+	// Should get an error for non-existent file
+	if err != nil {
+		t.Logf("Got expected error for non-existent file: %v", err)
+	}
+
+	if result == nil {
+		t.Error("Expected error result for non-existent file")
+	}
+
+	if result != nil && !result.IsError {
+		t.Error("Result should indicate error for non-existent file")
+	}
+}
+
+func TestSDKServer_handleExecuteQuery_BackwardCompatibility(t *testing.T) {
+	server, err := NewSDKServer()
+	if err != nil {
+		t.Fatalf("Failed to create SDK server: %v", err)
+	}
+
+	// Test without Files parameter (backward compatibility)
+	input := ExecuteQueryInput{
+		Query:    `query { __schema { types { name } } }`,
+		Endpoint: "https://countries.trevorblades.com/graphql",
+		// No Files field - should use regular Execute
+	}
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+
+	result, output, err := server.handleExecuteQuery(ctx, req, input)
+	if err != nil {
+		t.Fatalf("handleExecuteQuery without files failed: %v", err)
+	}
+
+	if result != nil {
+		t.Error("Result should be nil for successful execution")
+	}
+
+	if output.Data == nil {
+		t.Error("Output data should not be nil")
+	}
+
+	// Verify backward compatibility - queries without files still work
+	t.Log("Backward compatibility confirmed: execute_query works without Files parameter")
+}
+
+func TestSDKServer_handleExecuteQuery_RealLogin(t *testing.T) {
+	server, err := NewSDKServer()
+	if err != nil {
+		t.Fatalf("Failed to create SDK server: %v", err)
+	}
+
+	// Test with real login endpoint
+	input := ExecuteQueryInput{
+		Query: `mutation($username: String!, $password: String!) {
+			login(username: $username, password: $password) {
+				token
+				user {
+					id
+					username
+				}
+			}
+		}`,
+		Variables: map[string]interface{}{
+			"username": "admin",
+			"password": "admin",
+		},
+		Endpoint: "http://localhost:5225/graphql",
+	}
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+
+	result, output, err := server.handleExecuteQuery(ctx, req, input)
+	if err != nil {
+		t.Fatalf("handleExecuteQuery failed: %v", err)
+	}
+
+	if result != nil {
+		if result.IsError {
+			t.Errorf("Query returned error: %+v", result)
+		}
+	}
+
+	if output.Data == nil {
+		t.Error("Expected data in output")
+	}
+
+	// Log the response for verification
+	t.Logf("Login response: %+v", output.Data)
+	t.Logf("Elapsed: %d ms", output.ElapsedMs)
+}

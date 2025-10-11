@@ -100,6 +100,7 @@ type ExecuteQueryInput struct {
 	OperationName string                 `json:"operationName,omitempty" jsonschema:"The operation name to execute"`
 	Endpoint      string                 `json:"endpoint" jsonschema:"GraphQL endpoint URL"`
 	Headers       map[string]string      `json:"headers,omitempty" jsonschema:"HTTP headers to include"`
+	Files         map[string]string      `json:"files,omitempty" jsonschema:"File uploads (variable name to local file path mapping, e.g. {'avatar': '/path/to/photo.jpg'})"`
 }
 
 // ExecuteQueryOutput defines the output schema for the execute_query tool
@@ -160,9 +161,19 @@ func (s *SDKServer) handleExecuteQuery(ctx context.Context, req *mcp.CallToolReq
 		client.SetHeaders(input.Headers)
 	}
 
-	// Execute the query
+	// Execute the query with or without files
 	start := time.Now()
-	result, err := client.Execute(input.Query, input.Variables, input.OperationName)
+	var result *Response
+	var err error
+
+	if len(input.Files) > 0 {
+		// Use ExecuteWithFiles for file uploads
+		result, err = client.ExecuteWithFiles(input.Query, input.Variables, input.OperationName, input.Files)
+	} else {
+		// Use regular Execute for queries without files
+		result, err = client.Execute(input.Query, input.Variables, input.OperationName)
+	}
+	
 	elapsed := time.Since(start)
 
 	if err != nil {

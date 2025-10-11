@@ -20,9 +20,10 @@ This allows AI agents to execute GraphQL queries, introspect schemas, and explor
 through a standardized protocol using stdin/stdout communication.
 
 The MCP server provides tools for:
-- execute_query: Run GraphQL queries, mutations, and subscriptions
+- execute_query: Run GraphQL queries, mutations, and subscriptions (supports file uploads via local paths)
 - describe_type: Analyze specific GraphQL types and fields with detailed information
-- list_types: List GraphQL type names with optional regex filtering`,
+- list_types: List GraphQL type names with optional regex filtering
+- version: Get the current version of gqlt`,
 	Example: `# Start MCP server (stdin/stdout mode)
 gqlt mcp
 
