@@ -80,6 +80,12 @@ func (s *SDKServer) registerTools() error {
 		Description: "List GraphQL type names with optional filtering",
 	}, s.handleListTypes)
 
+	// Add version tool
+	mcp.AddTool(s.server, &mcp.Tool{
+		Name:        "version",
+		Description: "Get the current version of gqlt",
+	}, s.handleVersion)
+
 	return nil
 }
 
@@ -129,6 +135,16 @@ type ListTypesInput struct {
 type ListTypesOutput struct {
 	TypeNames []string `json:"type_names" jsonschema:"List of matching type names"`
 	Count     int      `json:"count" jsonschema:"Total number of matching types"`
+}
+
+// VersionInput defines the input schema for the version tool
+type VersionInput struct {
+	// No input parameters required
+}
+
+// VersionOutput defines the output schema for the version tool
+type VersionOutput struct {
+	Version string `json:"version" jsonschema:"The current version of gqlt"`
 }
 
 func (s *SDKServer) handleExecuteQuery(ctx context.Context, req *mcp.CallToolRequest, input ExecuteQueryInput) (
@@ -544,6 +560,17 @@ func (s *SDKServer) matchesRegex(name, pattern string) bool {
 
 	// Check if the name matches the pattern
 	return regex.MatchString(name)
+}
+
+func (s *SDKServer) handleVersion(ctx context.Context, req *mcp.CallToolRequest, input VersionInput) (
+	*mcp.CallToolResult,
+	VersionOutput,
+	error,
+) {
+	// Return the current version
+	return nil, VersionOutput{
+		Version: Version(),
+	}, nil
 }
 
 // TODO: Add resource and prompt handlers later

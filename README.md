@@ -1,59 +1,26 @@
 # gqlt
 
-A dual-purpose GraphQL tool: Unix-style CLI client and MCP server for AI agents.
+A minimal, composable command-line client for running GraphQL operations.
 
 ## Overview
 
-**gqlt** operates in two distinct modes:
+gqlt is a minimal, composable command-line client for running GraphQL operations.
+It supports queries, mutations, subscriptions, introspection, and more.
 
-### 1. **CLI Mode**: Composable Unix Tool
-A minimal command-line client for running GraphQL operations that follows Unix philosophy:
-- Accepts input from stdin, files, or arguments
-- Outputs structured data (JSON/YAML/table) to stdout
-- Composes with other Unix tools via pipes (`jq`, `grep`, `awk`, etc.)
-- Supports queries, mutations, subscriptions, and introspection
+### AI-Friendly Features
 
-### 2. **MCP Mode**: AI Agent Server
-A Model Context Protocol (MCP) server that provides GraphQL capabilities to AI agents:
-- Execute queries against any GraphQL endpoint
-- Introspect and explore GraphQL schemas
-- List and describe types with intelligent filtering
-- Integrates with Cursor, Claude Desktop, and other MCP-compatible tools
+- Structured JSON output with `--format json`
+- Machine-readable error codes for automation
+- Quiet mode (`--quiet`) for script integration
+- Comprehensive help with examples
 
 ### Quick Start
 
-**CLI Usage:**
 ```bash
 # Basic query execution
 gqlt run --url https://api.example.com/graphql --query "{ users { id name } }"
 
-# Compose with jq to extract data
-gqlt run --query "{ users { id name email } }" --format json --quiet | \
-  jq '.data.users[] | select(.email | contains("@example.com"))'
-
-# Count results
-gqlt introspect --format json --quiet | jq '.data.__schema.types | length'
-```
-
-**MCP Server Usage:**
-```bash
-# Start MCP server for AI agents
-gqlt mcp
-
-# Add to Cursor's mcp.json or Claude Desktop config:
-# {
-#   "mcpServers": {
-#     "gqlt": {
-#       "command": "gqlt",
-#       "args": ["mcp"]
-#     }
-#   }
-# }
-```
-
-### Configuration
-```bash
-# Set up persistent configuration
+# Using configuration
 gqlt config create production
 gqlt config set production endpoint https://api.example.com/graphql
 gqlt run --query "{ users { id name } }"
@@ -72,97 +39,6 @@ go build -o gqlt ./cmd
 ### From Releases
 
 Download the latest release for your platform from the [releases page](https://github.com/kluzzebass/gqlt/releases).
-
-## Usage Patterns
-
-### Composable CLI Examples
-
-The CLI mode outputs clean, structured data that composes naturally with Unix tools:
-
-```bash
-# Extract and filter user emails
-gqlt run --query "{ users { id name email } }" --format json --quiet | \
-  jq -r '.data.users[] | select(.email | contains("@example.com")) | .email'
-
-# Count total types in a schema
-gqlt introspect --format json --quiet | \
-  jq '.data.__schema.types | length'
-
-# Find types matching a pattern
-gqlt introspect --format json --quiet | \
-  jq -r '.data.__schema.types[].name' | \
-  grep -i "user"
-
-# Process query results with awk
-gqlt run --query "{ users { id name } }" --format json --quiet | \
-  jq -r '.data.users[] | [.id, .name] | @csv' | \
-  awk -F',' '{print "User " $1 ": " $2}'
-
-# Chain multiple queries
-user_id=$(gqlt run --query "{ users { id } }" --format json --quiet | jq -r '.data.users[0].id')
-gqlt run --query "query(\$id: ID!) { user(id: \$id) { name email } }" \
-  --vars "{\"id\": \"$user_id\"}" --format json --quiet
-
-# Batch process with xargs
-gqlt run --query "{ users { id } }" --format json --quiet | \
-  jq -r '.data.users[].id' | \
-  xargs -I {} echo "Processing user: {}"
-
-# Save introspection and analyze
-gqlt introspect --out schema.json
-cat schema.json | jq '.data.__schema.queryType.name'
-
-# Format for different outputs
-gqlt run --query "{ users { id name } }" --format table  # Human-readable
-gqlt run --query "{ users { id name } }" --format json --quiet  # Machine-readable
-gqlt run --query "{ users { id name } }" --format yaml  # YAML format
-```
-
-### MCP Server Integration
-
-Run as a server to provide GraphQL capabilities to AI agents:
-
-```bash
-# Start the MCP server (stdin/stdout mode)
-gqlt mcp
-```
-
-**Integration with Cursor:**
-
-Add to your `~/.cursor/mcp.json` or workspace `.cursor/mcp.json`:
-```json
-{
-  "mcpServers": {
-    "gqlt": {
-      "command": "gqlt",
-      "args": ["mcp"],
-      "env": {}
-    }
-  }
-}
-```
-
-**Integration with Claude Desktop:**
-
-Add to `~/.config/claude-desktop/config.json` (macOS/Linux) or `%APPDATA%\Claude\config.json` (Windows):
-```json
-{
-  "mcpServers": {
-    "gqlt": {
-      "command": "/usr/local/bin/gqlt",
-      "args": ["mcp"],
-      "env": {}
-    }
-  }
-}
-```
-
-**Available MCP Tools:**
-- `execute_query`: Run GraphQL queries, mutations, and subscriptions
-- `describe_type`: Analyze specific GraphQL types with detailed field information
-- `list_types`: List and filter GraphQL type names (supports regex patterns and kind filtering)
-
-All MCP tools support the `noCache` parameter to force fresh schema introspection when needed.
 
 ## Documentation
 
@@ -887,6 +763,7 @@ The MCP server provides tools for:
 - execute_query: Run GraphQL queries, mutations, and subscriptions
 - describe_type: Analyze specific GraphQL types and fields with detailed information
 - list_types: List GraphQL type names with optional regex filtering
+- version: Get the current version of gqlt
 
 ```
 gqlt mcp [flags]
@@ -1161,6 +1038,45 @@ gqlt validate schema --url https://api.example.com/graphql --format json --quiet
 ```
   -h, --help         help for schema
   -u, --url string   GraphQL endpoint URL
+```
+
+### Options inherited from parent commands
+
+```
+      --config-dir string   config directory (default is OS-specific)
+      --format string       Output format: json|table|yaml (default: json) (default "json")
+      --quiet               Quiet mode - suppress non-essential output for automation
+      --use-config string   use specific configuration by name (overrides current selection)
+```
+
+## Version
+
+
+Display the current version of gqlt
+
+### Synopsis
+
+Display the current version of gqlt.
+
+```
+gqlt version [flags]
+```
+
+### Examples
+
+```
+# Show version
+gqlt version
+
+# Use in scripts
+VERSION=$(gqlt version)
+echo "Using gqlt version: $VERSION"
+```
+
+### Options
+
+```
+  -h, --help   help for version
 ```
 
 ### Options inherited from parent commands

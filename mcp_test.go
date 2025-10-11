@@ -503,3 +503,34 @@ func TestSDKServer_handleListTypes_NoCache(t *testing.T) {
 		t.Error("Schema should still be cached after NoCache call")
 	}
 }
+
+func TestSDKServer_handleVersion(t *testing.T) {
+	server, err := NewSDKServer()
+	if err != nil {
+		t.Fatalf("Failed to create SDK server: %v", err)
+	}
+
+	input := VersionInput{}
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+
+	result, output, err := server.handleVersion(ctx, req, input)
+	if err != nil {
+		t.Fatalf("handleVersion failed: %v", err)
+	}
+
+	if result != nil {
+		t.Error("Result should be nil for successful execution")
+	}
+
+	if output.Version == "" {
+		t.Error("Version should not be empty")
+	}
+
+	// Verify version matches the actual version
+	expectedVersion := Version()
+	if output.Version != expectedVersion {
+		t.Errorf("Expected version %s, got %s", expectedVersion, output.Version)
+	}
+}
+
