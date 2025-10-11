@@ -358,7 +358,7 @@ func TestErrorCodes(t *testing.T) {
 func TestFormatResponse(t *testing.T) {
 	// Test all formatter types with FormatResponse
 	formats := []string{"json", "table", "yaml"}
-	modes := []string{"json", "pretty", "raw"}
+	modes := []string{"json", "raw"}
 
 	// Test cases with different response types
 	testCases := []struct {
@@ -452,7 +452,7 @@ func TestFormatResponse(t *testing.T) {
 
 func TestFormatter(t *testing.T) {
 	// Test all formatter modes with comprehensive test cases
-	modes := []string{"json", "pretty", "raw"}
+	modes := []string{"json", "raw"}
 
 	// Test cases with different response types
 	testCases := []struct {

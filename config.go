@@ -29,7 +29,7 @@ type ConfigEntry struct {
 		APIKey   string `json:"api_key,omitempty"`  // API key for authentication
 	} `json:"auth"`
 	Defaults struct {
-		Out string `json:"out"` // default output format (json, pretty, raw)
+		Out string `json:"out"` // default output format (json, raw)
 	} `json:"defaults"`
 	Comment string `json:"_comment,omitempty"` // AI-friendly documentation
 }
@@ -393,7 +393,7 @@ func GetSchema() *Schema {
 	return &Schema{
 		Endpoint:    "GraphQL endpoint URL (required)",
 		Headers:     "HTTP headers to include with requests",
-		DefaultsOut: "Default output mode: json|pretty|raw",
+		DefaultsOut: "Default output mode: json|raw",
 	}
 }
 

@@ -72,7 +72,7 @@ func init() {
 	runCmd.Flags().StringArrayVarP(&headers, "header", "H", []string{}, "HTTP header (key=value, repeatable)")
 	runCmd.Flags().StringArrayVarP(&files, "file", "f", []string{}, "File upload (name=path, repeatable, e.g. avatar=./photo.jpg)")
 	runCmd.Flags().StringVarP(&filesList, "files-list", "F", "", "File containing list of files to upload (one per line, format: name=path, supports # comments, ~ expansion, and relative paths)")
-	runCmd.Flags().StringVarP(&outMode, "out", "O", "json", "Output mode: json|pretty|raw")
+	runCmd.Flags().StringVarP(&outMode, "out", "O", "json", "Output mode: json|raw")
 	runCmd.Flags().StringVarP(&username, "username", "U", "", "Username for basic authentication")
 	runCmd.Flags().StringVarP(&password, "password", "p", "", "Password for basic authentication")
 	runCmd.Flags().StringVarP(&token, "token", "t", "", "Bearer token for authentication")
@@ -203,8 +203,8 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 	// Step 12: Output formatting
 	formatter := gqlt.NewFormatter(outputFormat)
 
-	// Use structured output if format is not the default GraphQL output modes
-	if outputFormat != "json" || outMode != "json" {
+	// Use structured output for non-json formats (table, yaml)
+	if outputFormat != "json" {
 		// For structured output, include the full response
 		responseData := map[string]interface{}{
 			"data":   result.Data,
@@ -216,7 +216,7 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 		return formatter.FormatStructured(responseData, quietMode)
 	}
 
-	// Use original GraphQL formatting for backward compatibility
+	// Use GraphQL formatting for json format with output modes (json, raw)
 	return formatter.FormatResponse(result, outMode)
 }
 

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-
-	"github.com/fatih/color"
 )
 
 // Formatter defines the interface for output formatting.
@@ -307,12 +305,10 @@ func (f *JSONFormatter) FormatResponse(response *Response, mode string) error {
 	switch mode {
 	case "json":
 		return f.formatJSON(response)
-	case "pretty":
-		return f.formatPretty(response)
 	case "raw":
 		return f.formatRaw(response)
 	default:
-		return fmt.Errorf("unknown output mode: %s", mode)
+		return fmt.Errorf("unknown output mode: %s (valid modes: json, raw)", mode)
 	}
 }
 
@@ -638,85 +634,11 @@ func (f *JSONFormatter) formatJSON(response *Response) error {
 	return encoder.Encode(response)
 }
 
-// formatPretty outputs colorized formatted JSON
-func (f *JSONFormatter) formatPretty(response *Response) error {
-	// Color definitions
-	dataColor := color.New(color.FgGreen, color.Bold)
-	errorColor := color.New(color.FgRed, color.Bold)
-	keyColor := color.New(color.FgBlue, color.Bold)
-	stringColor := color.New(color.FgYellow)
-	numberColor := color.New(color.FgCyan)
-	boolColor := color.New(color.FgMagenta)
-
-	fmt.Fprint(f.getOutput(), "{\n")
-
-	// Data field
-	if response.Data != nil {
-		dataColor.Fprint(f.getOutput(), "  \"data\": ")
-		f.printValue(response.Data, "  ", dataColor, errorColor, keyColor, stringColor, numberColor, boolColor)
-		fmt.Fprint(f.getOutput(), ",\n")
-	}
-
-	// Errors field
-	if len(response.Errors) > 0 {
-		errorColor.Fprint(f.getOutput(), "  \"errors\": ")
-		f.printValue(response.Errors, "  ", dataColor, errorColor, keyColor, stringColor, numberColor, boolColor)
-		fmt.Fprint(f.getOutput(), ",\n")
-	}
-
-	// Extensions field
-	if len(response.Extensions) > 0 {
-		keyColor.Fprint(f.getOutput(), "  \"extensions\": ")
-		f.printValue(response.Extensions, "  ", dataColor, errorColor, keyColor, stringColor, numberColor, boolColor)
-		fmt.Fprint(f.getOutput(), ",\n")
-	}
-
-	fmt.Fprint(f.getOutput(), "}\n")
-	return nil
-}
 
 // formatRaw outputs unformatted JSON
 func (f *JSONFormatter) formatRaw(response *Response) error {
 	encoder := json.NewEncoder(f.getOutput())
 	return encoder.Encode(response)
-}
-
-// printValue recursively prints a value with colors
-func (f *JSONFormatter) printValue(v interface{}, indent string, dataColor, errorColor, keyColor, stringColor, numberColor, boolColor *color.Color) {
-	switch val := v.(type) {
-	case map[string]interface{}:
-		fmt.Fprint(f.getOutput(), "{\n")
-		first := true
-		for k, v := range val {
-			if !first {
-				fmt.Fprint(f.getOutput(), ",\n")
-			}
-			first = false
-			keyColor.Fprintf(f.getOutput(), "%s  \"%s\": ", indent, k)
-			f.printValue(v, indent+"  ", dataColor, errorColor, keyColor, stringColor, numberColor, boolColor)
-		}
-		fmt.Fprintf(f.getOutput(), "\n%s}", indent)
-	case []interface{}:
-		fmt.Fprint(f.getOutput(), "[\n")
-		for i, item := range val {
-			if i > 0 {
-				fmt.Fprint(f.getOutput(), ",\n")
-			}
-			fmt.Fprintf(f.getOutput(), "%s  ", indent)
-			f.printValue(item, indent+"  ", dataColor, errorColor, keyColor, stringColor, numberColor, boolColor)
-		}
-		fmt.Fprintf(f.getOutput(), "\n%s]", indent)
-	case string:
-		stringColor.Fprintf(f.getOutput(), "\"%s\"", val)
-	case float64:
-		numberColor.Fprint(f.getOutput(), val)
-	case bool:
-		boolColor.Fprint(f.getOutput(), val)
-	case nil:
-		fmt.Fprint(f.getOutput(), "null")
-	default:
-		fmt.Fprintf(f.getOutput(), "%v", val)
-	}
 }
 
 // FormatJSON formats data as JSON with indentation
@@ -727,13 +649,6 @@ func (f *JSONFormatter) FormatJSON(data interface{}) error {
 	}
 	fmt.Fprintln(f.getOutput(), string(jsonData))
 	return nil
-}
-
-// FormatPretty formats data as colorized JSON
-func (f *JSONFormatter) FormatPretty(data interface{}) error {
-	// For now, just use regular JSON formatting
-	// TODO: Implement colorized formatting for arbitrary data
-	return f.FormatJSON(data)
 }
 
 // WriteToFile writes data to a file

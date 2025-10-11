@@ -24,10 +24,10 @@ type User {
 }`
 
 	tests := []struct {
-		name         string
-		path         string
-		expectError  bool
-		expectSDL    bool
+		name        string
+		path        string
+		expectError bool
+		expectSDL   bool
 	}{
 		{
 			name:        "SDL at /schema.graphql",
@@ -385,4 +385,3 @@ func TestClient_Introspect_PreferIntrospection(t *testing.T) {
 		t.Error("Expected introspection to be preferred over SDL")
 	}
 }
-
