@@ -231,6 +231,26 @@ func (s *SDKServer) handleDescribeType(ctx context.Context, req *mcp.CallToolReq
 			}, DescribeTypeOutput{}, nil
 		}
 
+		// Check if introspection returned data
+		if result.Data == nil {
+			errorMsg := "Schema introspection returned no data"
+			if len(result.Errors) > 0 {
+				if errMap, ok := result.Errors[0].(map[string]interface{}); ok {
+					if msg, ok := errMap["message"].(string); ok {
+						errorMsg = msg
+					}
+				}
+			}
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{
+						Text: fmt.Sprintf("Schema introspection failed: %s", errorMsg),
+					},
+				},
+				IsError: true,
+			}, DescribeTypeOutput{}, nil
+		}
+
 		// Cache the schema
 		s.cacheMutex.Lock()
 		s.schemaCache[input.Endpoint] = result.Data
@@ -293,6 +313,26 @@ func (s *SDKServer) handleListTypes(ctx context.Context, req *mcp.CallToolReques
 			}, ListTypesOutput{TypeNames: []string{}, Count: 0}, nil
 		}
 
+		// Check if introspection returned data
+		if result.Data == nil {
+			errorMsg := "Schema introspection returned no data"
+			if len(result.Errors) > 0 {
+				if errMap, ok := result.Errors[0].(map[string]interface{}); ok {
+					if msg, ok := errMap["message"].(string); ok {
+						errorMsg = msg
+					}
+				}
+			}
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{
+						Text: fmt.Sprintf("Schema introspection failed: %s", errorMsg),
+					},
+				},
+				IsError: true,
+			}, ListTypesOutput{TypeNames: []string{}, Count: 0}, nil
+		}
+
 		// Cache the schema
 		s.cacheMutex.Lock()
 		s.schemaCache[input.Endpoint] = result.Data
@@ -310,7 +350,7 @@ func (s *SDKServer) handleListTypes(ctx context.Context, req *mcp.CallToolReques
 				},
 			},
 			IsError: true,
-		}, ListTypesOutput{}, nil
+		}, ListTypesOutput{TypeNames: []string{}, Count: 0}, nil
 	}
 
 	return nil, ListTypesOutput{
