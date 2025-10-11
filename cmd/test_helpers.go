@@ -36,6 +36,7 @@ func createFullTestCommand() *cobra.Command {
 	cmd.AddCommand(describeCmd)
 	cmd.AddCommand(validateCmd)
 	cmd.AddCommand(docsCmd)
+	cmd.AddCommand(versionCmd)
 	return cmd
 }
 
