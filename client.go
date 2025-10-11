@@ -369,7 +369,32 @@ func (c *Client) Introspect() (*Response, error) {
 		}
 	`
 
-	return c.Execute(introspectionQuery, nil, "IntrospectionQuery")
+	// Try introspection query first
+	result, err := c.Execute(introspectionQuery, nil, "IntrospectionQuery")
+
+	// If introspection query worked, return it
+	if err == nil && result.Data != nil {
+		return result, nil
+	}
+
+	// If introspection query failed, try SDL fallback
+	sdl, sdlErr := c.FetchSDL()
+	if sdlErr != nil {
+		// SDL also failed, return original introspection error
+		return result, err
+	}
+
+	// Convert SDL to introspection format
+	introspectionData, convErr := SDLToIntrospection(sdl)
+	if convErr != nil {
+		// SDL parsing failed, return original introspection error
+		return result, err
+	}
+
+	// Return SDL data in introspection format
+	return &Response{
+		Data: introspectionData,
+	}, nil
 }
 
 // basicAuthTransport implements HTTP transport with basic authentication
