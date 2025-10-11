@@ -101,6 +101,12 @@ func (m *MockGraphQLServer) handleRequest(w http.ResponseWriter, r *http.Request
 		time.Sleep(m.delay)
 	}
 
+	// Handle SDL schema endpoints (GET requests)
+	if r.Method == "GET" && (r.URL.Path == "/schema.graphql" || r.URL.Path == "/graphql/schema.graphql" || r.URL.Path == "/sdl") {
+		m.handleSDLRequest(w, r)
+		return
+	}
+
 	// Parse request based on content type
 	var req Request
 	var err error
@@ -216,6 +222,30 @@ func (m *MockGraphQLServer) handleIntrospectionQuery(w http.ResponseWriter, req 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// handleSDLRequest handles requests for SDL schema
+func (m *MockGraphQLServer) handleSDLRequest(w http.ResponseWriter, r *http.Request) {
+	sdl := `schema {
+  query: Query
+}
+
+type Query {
+  hello: String
+  user(id: ID!): User
+}
+
+type User {
+  id: ID!
+  name: String!
+  email: String!
+}
+
+scalar String
+scalar ID
+`
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(sdl))
 }
 
 // isIntrospectionQuery checks if a query is an introspection query

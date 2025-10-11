@@ -413,7 +413,7 @@ func TestMockGraphQLServer_FileUpload(t *testing.T) {
 	defer server.Close()
 
 	server.AddHandler("UploadFile", func(req Request) *gqlt.Response {
-		if req.Files == nil || len(req.Files) == 0 {
+		if len(req.Files) == 0 {
 			return ErrorResponse("No files uploaded")
 		}
 
@@ -520,6 +520,47 @@ func TestMockGraphQLServer_HeadersInRequest(t *testing.T) {
 
 	if data["authenticated"] != true {
 		t.Error("Expected authenticated to be true")
+	}
+}
+
+func TestMockGraphQLServer_SDLEndpoint(t *testing.T) {
+	server := NewMockGraphQLServer()
+	defer server.Close()
+
+	// Test /schema.graphql
+	resp, err := http.Get(server.URL() + "/schema.graphql")
+	if err != nil {
+		t.Fatalf("Failed to fetch SDL: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response: %v", err)
+	}
+
+	sdl := string(body)
+	if !strings.Contains(sdl, "type Query") {
+		t.Error("Expected SDL to contain 'type Query'")
+	}
+
+	if !strings.Contains(sdl, "schema {") {
+		t.Error("Expected SDL to contain 'schema {'")
+	}
+
+	// Test that introspection still works
+	client := gqlt.NewClient(server.URL(), nil)
+	introspectionResp, err := client.Introspect()
+	if err != nil {
+		t.Fatalf("Introspection failed: %v", err)
+	}
+
+	if introspectionResp.Data == nil {
+		t.Error("Expected introspection to return data")
 	}
 }
 
