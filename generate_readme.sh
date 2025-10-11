@@ -28,45 +28,267 @@ echo -e "${YELLOW}Creating comprehensive README.md...${NC}"
 cat > README.md << 'EOF'
 # gqlt
 
-A minimal, composable command-line client for running GraphQL operations.
+A triple-threat GraphQL tool: CLI client, MCP server, and Go library. A veritable Kinder Egg! 🥚
 
 ## Overview
 
-gqlt is a minimal, composable command-line client for running GraphQL operations.
-It supports queries, mutations, subscriptions, introspection, and more.
+**gqlt** operates in three distinct modes:
 
-### AI-Friendly Features
+### 1. **CLI Mode**: Composable Unix Tool
+A minimal command-line client for running GraphQL operations that follows Unix philosophy:
+- Accepts input from stdin, files, or arguments
+- Outputs structured data (JSON/YAML/table) to stdout
+- Composes with other Unix tools via pipes (`jq`, `grep`, `awk`, etc.)
+- Supports queries, mutations, subscriptions, and introspection
 
-- Structured JSON output with `--format json`
-- Machine-readable error codes for automation
-- Quiet mode (`--quiet`) for script integration
-- Comprehensive help with examples
+### 2. **MCP Mode**: AI Agent Server
+A Model Context Protocol (MCP) server that provides GraphQL capabilities to AI agents:
+- Execute queries against any GraphQL endpoint
+- Introspect and explore GraphQL schemas
+- List and describe types with intelligent filtering
+- Check version information
+- Integrates with Cursor, Claude Desktop, and other MCP-compatible tools
+
+### 3. **Library Mode**: Go Package
+A clean, testable Go library for GraphQL operations in your own applications:
+- Pure functions with no side effects (`import "github.com/kluzzebass/gqlt"`)
+- Embed GraphQL client in your Go applications
+- Perfect for testing GraphQL integrations
+- Comprehensive API with full type safety
+- Mock server infrastructure included (`gqlt/internal/testutil`)
 
 ### Quick Start
 
+**CLI Usage:**
 ```bash
 # Basic query execution
 gqlt run --url https://api.example.com/graphql --query "{ users { id name } }"
+
+# Compose with jq to extract data
+gqlt run --query "{ users { id name email } }" --format json --quiet | \
+  jq '.data.users[] | select(.email | contains("@example.com"))'
 
 # Using configuration
 gqlt config create production
 gqlt config set production endpoint https://api.example.com/graphql
 gqlt run --query "{ users { id name } }"
+
+# Check version
+gqlt version
+```
+
+**MCP Server Usage:**
+```bash
+# Start MCP server for AI agents
+gqlt mcp
+
+# Add to Cursor's mcp.json or Claude Desktop config:
+# {
+#   "mcpServers": {
+#     "gqlt": {
+#       "command": "gqlt",
+#       "args": ["mcp"]
+#     }
+#   }
+# }
+```
+
+**Library Usage:**
+```go
+import "github.com/kluzzebass/gqlt"
+
+// Create client and execute query
+client := gqlt.NewClient("https://api.example.com/graphql", nil)
+response, err := client.Execute(`query { users { id name } }`, nil, "")
+
+// Use mock server for testing
+import "github.com/kluzzebass/gqlt/internal/testutil"
+
+mockServer := testutil.NewMockGraphQLServer()
+defer mockServer.Close()
+mockServer.AddHandler("GetUsers", func(req testutil.Request) *gqlt.Response {
+    return testutil.SuccessResponse(map[string]interface{}{
+        "users": []map[string]interface{}{{"id": "1", "name": "Test User"}},
+    })
+})
 ```
 
 ## Installation
 
-### From Source
+### CLI Binary
 
+**From Source:**
 ```bash
 git clone https://github.com/kluzzebass/gqlt.git
 cd gqlt
 go build -o gqlt ./cmd
 ```
 
-### From Releases
-
+**From Releases:**
 Download the latest release for your platform from the [releases page](https://github.com/kluzzebass/gqlt/releases).
+
+### Go Library
+
+```bash
+go get github.com/kluzzebass/gqlt
+```
+
+## The Trinity: Three Tools in One
+
+### Mode 1: Composable CLI
+
+The CLI mode outputs clean, structured data that composes naturally with Unix tools:
+
+```bash
+# Extract and filter user emails
+gqlt run --query "{ users { id name email } }" --format json --quiet | \
+  jq -r '.data.users[] | select(.email | contains("@example.com")) | .email'
+
+# Count total types in a schema
+gqlt introspect --format json --quiet | jq '.data.__schema.types | length'
+
+# Find types matching a pattern
+gqlt introspect --format json --quiet | \
+  jq -r '.data.__schema.types[].name' | grep -i "user"
+
+# Chain multiple queries
+user_id=$(gqlt run --query "{ users { id } }" --format json --quiet | jq -r '.data.users[0].id')
+gqlt run --query "query(\$id: ID!) { user(id: \$id) { name email } }" \
+  --vars "{\"id\": \"$user_id\"}" --format json --quiet
+```
+
+### Mode 2: MCP Server for AI Agents
+
+Run as a server to provide GraphQL capabilities to AI agents:
+
+```bash
+# Start the MCP server (stdin/stdout mode)
+gqlt mcp
+```
+
+**Integration with Cursor:**
+
+Add to your `~/.cursor/mcp.json` or workspace `.cursor/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "gqlt": {
+      "command": "gqlt",
+      "args": ["mcp"],
+      "env": {}
+    }
+  }
+}
+```
+
+**Integration with Claude Desktop:**
+
+Add to `~/.config/claude-desktop/config.json` (macOS/Linux) or `%APPDATA%\Claude\config.json` (Windows):
+```json
+{
+  "mcpServers": {
+    "gqlt": {
+      "command": "/usr/local/bin/gqlt",
+      "args": ["mcp"],
+      "env": {}
+    }
+  }
+}
+```
+
+**Available MCP Tools:**
+- `execute_query`: Run GraphQL queries, mutations, and subscriptions
+- `describe_type`: Analyze specific GraphQL types with detailed field information
+- `list_types`: List and filter GraphQL type names (supports regex patterns and kind filtering)
+- `version`: Get the current version of gqlt
+
+Schema-related tools (`describe_type` and `list_types`) support the `noCache` parameter to force fresh schema introspection when needed.
+
+### Mode 3: Go Library
+
+Use gqlt as a library in your own Go applications:
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/kluzzebass/gqlt"
+)
+
+func main() {
+    // Create a GraphQL client
+    client := gqlt.NewClient("https://api.example.com/graphql", nil)
+    
+    // Set authentication
+    client.SetHeaders(map[string]string{
+        "Authorization": "Bearer your-token",
+    })
+    
+    // Execute a query
+    response, err := client.Execute(
+        `query GetUsers { users { id name email } }`,
+        nil,
+        "GetUsers",
+    )
+    
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Printf("Response: %+v\n", response.Data)
+}
+```
+
+**Testing with Mock Server:**
+
+```go
+package yourpackage_test
+
+import (
+    "testing"
+    "github.com/kluzzebass/gqlt"
+    "github.com/kluzzebass/gqlt/internal/testutil"
+)
+
+func TestYourGraphQLIntegration(t *testing.T) {
+    // Create mock GraphQL server
+    mockServer := testutil.NewMockGraphQLServer()
+    defer mockServer.Close()
+    
+    // Configure mock responses
+    mockServer.AddHandler("GetUser", func(req testutil.Request) *gqlt.Response {
+        userID := req.Variables["id"].(string)
+        return testutil.SuccessResponse(map[string]interface{}{
+            "user": map[string]interface{}{
+                "id":   userID,
+                "name": "Test User",
+                "email": "test@example.com",
+            },
+        })
+    })
+    
+    // Use the mock server in your tests
+    client := gqlt.NewClient(mockServer.URL(), nil)
+    response, err := client.Execute(
+        `query GetUser($id: ID!) { user(id: $id) { id name email } }`,
+        map[string]interface{}{"id": "123"},
+        "GetUser",
+    )
+    
+    if err != nil {
+        t.Fatalf("Query failed: %v", err)
+    }
+    
+    // Validate response
+    data := response.Data.(map[string]interface{})
+    user := data["user"].(map[string]interface{})
+    
+    if user["id"] != "123" {
+        t.Errorf("Expected user id 123, got %v", user["id"])
+    }
+}
+```
 
 ## Documentation
 
