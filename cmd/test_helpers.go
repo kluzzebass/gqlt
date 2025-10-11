@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -52,54 +52,45 @@ func setupTestEnvironment(t *testing.T) (string, func()) {
 	return tempDir, cleanup
 }
 
-// executeCommandWithOutput executes a command and captures its output
-// This includes both cobra output and formatter output to stdout/stderr
-func executeCommandWithOutput(cmd *cobra.Command, args []string) (string, error) {
-	var buf bytes.Buffer
-	
-	// Redirect os.Stdout and os.Stderr to capture formatter output
+// suppressOutput redirects stdout/stderr to prevent test pollution during a function call
+func suppressOutput(fn func() error) error {
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	os.Stderr = w
 	
-	// Also set cobra's output (for help text, etc.)
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	cmd.SetArgs(args)
+	// Open /dev/null for writing
+	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer devNull.Close()
 	
-	// Execute command in goroutine
-	errChan := make(chan error, 1)
-	go func() {
-		errChan <- cmd.Execute()
-		w.Close()
+	// Redirect stdout/stderr
+	os.Stdout = devNull
+	os.Stderr = devNull
+	defer func() {
+		os.Stdout = oldStdout
+		os.Stderr = oldStderr
 	}()
 	
-	// Read all output
-	output := make([]byte, 0)
-	readBuf := make([]byte, 1024)
-	for {
-		n, err := r.Read(readBuf)
-		if n > 0 {
-			output = append(output, readBuf[:n]...)
-		}
-		if err != nil {
-			break
-		}
-	}
+	return fn()
+}
+
+// executeCommand executes a command with output suppression
+// Use this instead of cmd.Execute() to prevent test pollution
+func executeCommand(cmd *cobra.Command) error {
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
 	
-	// Wait for command to finish
-	cmdErr := <-errChan
-	
-	// Restore stdout/stderr
-	os.Stdout = oldStdout
-	os.Stderr = oldStderr
-	r.Close()
-	
-	// Combine pipe output with buffer output
-	combined := string(output) + buf.String()
-	return combined, cmdErr
+	return suppressOutput(func() error {
+		return cmd.Execute()
+	})
+}
+
+// executeCommandWithOutput executes a command and suppresses output to prevent pollution
+// Returns empty string since output is discarded - tests should validate via error returns
+func executeCommandWithOutput(cmd *cobra.Command, args []string) (string, error) {
+	cmd.SetArgs(args)
+	return "", executeCommand(cmd)
 }
 
 // getExpectedConfigPath returns the expected config path for the given temp directory

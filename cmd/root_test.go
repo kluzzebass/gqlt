@@ -169,7 +169,7 @@ func TestCommandExecution(t *testing.T) {
 
 			// Set args and execute
 			cmd.SetArgs(tt.args)
-			err := cmd.Execute()
+			err := executeCommand(cmd)
 
 			// Check error expectation
 			if tt.wantErr && err == nil {
