@@ -173,7 +173,7 @@ func (s *SDKServer) handleExecuteQuery(ctx context.Context, req *mcp.CallToolReq
 		// Use regular Execute for queries without files
 		result, err = client.Execute(input.Query, input.Variables, input.OperationName)
 	}
-	
+
 	elapsed := time.Since(start)
 
 	if err != nil {
@@ -290,7 +290,7 @@ func (s *SDKServer) handleListTypes(ctx context.Context, req *mcp.CallToolReques
 					},
 				},
 				IsError: true,
-			}, ListTypesOutput{}, nil
+			}, ListTypesOutput{TypeNames: []string{}, Count: 0}, nil
 		}
 
 		// Cache the schema
@@ -523,7 +523,7 @@ func (s *SDKServer) listMatchingTypes(schemaData interface{}, filter, kind strin
 		return nil, fmt.Errorf("schema missing types array")
 	}
 
-	var matchingTypes []string
+	matchingTypes := []string{} // Initialize as empty slice, not nil
 
 	// Iterate through all types
 	for _, typeItem := range types {
