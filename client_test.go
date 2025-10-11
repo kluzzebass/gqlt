@@ -365,3 +365,555 @@ func TestBasicAuthTransport(t *testing.T) {
 		t.Error("Expected data in response")
 	}
 }
+
+// Table-driven tests
+
+func TestClient_Execute_TableDriven(t *testing.T) {
+	tests := []struct {
+		name           string
+		query          string
+		variables      map[string]interface{}
+		operationName  string
+		responseData   interface{}
+		responseErrors []interface{}
+		wantErr        bool
+		validateResp   func(*testing.T, *Response)
+	}{
+		{
+			name:          "successful query",
+			query:         `query GetUsers { users { id name } }`,
+			variables:     nil,
+			operationName: "GetUsers",
+			responseData: map[string]interface{}{
+				"users": []map[string]interface{}{
+					{"id": "1", "name": "User 1"},
+					{"id": "2", "name": "User 2"},
+				},
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, resp *Response) {
+				if resp.Data == nil {
+					t.Error("Expected data in response")
+				}
+				if len(resp.Errors) > 0 {
+					t.Errorf("Unexpected errors: %v", resp.Errors)
+				}
+			},
+		},
+		{
+			name:          "query with variables",
+			query:         `query GetUser($id: ID!) { user(id: $id) { id name } }`,
+			variables:     map[string]interface{}{"id": "123"},
+			operationName: "GetUser",
+			responseData: map[string]interface{}{
+				"user": map[string]interface{}{
+					"id":   "123",
+					"name": "Test User",
+				},
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, resp *Response) {
+				data, ok := resp.Data.(map[string]interface{})
+				if !ok {
+					t.Fatal("Expected data to be a map")
+				}
+				user, ok := data["user"].(map[string]interface{})
+				if !ok {
+					t.Fatal("Expected user in data")
+				}
+				if user["id"] != "123" {
+					t.Errorf("Expected user id 123, got %v", user["id"])
+				}
+			},
+		},
+		{
+			name:          "mutation",
+			query:         `mutation CreateUser($input: CreateUserInput!) { createUser(input: $input) { id name } }`,
+			variables:     map[string]interface{}{"input": map[string]interface{}{"name": "New User"}},
+			operationName: "CreateUser",
+			responseData: map[string]interface{}{
+				"createUser": map[string]interface{}{
+					"id":   "new-id",
+					"name": "New User",
+				},
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, resp *Response) {
+				if resp.Data == nil {
+					t.Error("Expected data in response")
+				}
+			},
+		},
+		{
+			name:          "query with errors",
+			query:         `query { invalid }`,
+			variables:     nil,
+			operationName: "Invalid",
+			responseData:  nil,
+			responseErrors: []interface{}{
+				map[string]interface{}{"message": "Invalid query"},
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, resp *Response) {
+				if len(resp.Errors) == 0 {
+					t.Error("Expected errors in response")
+				}
+			},
+		},
+		{
+			name:          "empty query",
+			query:         "",
+			variables:     nil,
+			operationName: "",
+			responseData:  nil,
+			responseErrors: []interface{}{
+				map[string]interface{}{"message": "Empty query"},
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, resp *Response) {
+				if len(resp.Errors) == 0 {
+					t.Error("Expected error for empty query")
+				}
+			},
+		},
+		{
+			name:          "query with special characters",
+			query:         `query { user(name: "Test \"User\"") { id } }`,
+			variables:     nil,
+			operationName: "SpecialChars",
+			responseData: map[string]interface{}{
+				"user": map[string]interface{}{"id": "1"},
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, resp *Response) {
+				if resp.Data == nil {
+					t.Error("Expected data in response")
+				}
+			},
+		},
+		{
+			name:          "very long query",
+			query:         strings.Repeat("{ user { id } } ", 100),
+			variables:     nil,
+			operationName: "LongQuery",
+			responseData: map[string]interface{}{
+				"result": "ok",
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, resp *Response) {
+				if resp.Data == nil {
+					t.Error("Expected data in response")
+				}
+			},
+		},
+		{
+			name:  "complex nested variables",
+			query: `query ComplexQuery($input: ComplexInput!) { process(input: $input) { result } }`,
+			variables: map[string]interface{}{
+				"input": map[string]interface{}{
+					"nested": map[string]interface{}{
+						"array": []interface{}{1, 2, 3},
+						"obj":   map[string]interface{}{"key": "value"},
+					},
+				},
+			},
+			operationName: "ComplexQuery",
+			responseData: map[string]interface{}{
+				"process": map[string]interface{}{"result": "processed"},
+			},
+			wantErr: false,
+			validateResp: func(t *testing.T, resp *Response) {
+				if resp.Data == nil {
+					t.Error("Expected data in response")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mock server
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				response := map[string]interface{}{
+					"data": tt.responseData,
+				}
+				if tt.responseErrors != nil {
+					response["errors"] = tt.responseErrors
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(response)
+			}))
+			defer server.Close()
+
+			// Create client
+			client := NewClient(server.URL, nil)
+
+			// Execute query
+			resp, err := client.Execute(tt.query, tt.variables, tt.operationName)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.validateResp != nil {
+				tt.validateResp(t, resp)
+			}
+		})
+	}
+}
+
+func TestClient_Introspect(t *testing.T) {
+	// Test successful introspection
+	t.Run("successful introspection", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			response := map[string]interface{}{
+				"data": map[string]interface{}{
+					"__schema": map[string]interface{}{
+						"queryType": map[string]interface{}{
+							"name": "Query",
+						},
+						"types": []interface{}{
+							map[string]interface{}{
+								"kind": "OBJECT",
+								"name": "Query",
+							},
+							map[string]interface{}{
+								"kind": "SCALAR",
+								"name": "String",
+							},
+						},
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, nil)
+		resp, err := client.Introspect()
+		if err != nil {
+			t.Fatalf("Introspect failed: %v", err)
+		}
+
+		if resp.Data == nil {
+			t.Fatal("Expected data in introspection response")
+		}
+
+		data, ok := resp.Data.(map[string]interface{})
+		if !ok {
+			t.Fatal("Expected data to be a map")
+		}
+
+		schema, ok := data["__schema"].(map[string]interface{})
+		if !ok {
+			t.Fatal("Expected __schema in response")
+		}
+
+		if schema["queryType"] == nil {
+			t.Error("Expected queryType in schema")
+		}
+
+		types, ok := schema["types"].([]interface{})
+		if !ok || len(types) == 0 {
+			t.Error("Expected non-empty types array")
+		}
+	})
+
+	// Test introspection with custom schema
+	t.Run("custom schema", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			customSchema := map[string]interface{}{
+				"__schema": map[string]interface{}{
+					"queryType": map[string]interface{}{
+						"name": "CustomQuery",
+					},
+					"types": []interface{}{
+						map[string]interface{}{
+							"kind": "OBJECT",
+							"name": "CustomType",
+							"fields": []interface{}{
+								map[string]interface{}{
+									"name": "customField",
+									"type": map[string]interface{}{
+										"kind": "SCALAR",
+										"name": "String",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			response := map[string]interface{}{
+				"data": customSchema,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, nil)
+		resp, err := client.Introspect()
+		if err != nil {
+			t.Fatalf("Introspect failed: %v", err)
+		}
+
+		data, ok := resp.Data.(map[string]interface{})
+		if !ok {
+			t.Fatal("Expected data to be a map")
+		}
+
+		schema, ok := data["__schema"].(map[string]interface{})
+		if !ok {
+			t.Fatal("Expected __schema in response")
+		}
+
+		queryType, ok := schema["queryType"].(map[string]interface{})
+		if !ok {
+			t.Fatal("Expected queryType in schema")
+		}
+
+		if queryType["name"] != "CustomQuery" {
+			t.Errorf("Expected CustomQuery, got %v", queryType["name"])
+		}
+	})
+}
+
+func TestClient_ErrorScenarios(t *testing.T) {
+	tests := []struct {
+		name        string
+		setupClient func() *Client
+		query       string
+		expectError bool
+		errorCheck  func(*testing.T, error)
+	}{
+		{
+			name: "invalid endpoint URL",
+			setupClient: func() *Client {
+				return NewClient("://invalid-url", nil)
+			},
+			query:       `query { test }`,
+			expectError: true,
+			errorCheck: func(t *testing.T, err error) {
+				if err == nil {
+					t.Error("Expected error for invalid URL")
+				}
+			},
+		},
+		{
+			name: "unreachable endpoint",
+			setupClient: func() *Client {
+				return NewClient("http://localhost:1/nonexistent", nil)
+			},
+			query:       `query { test }`,
+			expectError: true,
+			errorCheck: func(t *testing.T, err error) {
+				if err == nil {
+					t.Error("Expected error for unreachable endpoint")
+				}
+			},
+		},
+		{
+			name: "malformed GraphQL response",
+			setupClient: func() *Client {
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					w.Write([]byte(`{invalid json}`))
+				}))
+				// Note: server will be leaked in test, but it's acceptable for error testing
+				return NewClient(server.URL, nil)
+			},
+			query:       `query { test }`,
+			expectError: true,
+			errorCheck: func(t *testing.T, err error) {
+				if err == nil {
+					t.Error("Expected error for malformed JSON")
+				}
+				if !strings.Contains(err.Error(), "parse") {
+					t.Errorf("Expected parse error, got: %v", err)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := tt.setupClient()
+			_, err := client.Execute(tt.query, nil, "")
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got none")
+			}
+
+			if tt.errorCheck != nil {
+				tt.errorCheck(t, err)
+			}
+		})
+	}
+}
+
+func TestClient_SetHeadersEdgeCases(t *testing.T) {
+	t.Run("set headers on nil headers", func(t *testing.T) {
+		client := NewClient("http://example.com", nil)
+		if client.headers != nil {
+			t.Error("Expected nil headers initially")
+		}
+
+		client.SetHeaders(map[string]string{"Key": "Value"})
+		if client.headers == nil {
+			t.Fatal("Expected headers to be initialized")
+		}
+
+		if client.headers["Key"] != "Value" {
+			t.Error("Expected header to be set")
+		}
+	})
+
+	t.Run("overwrite existing headers", func(t *testing.T) {
+		client := NewClient("http://example.com", map[string]string{"Key1": "Value1"})
+		client.SetHeaders(map[string]string{"Key1": "NewValue1", "Key2": "Value2"})
+
+		if client.headers["Key1"] != "NewValue1" {
+			t.Error("Expected header to be overwritten")
+		}
+
+		if client.headers["Key2"] != "Value2" {
+			t.Error("Expected new header to be added")
+		}
+	})
+
+	t.Run("set empty headers map", func(t *testing.T) {
+		client := NewClient("http://example.com", nil)
+		client.SetHeaders(map[string]string{})
+
+		if client.headers == nil {
+			t.Error("Expected headers map to be initialized")
+		}
+	})
+}
+
+func TestClient_ExecuteWithFilesEdgeCases(t *testing.T) {
+	t.Run("non-existent file", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			response := map[string]interface{}{
+				"data": map[string]interface{}{
+					"upload": map[string]interface{}{"success": true},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, nil)
+		files := map[string]string{
+			"file": "/nonexistent/file.txt",
+		}
+
+		_, err := client.ExecuteWithFiles(`mutation { upload }`, nil, "Upload", files)
+		if err == nil {
+			t.Error("Expected error for non-existent file")
+		}
+	})
+
+	t.Run("empty files map", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			response := map[string]interface{}{
+				"data": nil,
+				"errors": []interface{}{
+					map[string]interface{}{"message": "No files uploaded"},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, nil)
+		resp, err := client.ExecuteWithFiles(`mutation { upload }`, nil, "Upload", map[string]string{})
+		if err != nil {
+			t.Fatalf("ExecuteWithFiles failed: %v", err)
+		}
+
+		if len(resp.Errors) == 0 {
+			t.Error("Expected error for no files")
+		}
+	})
+}
+
+func TestClient_Coverage(t *testing.T) {
+	// Additional tests to increase coverage
+
+	t.Run("Execute with all parameters", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Parse request to verify all parameters
+			var req map[string]interface{}
+			json.NewDecoder(r.Body).Decode(&req)
+
+			if req["query"] == "" {
+				t.Error("Expected query to be set")
+			}
+			if req["variables"] == nil {
+				t.Error("Expected variables to be set")
+			}
+			if req["operationName"] == "" {
+				t.Error("Expected operation name to be set")
+			}
+
+			response := map[string]interface{}{
+				"data": map[string]interface{}{"result": "ok"},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, nil)
+		resp, err := client.Execute(
+			`query FullTest($id: ID!) { test(id: $id) }`,
+			map[string]interface{}{"id": "123"},
+			"FullTest",
+		)
+
+		if err != nil {
+			t.Fatalf("Execute failed: %v", err)
+		}
+
+		if resp.Data == nil {
+			t.Error("Expected data in response")
+		}
+	})
+
+	t.Run("Response with extensions", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			response := map[string]interface{}{
+				"data": map[string]interface{}{"result": "ok"},
+				"extensions": map[string]interface{}{
+					"tracing": map[string]interface{}{
+						"duration": 123,
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, nil)
+		resp, err := client.Execute(`query WithExtensions { test }`, nil, "WithExtensions")
+
+		if err != nil {
+			t.Fatalf("Execute failed: %v", err)
+		}
+
+		if resp.Extensions == nil {
+			t.Error("Expected extensions in response")
+		}
+
+		if resp.Extensions["tracing"] == nil {
+			t.Error("Expected tracing in extensions")
+		}
+	})
+}

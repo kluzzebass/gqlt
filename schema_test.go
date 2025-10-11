@@ -259,3 +259,273 @@ func TestAnalyzerFileOperations(t *testing.T) {
 		t.Error("Expected error for invalid JSON")
 	}
 }
+
+func TestAnalyzer_GetTypeDescription_TableDriven(t *testing.T) {
+	tests := []struct {
+		name         string
+		typeName     string
+		schemaData   map[string]interface{}
+		wantErr      bool
+		validateType func(*testing.T, *TypeDescription)
+	}{
+		{
+			name:     "OBJECT type with fields",
+			typeName: "User",
+			schemaData: map[string]interface{}{
+				"__schema": map[string]interface{}{
+					"types": []interface{}{
+						map[string]interface{}{
+							"name":        "User",
+							"kind":        "OBJECT",
+							"description": "A user object",
+							"fields": []interface{}{
+								map[string]interface{}{
+									"name":        "id",
+									"description": "User ID",
+									"type": map[string]interface{}{
+										"kind": "SCALAR",
+										"name": "ID",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			validateType: func(t *testing.T, td *TypeDescription) {
+				if td.Name != "User" {
+					t.Errorf("Expected name User, got %s", td.Name)
+				}
+				if td.Kind != "OBJECT" {
+					t.Errorf("Expected kind OBJECT, got %s", td.Kind)
+				}
+				if len(td.Fields) == 0 {
+					t.Error("Expected fields to be present")
+				}
+			},
+		},
+		{
+			name:     "ENUM type with values",
+			typeName: "Status",
+			schemaData: map[string]interface{}{
+				"__schema": map[string]interface{}{
+					"types": []interface{}{
+						map[string]interface{}{
+							"name":        "Status",
+							"kind":        "ENUM",
+							"description": "User status",
+							"enumValues": []interface{}{
+								map[string]interface{}{
+									"name":        "ACTIVE",
+									"description": "Active user",
+								},
+								map[string]interface{}{
+									"name":        "INACTIVE",
+									"description": "Inactive user",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			validateType: func(t *testing.T, td *TypeDescription) {
+				if td.Name != "Status" {
+					t.Errorf("Expected name Status, got %s", td.Name)
+				}
+				if td.Kind != "ENUM" {
+					t.Errorf("Expected kind ENUM, got %s", td.Kind)
+				}
+				if len(td.EnumValues) != 2 {
+					t.Errorf("Expected 2 enum values, got %d", len(td.EnumValues))
+				}
+			},
+		},
+		{
+			name:     "INPUT_OBJECT type with input fields",
+			typeName: "CreateUserInput",
+			schemaData: map[string]interface{}{
+				"__schema": map[string]interface{}{
+					"types": []interface{}{
+						map[string]interface{}{
+							"name": "CreateUserInput",
+							"kind": "INPUT_OBJECT",
+							"inputFields": []interface{}{
+								map[string]interface{}{
+									"name": "name",
+									"type": map[string]interface{}{
+										"kind": "SCALAR",
+										"name": "String",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			validateType: func(t *testing.T, td *TypeDescription) {
+				if td.Kind != "INPUT_OBJECT" {
+					t.Errorf("Expected kind INPUT_OBJECT, got %s", td.Kind)
+				}
+				if len(td.InputFields) == 0 {
+					t.Error("Expected input fields to be present")
+				}
+			},
+		},
+		{
+			name:     "SCALAR type",
+			typeName: "String",
+			schemaData: map[string]interface{}{
+				"__schema": map[string]interface{}{
+					"types": []interface{}{
+						map[string]interface{}{
+							"name":        "String",
+							"kind":        "SCALAR",
+							"description": "Built-in String type",
+						},
+					},
+				},
+			},
+			wantErr: false,
+			validateType: func(t *testing.T, td *TypeDescription) {
+				if td.Kind != "SCALAR" {
+					t.Errorf("Expected kind SCALAR, got %s", td.Kind)
+				}
+			},
+		},
+		{
+			name:     "non-existent type",
+			typeName: "NonExistent",
+			schemaData: map[string]interface{}{
+				"__schema": map[string]interface{}{
+					"types": []interface{}{
+						map[string]interface{}{
+							"name": "User",
+							"kind": "OBJECT",
+						},
+					},
+				},
+			},
+			wantErr:      true,
+			validateType: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response := &Response{Data: tt.schemaData}
+			analyzer, err := NewAnalyzer(response)
+			if err != nil {
+				t.Fatalf("NewAnalyzer failed: %v", err)
+			}
+
+			typeDesc, err := analyzer.GetTypeDescription(tt.typeName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetTypeDescription() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr && tt.validateType != nil {
+				tt.validateType(t, typeDesc)
+			}
+		})
+	}
+}
+
+func TestAnalyzer_FindField_EdgeCases(t *testing.T) {
+	schemaData := map[string]interface{}{
+		"__schema": map[string]interface{}{
+			"types": []interface{}{
+				map[string]interface{}{
+					"name": "Query",
+					"kind": "OBJECT",
+					"fields": []interface{}{
+						map[string]interface{}{
+							"name": "user",
+							"type": map[string]interface{}{
+								"kind": "OBJECT",
+								"name": "User",
+							},
+							"args": []interface{}{
+								map[string]interface{}{
+									"name": "id",
+									"type": map[string]interface{}{
+										"kind": "SCALAR",
+										"name": "ID",
+									},
+								},
+							},
+						},
+					},
+				},
+				map[string]interface{}{
+					"name": "Mutation",
+					"kind": "OBJECT",
+				},
+			},
+		},
+	}
+
+	response := &Response{Data: schemaData}
+	analyzer, _ := NewAnalyzer(response)
+
+	tests := []struct {
+		name      string
+		rootType  string
+		fieldName string
+		wantErr   bool
+		validate  func(*testing.T, *FieldDescription)
+	}{
+		{
+			name:      "existing field",
+			rootType:  "Query",
+			fieldName: "user",
+			wantErr:   false,
+			validate: func(t *testing.T, fd *FieldDescription) {
+				if fd.Name != "user" {
+					t.Errorf("Expected name user, got %s", fd.Name)
+				}
+				if fd.RootType != "Query" {
+					t.Errorf("Expected RootType Query, got %s", fd.RootType)
+				}
+			},
+		},
+		{
+			name:      "non-existent field",
+			rootType:  "Query",
+			fieldName: "nonExistent",
+			wantErr:   true,
+			validate:  nil,
+		},
+		{
+			name:      "non-existent root type",
+			rootType:  "NonExistent",
+			fieldName: "field",
+			wantErr:   true,
+			validate:  nil,
+		},
+		{
+			name:      "type without fields",
+			rootType:  "Mutation",
+			fieldName: "createUser",
+			wantErr:   true,
+			validate:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			field, err := analyzer.FindField(tt.rootType, tt.fieldName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FindField() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr && tt.validate != nil {
+				tt.validate(t, field)
+			}
+		})
+	}
+}

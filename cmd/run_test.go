@@ -209,3 +209,9 @@ func TestRunCommandVariableFlags(t *testing.T) {
 		}
 	}
 }
+
+// NOTE: Detailed output validation testing requires the Formatter to write to
+// test buffers instead of os.Stdout. This would require modifying how formatters
+// are initialized in commands. Current tests verify command structure, flags,
+// and that commands execute without panicking. Integration tests with actual
+// binary execution validate end-to-end behavior.

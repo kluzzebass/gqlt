@@ -80,7 +80,7 @@ package:
 # Run tests
 test:
     @echo "Running tests..."
-    @go test ./...
+    @go test -v ./...
 
 # Run tests with coverage
 test-coverage:

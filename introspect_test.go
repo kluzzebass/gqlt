@@ -58,3 +58,71 @@ func TestIntrospect_SaveSchema(t *testing.T) {
 		t.Error("SaveSchema() did not create file")
 	}
 }
+
+func TestIntrospect_SaveSchemaEdgeCases(t *testing.T) {
+	t.Run("save to invalid path", func(t *testing.T) {
+		response := &Response{
+			Data: map[string]interface{}{
+				"__schema": map[string]interface{}{},
+			},
+		}
+
+		client := NewClient("https://api.example.com/graphql", nil)
+		introspect := NewIntrospect(client)
+
+		err := introspect.SaveSchema(response, "/invalid/path/that/does/not/exist/schema.json")
+		if err == nil {
+			t.Error("Expected error for invalid path")
+		}
+	})
+
+	t.Run("save to directory path", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		response := &Response{
+			Data: map[string]interface{}{
+				"__schema": map[string]interface{}{},
+			},
+		}
+
+		client := NewClient("https://api.example.com/graphql", nil)
+		introspect := NewIntrospect(client)
+
+		err := introspect.SaveSchema(response, tempDir)
+		if err == nil {
+			t.Error("Expected error when saving to directory path")
+		}
+	})
+
+	t.Run("overwrite existing file", func(t *testing.T) {
+		tempDir := t.TempDir()
+		schemaFile := filepath.Join(tempDir, "schema.json")
+
+		// Write initial file
+		os.WriteFile(schemaFile, []byte("old content"), 0644)
+
+		response := &Response{
+			Data: map[string]interface{}{
+				"__schema": map[string]interface{}{
+					"queryType": map[string]interface{}{
+						"name": "Query",
+					},
+				},
+			},
+		}
+
+		client := NewClient("https://api.example.com/graphql", nil)
+		introspect := NewIntrospect(client)
+
+		err := introspect.SaveSchema(response, schemaFile)
+		if err != nil {
+			t.Errorf("SaveSchema() error = %v", err)
+		}
+
+		// Verify file was overwritten
+		content, _ := os.ReadFile(schemaFile)
+		if string(content) == "old content" {
+			t.Error("Expected file to be overwritten")
+		}
+	})
+}
