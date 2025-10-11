@@ -1326,6 +1326,29 @@ echo "Using gqlt version: $VERSION"
       --use-config string   use specific configuration by name (overrides current selection)
 ```
 
+## Limitations
+
+gqlt is designed to be a focused, composable tool. The following are intentional limitations:
+
+**GraphQL Subscriptions:**
+- gqlt does not support GraphQL subscriptions over WebSockets
+- Subscriptions require persistent connections incompatible with:
+  - CLI's request/response model
+  - MCP's synchronous tool call pattern
+  - Unix philosophy of composable, discrete operations
+- For subscription support, use a full-featured GraphQL client library
+
+**Response Filtering:**
+- gqlt outputs raw GraphQL responses without built-in filtering
+- This is intentional - filtering should be done with specialized tools like `jq`
+- Example: `gqlt run ... | jq '.data.users[] | select(.active)'`
+- Follows Unix philosophy: do one thing well, compose with other tools
+
+**Schema Features:**
+- SDL fallback supports standard GraphQL schemas
+- Some server-specific features may not be fully represented in introspection format
+- Custom scalars are preserved but not validated beyond GraphQL spec
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
