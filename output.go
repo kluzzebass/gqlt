@@ -627,15 +627,14 @@ func (f *YAMLFormatter) formatStructuredYAMLToError(output *StructuredOutput) er
 // FormatResponse formats and prints the GraphQL response
 // This old FormatResponse method is no longer needed - it's been moved to JSONFormatter
 
-// formatJSON outputs formatted JSON
+// formatJSON outputs formatted JSON with just the data field (strips GraphQL envelope)
 func (f *JSONFormatter) formatJSON(response *Response) error {
 	encoder := json.NewEncoder(f.getOutput())
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(response)
+	return encoder.Encode(response.Data)
 }
 
-
-// formatRaw outputs unformatted JSON
+// formatRaw outputs the complete Response structure (data, errors, extensions) as compact JSON
 func (f *JSONFormatter) formatRaw(response *Response) error {
 	encoder := json.NewEncoder(f.getOutput())
 	return encoder.Encode(response)
