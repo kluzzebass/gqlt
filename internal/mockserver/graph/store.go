@@ -26,6 +26,11 @@ type Store struct {
 	nextTodoID           int
 	nextFileAttachmentID int
 	nextLinkAttachmentID int
+
+	// Subscription management
+	todoSubscribers map[int]chan *model.Todo
+	userSubscribers map[int]chan *model.User
+	nextSubscriberID int
 }
 
 // NewStore creates a new Store with pre-seeded data
@@ -40,6 +45,9 @@ func NewStore() *Store {
 		nextTodoID:           1,
 		nextFileAttachmentID: 1,
 		nextLinkAttachmentID: 1,
+		todoSubscribers:      make(map[int]chan *model.Todo),
+		userSubscribers:      make(map[int]chan *model.User),
+		nextSubscriberID:     1,
 	}
 
 	// Pre-seed with 3 sample users
@@ -327,6 +335,84 @@ func (s *Store) RemoveAttachmentFromTodo(todoID, attachmentID string) bool {
 		}
 	}
 	return false
+}
+
+// ============================================================================
+// SUBSCRIPTION MANAGEMENT
+// ============================================================================
+
+// SubscribeToTodoEvents registers a channel to receive todo events.
+// Returns a subscriber ID that should be used to unsubscribe.
+func (s *Store) SubscribeToTodoEvents(ch chan *model.Todo) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	id := s.nextSubscriberID
+	s.nextSubscriberID++
+	s.todoSubscribers[id] = ch
+	return id
+}
+
+// UnsubscribeFromTodoEvents removes a todo event subscriber.
+func (s *Store) UnsubscribeFromTodoEvents(id int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	delete(s.todoSubscribers, id)
+}
+
+// BroadcastTodoEvent sends a todo to all active subscribers.
+// This should be called after any create, update, or delete operation.
+func (s *Store) BroadcastTodoEvent(todo *model.Todo) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	
+	// Send to all subscribers (non-blocking)
+	for _, ch := range s.todoSubscribers {
+		select {
+		case ch <- todo:
+			// Event sent successfully
+		default:
+			// Channel full or closed, skip this subscriber
+		}
+	}
+}
+
+// SubscribeToUserEvents registers a channel to receive user events.
+// Returns a subscriber ID that should be used to unsubscribe.
+func (s *Store) SubscribeToUserEvents(ch chan *model.User) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	id := s.nextSubscriberID
+	s.nextSubscriberID++
+	s.userSubscribers[id] = ch
+	return id
+}
+
+// UnsubscribeFromUserEvents removes a user event subscriber.
+func (s *Store) UnsubscribeFromUserEvents(id int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	delete(s.userSubscribers, id)
+}
+
+// BroadcastUserEvent sends a user to all active subscribers.
+// This should be called after any create or update operation.
+func (s *Store) BroadcastUserEvent(user *model.User) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	
+	// Send to all subscribers (non-blocking)
+	for _, ch := range s.userSubscribers {
+		select {
+		case ch <- user:
+			// Event sent successfully
+		default:
+			// Channel full or closed, skip this subscriber
+		}
+	}
 }
 
 // === Helper Functions ===

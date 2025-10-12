@@ -20,18 +20,26 @@ func (r *mutationResolver) CreateUser(ctx context.Context, input model.CreateUse
 	if input.Role != nil {
 		role = *input.Role
 	}
-	return r.store.CreateUser(input.Name, input.Email, role, input.Website), nil
+	user := r.store.CreateUser(input.Name, input.Email, role, input.Website)
+	r.store.BroadcastUserEvent(user)
+	return user, nil
 }
 
 // CreateTodo is the resolver for the createTodo field.
 func (r *mutationResolver) CreateTodo(ctx context.Context, input model.CreateTodoInput) (*model.Todo, error) {
 	// For simplicity, use first user as creator
-	return r.store.CreateTodo(input.Title, "User:1", &input), nil
+	todo := r.store.CreateTodo(input.Title, "User:1", &input)
+	r.store.BroadcastTodoEvent(todo)
+	return todo, nil
 }
 
 // UpdateTodo is the resolver for the updateTodo field.
 func (r *mutationResolver) UpdateTodo(ctx context.Context, input model.UpdateTodoInput) (*model.Todo, error) {
-	return r.store.UpdateTodo(input.ID, &input)
+	todo, err := r.store.UpdateTodo(input.ID, &input)
+	if err == nil && todo != nil {
+		r.store.BroadcastTodoEvent(todo)
+	}
+	return todo, err
 }
 
 // DeleteTodo is the resolver for the deleteTodo field.
@@ -46,7 +54,11 @@ func (r *mutationResolver) CompleteTodo(ctx context.Context, id string) (*model.
 		ID:     id,
 		Status: &completed,
 	}
-	return r.store.UpdateTodo(id, updateInput)
+	todo, err := r.store.UpdateTodo(id, updateInput)
+	if err == nil && todo != nil {
+		r.store.BroadcastTodoEvent(todo)
+	}
+	return todo, err
 }
 
 // AddFileAttachment is the resolver for the addFileAttachment field.
@@ -245,22 +257,135 @@ func (r *queryResolver) Version(ctx context.Context) (string, error) {
 
 // Counter is the resolver for the counter field.
 func (r *subscriptionResolver) Counter(ctx context.Context) (<-chan int32, error) {
-	panic(fmt.Errorf("not implemented: Counter - counter"))
+	ch := make(chan int32)
+	go func() {
+		defer close(ch)
+		var counter int32 = 0
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				counter++
+				select {
+				case ch <- counter:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}()
+	return ch, nil
 }
 
 // TodoEvents is the resolver for the todoEvents field.
 func (r *subscriptionResolver) TodoEvents(ctx context.Context) (<-chan *model.Todo, error) {
-	panic(fmt.Errorf("not implemented: TodoEvents - todoEvents"))
+	// Create a buffered channel for receiving events from the store
+	eventCh := make(chan *model.Todo, 10)
+	
+	// Register this subscription with the store
+	subID := r.store.SubscribeToTodoEvents(eventCh)
+	
+	// Create the response channel
+	ch := make(chan *model.Todo)
+	
+	go func() {
+		defer close(ch)
+		defer r.store.UnsubscribeFromTodoEvents(subID)
+		
+		for {
+			select {
+			case <-ctx.Done():
+				// Client disconnected, clean up
+				return
+				
+			case todo, ok := <-eventCh:
+				if !ok {
+					// Event channel closed, stop subscription
+					return
+				}
+				// Forward the event to the client
+				select {
+				case ch <- todo:
+					// Event sent successfully
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}()
+	
+	return ch, nil
 }
 
 // Tick is the resolver for the tick field.
 func (r *subscriptionResolver) Tick(ctx context.Context, interval *int32) (<-chan *time.Time, error) {
-	panic(fmt.Errorf("not implemented: Tick - tick"))
+	ch := make(chan *time.Time)
+	// Default to 1 second if interval is not provided
+	intervalSeconds := 1
+	if interval != nil && *interval > 0 {
+		intervalSeconds = int(*interval)
+	}
+	go func() {
+		defer close(ch)
+		ticker := time.NewTicker(time.Duration(intervalSeconds) * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case t := <-ticker.C:
+				select {
+				case ch <- &t:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}()
+	return ch, nil
 }
 
 // UserEvents is the resolver for the userEvents field.
 func (r *subscriptionResolver) UserEvents(ctx context.Context) (<-chan *model.User, error) {
-	panic(fmt.Errorf("not implemented: UserEvents - userEvents"))
+	// Create a buffered channel for receiving events from the store
+	eventCh := make(chan *model.User, 10)
+	
+	// Register this subscription with the store
+	subID := r.store.SubscribeToUserEvents(eventCh)
+	
+	// Create the response channel
+	ch := make(chan *model.User)
+	
+	go func() {
+		defer close(ch)
+		defer r.store.UnsubscribeFromUserEvents(subID)
+		
+		for {
+			select {
+			case <-ctx.Done():
+				// Client disconnected, clean up
+				return
+				
+			case user, ok := <-eventCh:
+				if !ok {
+					// Event channel closed, stop subscription
+					return
+				}
+				// Forward the event to the client
+				select {
+				case ch <- user:
+					// Event sent successfully
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}()
+	
+	return ch, nil
 }
 
 // Mutation returns MutationResolver implementation.
