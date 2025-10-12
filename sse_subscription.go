@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 )
 
 // SSESubscriptionClient handles GraphQL subscriptions over Server-Sent Events
@@ -15,7 +14,6 @@ type SSESubscriptionClient struct {
 	url     string
 	headers map[string]string
 	client  *http.Client
-	mu      sync.Mutex
 }
 
 // SSE message types for graphql-sse protocol
@@ -171,10 +169,10 @@ func (r *SSEReader) ReadEvent() (*SSEEvent, error) {
 		}
 
 		lines := strings.Split(string(r.buffer[:n]), "\n")
-		
+
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
-			
+
 			if line == "" {
 				// Empty line indicates end of event
 				if event.Type != "" || event.Data != "" {
