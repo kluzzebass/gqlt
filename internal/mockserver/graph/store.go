@@ -18,6 +18,9 @@ type Store struct {
 	fileAttachments map[string]*model.FileAttachment
 	linkAttachments map[string]*model.LinkAttachment
 
+	// Todo-attachment relationships (todoID -> []attachmentID)
+	todoAttachments map[string][]string
+
 	// ID counters
 	nextUserID           int
 	nextTodoID           int
@@ -32,6 +35,7 @@ func NewStore() *Store {
 		todos:                make(map[string]*model.Todo),
 		fileAttachments:      make(map[string]*model.FileAttachment),
 		linkAttachments:      make(map[string]*model.LinkAttachment),
+		todoAttachments:      make(map[string][]string),
 		nextUserID:           1,
 		nextTodoID:           1,
 		nextFileAttachmentID: 1,
@@ -300,6 +304,29 @@ func (s *Store) CreateLinkAttachment(title, url string, description *string) *mo
 
 	s.linkAttachments[id] = attachment
 	return attachment
+}
+
+// AddAttachmentToTodo links an attachment to a todo
+func (s *Store) AddAttachmentToTodo(todoID, attachmentID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.todoAttachments[todoID] = append(s.todoAttachments[todoID], attachmentID)
+}
+
+// RemoveAttachmentFromTodo unlinks an attachment from a todo
+func (s *Store) RemoveAttachmentFromTodo(todoID, attachmentID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	attachments := s.todoAttachments[todoID]
+	for i, id := range attachments {
+		if id == attachmentID {
+			s.todoAttachments[todoID] = append(attachments[:i], attachments[i+1:]...)
+			return true
+		}
+	}
+	return false
 }
 
 // === Helper Functions ===
