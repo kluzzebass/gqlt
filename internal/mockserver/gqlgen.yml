@@ -157,3 +157,14 @@ models:
     model:
       - github.com/99designs/gqlgen/graphql.Int
       - github.com/99designs/gqlgen/graphql.Int64
+
+  # Custom scalars for mock server
+  DateTime:
+    model:
+      - github.com/99designs/gqlgen/graphql.Time
+  URL:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  Upload:
+    model:
+      - github.com/99designs/gqlgen/graphql.Upload

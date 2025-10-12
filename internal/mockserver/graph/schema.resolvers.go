@@ -7,39 +7,120 @@ package graph
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/kluzzebass/gqlt/internal/mockserver/graph/model"
 )
 
+// CreateUser is the resolver for the createUser field.
+func (r *mutationResolver) CreateUser(ctx context.Context, input model.CreateUserInput) (*model.User, error) {
+	panic(fmt.Errorf("not implemented: CreateUser - createUser"))
+}
+
 // CreateTodo is the resolver for the createTodo field.
-func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
-	todo := &model.Todo{
-		ID:   fmt.Sprintf("%d", len(r.todos)+1),
-		Text: input.Text,
-		Done: false,
-		User: &model.User{
-			ID:   input.UserID,
-			Name: "User " + input.UserID,
-		},
-	}
-	r.todos = append(r.todos, todo)
-	return todo, nil
+func (r *mutationResolver) CreateTodo(ctx context.Context, input model.CreateTodoInput) (*model.Todo, error) {
+	panic(fmt.Errorf("not implemented: CreateTodo - createTodo"))
+}
+
+// UpdateTodo is the resolver for the updateTodo field.
+func (r *mutationResolver) UpdateTodo(ctx context.Context, input model.UpdateTodoInput) (*model.Todo, error) {
+	panic(fmt.Errorf("not implemented: UpdateTodo - updateTodo"))
 }
 
 // DeleteTodo is the resolver for the deleteTodo field.
 func (r *mutationResolver) DeleteTodo(ctx context.Context, id string) (bool, error) {
-	for i, todo := range r.todos {
-		if todo.ID == id {
-			r.todos = append(r.todos[:i], r.todos[i+1:]...)
-			return true, nil
-		}
-	}
-	return false, nil
+	panic(fmt.Errorf("not implemented: DeleteTodo - deleteTodo"))
+}
+
+// CompleteTodo is the resolver for the completeTodo field.
+func (r *mutationResolver) CompleteTodo(ctx context.Context, id string) (*model.Todo, error) {
+	panic(fmt.Errorf("not implemented: CompleteTodo - completeTodo"))
+}
+
+// AddFileAttachment is the resolver for the addFileAttachment field.
+func (r *mutationResolver) AddFileAttachment(ctx context.Context, todoID string, title string, file graphql.Upload) (*model.FileAttachment, error) {
+	panic(fmt.Errorf("not implemented: AddFileAttachment - addFileAttachment"))
+}
+
+// AddLinkAttachment is the resolver for the addLinkAttachment field.
+func (r *mutationResolver) AddLinkAttachment(ctx context.Context, todoID string, title string, url string, description *string) (*model.LinkAttachment, error) {
+	panic(fmt.Errorf("not implemented: AddLinkAttachment - addLinkAttachment"))
+}
+
+// RemoveAttachment is the resolver for the removeAttachment field.
+func (r *mutationResolver) RemoveAttachment(ctx context.Context, todoID string, attachmentID string) (bool, error) {
+	panic(fmt.Errorf("not implemented: RemoveAttachment - removeAttachment"))
+}
+
+// Node is the resolver for the node field.
+func (r *queryResolver) Node(ctx context.Context, id string) (model.Node, error) {
+	panic(fmt.Errorf("not implemented: Node - node"))
+}
+
+// Hello is the resolver for the hello field.
+func (r *queryResolver) Hello(ctx context.Context) (string, error) {
+	panic(fmt.Errorf("not implemented: Hello - hello"))
+}
+
+// Echo is the resolver for the echo field.
+func (r *queryResolver) Echo(ctx context.Context, message string) (string, error) {
+	panic(fmt.Errorf("not implemented: Echo - echo"))
+}
+
+// User is the resolver for the user field.
+func (r *queryResolver) User(ctx context.Context, id string) (*model.User, error) {
+	panic(fmt.Errorf("not implemented: User - user"))
+}
+
+// Users is the resolver for the users field.
+func (r *queryResolver) Users(ctx context.Context, limit *int32, offset *int32) ([]*model.User, error) {
+	panic(fmt.Errorf("not implemented: Users - users"))
+}
+
+// Todo is the resolver for the todo field.
+func (r *queryResolver) Todo(ctx context.Context, id string) (*model.Todo, error) {
+	panic(fmt.Errorf("not implemented: Todo - todo"))
 }
 
 // Todos is the resolver for the todos field.
-func (r *queryResolver) Todos(ctx context.Context) ([]*model.Todo, error) {
-	return r.todos, nil
+func (r *queryResolver) Todos(ctx context.Context, filters *model.TodoFilters, limit *int32, offset *int32) ([]*model.Todo, error) {
+	panic(fmt.Errorf("not implemented: Todos - todos"))
+}
+
+// Search is the resolver for the search field.
+func (r *queryResolver) Search(ctx context.Context, term string, limit *int32) ([]model.SearchResult, error) {
+	panic(fmt.Errorf("not implemented: Search - search"))
+}
+
+// CurrentTime is the resolver for the currentTime field.
+func (r *queryResolver) CurrentTime(ctx context.Context) (*time.Time, error) {
+	panic(fmt.Errorf("not implemented: CurrentTime - currentTime"))
+}
+
+// Version is the resolver for the version field.
+func (r *queryResolver) Version(ctx context.Context) (string, error) {
+	panic(fmt.Errorf("not implemented: Version - version"))
+}
+
+// Counter is the resolver for the counter field.
+func (r *subscriptionResolver) Counter(ctx context.Context) (<-chan int32, error) {
+	panic(fmt.Errorf("not implemented: Counter - counter"))
+}
+
+// TodoEvents is the resolver for the todoEvents field.
+func (r *subscriptionResolver) TodoEvents(ctx context.Context) (<-chan *model.Todo, error) {
+	panic(fmt.Errorf("not implemented: TodoEvents - todoEvents"))
+}
+
+// Tick is the resolver for the tick field.
+func (r *subscriptionResolver) Tick(ctx context.Context, interval *int32) (<-chan *time.Time, error) {
+	panic(fmt.Errorf("not implemented: Tick - tick"))
+}
+
+// UserEvents is the resolver for the userEvents field.
+func (r *subscriptionResolver) UserEvents(ctx context.Context) (<-chan *model.User, error) {
+	panic(fmt.Errorf("not implemented: UserEvents - userEvents"))
 }
 
 // Mutation returns MutationResolver implementation.
@@ -48,5 +129,9 @@ func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
+// Subscription returns SubscriptionResolver implementation.
+func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
+
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }

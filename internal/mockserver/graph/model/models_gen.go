@@ -2,25 +2,440 @@
 
 package model
 
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"strconv"
+	"time"
+)
+
+// Attachment is an interface for items that can be attached to todos.
+// Demonstrates GraphQL interfaces with multiple implementations.
+type Attachment interface {
+	IsAttachment()
+	// Unique identifier for the attachment
+	GetID() string
+	// Display title for the attachment
+	GetTitle() string
+	// When the attachment was added
+	GetCreatedAt() time.Time
+}
+
+// Node is a common interface for types that have a globally unique identifier.
+// Implements the Relay Node interface pattern for refetchability and caching.
+//
+// IDs follow the format "TypeName:localId" (e.g., "User:1", "Todo:42") to enable
+// global lookups without knowing the object type beforehand.
+type Node interface {
+	IsNode()
+	// Globally unique identifier in format 'TypeName:localId'
+	GetID() string
+}
+
+// SearchResult is a union of different types that can appear in search results.
+// Demonstrates union types for polymorphic queries.
+type SearchResult interface {
+	IsSearchResult()
+}
+
+// CreateTodoInput contains all fields needed to create a new todo.
+// Demonstrates input types for complex mutation arguments.
+type CreateTodoInput struct {
+	// Title of the todo (required)
+	Title string `json:"title"`
+	// Detailed notes (optional)
+	Notes *string `json:"notes,omitempty"`
+	// Priority level (defaults to NORMAL if not provided)
+	Priority *TodoPriority `json:"priority,omitempty"`
+	// User to assign this todo to (optional)
+	AssignedToID *string `json:"assignedToId,omitempty"`
+	// Optional due date
+	DueDate *time.Time `json:"dueDate,omitempty"`
+	// Optional tags for categorization
+	Tags []string `json:"tags,omitempty"`
+}
+
+// CreateUserInput contains all fields needed to create a new user.
+// Demonstrates input types with enum fields.
+type CreateUserInput struct {
+	// Full name of the user (required)
+	Name string `json:"name"`
+	// Email address (required, must be unique)
+	Email string `json:"email"`
+	// Role assignment (defaults to USER if not provided)
+	Role *UserRole `json:"role,omitempty"`
+	// Optional website URL
+	Website *string `json:"website,omitempty"`
+}
+
+// FileAttachment represents an uploaded file attached to a todo.
+// Implements both Attachment and Node interfaces.
+// Demonstrates file upload handling and multiple interface implementation.
+type FileAttachment struct {
+	// Unique identifier for the file attachment
+	ID string `json:"id"`
+	// Display title/name of the file
+	Title string `json:"title"`
+	// When the file was uploaded
+	CreatedAt time.Time `json:"createdAt"`
+	// Original filename
+	Filename string `json:"filename"`
+	// MIME type of the file
+	MimeType string `json:"mimeType"`
+	// File size in bytes
+	Size int32 `json:"size"`
+}
+
+func (FileAttachment) IsAttachment() {}
+
+// Unique identifier for the attachment
+func (this FileAttachment) GetID() string { return this.ID }
+
+// Display title for the attachment
+func (this FileAttachment) GetTitle() string { return this.Title }
+
+// When the attachment was added
+func (this FileAttachment) GetCreatedAt() time.Time { return this.CreatedAt }
+
+func (FileAttachment) IsNode() {}
+
+// Globally unique identifier in format 'TypeName:localId'
+
+// LinkAttachment represents a URL link attached to a todo.
+// Implements both Attachment and Node interfaces.
+// Demonstrates multiple interface implementation.
+type LinkAttachment struct {
+	// Unique identifier for the link attachment
+	ID string `json:"id"`
+	// Display title for the link
+	Title string `json:"title"`
+	// When the link was added
+	CreatedAt time.Time `json:"createdAt"`
+	// The actual URL
+	URL string `json:"url"`
+	// Optional description of the link
+	Description *string `json:"description,omitempty"`
+}
+
+func (LinkAttachment) IsAttachment() {}
+
+// Unique identifier for the attachment
+func (this LinkAttachment) GetID() string { return this.ID }
+
+// Display title for the attachment
+func (this LinkAttachment) GetTitle() string { return this.Title }
+
+// When the attachment was added
+func (this LinkAttachment) GetCreatedAt() time.Time { return this.CreatedAt }
+
+func (LinkAttachment) IsNode() {}
+
+// Globally unique identifier in format 'TypeName:localId'
+
+// Mutation defines all write operations available in the API.
 type Mutation struct {
 }
 
-type NewTodo struct {
-	Text   string `json:"text"`
-	UserID string `json:"userId"`
-}
-
+// Query defines all read operations available in the API.
 type Query struct {
 }
 
-type Todo struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
-	Done bool   `json:"done"`
-	User *User  `json:"user"`
+// Subscription defines all real-time streaming operations.
+// Subscriptions use WebSocket or SSE for continuous data flow.
+type Subscription struct {
 }
 
+// Todo represents a task item in the todo list.
+// Demonstrates complex object relationships, interfaces (attachments), and unions.
+type Todo struct {
+	// Unique identifier for the todo
+	ID string `json:"id"`
+	// Title/description of the todo
+	Title string `json:"title"`
+	// Detailed notes about the todo
+	Notes *string `json:"notes,omitempty"`
+	// Current status of the todo
+	Status TodoStatus `json:"status"`
+	// Priority level of the todo
+	Priority TodoPriority `json:"priority"`
+	// User who created this todo
+	CreatedBy *User `json:"createdBy"`
+	// User currently assigned to this todo
+	AssignedTo *User `json:"assignedTo,omitempty"`
+	// When the todo was created
+	CreatedAt time.Time `json:"createdAt"`
+	// When the todo was last updated
+	UpdatedAt time.Time `json:"updatedAt"`
+	// Optional due date for completion
+	DueDate *time.Time `json:"dueDate,omitempty"`
+	// Attachments on this todo (files and links).
+	// Demonstrates interface types - can be FileAttachment or LinkAttachment.
+	Attachments []Attachment `json:"attachments"`
+	// Tags for categorization
+	Tags []string `json:"tags"`
+}
+
+func (Todo) IsNode() {}
+
+// Globally unique identifier in format 'TypeName:localId'
+func (this Todo) GetID() string { return this.ID }
+
+func (Todo) IsSearchResult() {}
+
+// TodoFilters provides optional criteria for filtering todo queries.
+// Demonstrates input types for complex filtering.
+type TodoFilters struct {
+	// Filter by status
+	Status *TodoStatus `json:"status,omitempty"`
+	// Filter by priority
+	Priority *TodoPriority `json:"priority,omitempty"`
+	// Filter by assigned user ID
+	AssignedToID *string `json:"assignedToId,omitempty"`
+	// Filter by creator user ID
+	CreatedByID *string `json:"createdById,omitempty"`
+	// Filter by tag (must have this tag)
+	Tag *string `json:"tag,omitempty"`
+}
+
+// UpdateTodoInput contains fields for updating an existing todo.
+// Includes ID to enable bulk update operations. All other fields are optional
+// to support partial updates.
+type UpdateTodoInput struct {
+	// ID of the todo to update (required)
+	ID string `json:"id"`
+	// Updated title (optional)
+	Title *string `json:"title,omitempty"`
+	// Updated notes (optional)
+	Notes *string `json:"notes,omitempty"`
+	// Updated status (optional)
+	Status *TodoStatus `json:"status,omitempty"`
+	// Updated priority (optional)
+	Priority *TodoPriority `json:"priority,omitempty"`
+	// Updated assignee (optional)
+	AssignedToID *string `json:"assignedToId,omitempty"`
+	// Updated due date (optional)
+	DueDate *time.Time `json:"dueDate,omitempty"`
+	// Updated tags (optional)
+	Tags []string `json:"tags,omitempty"`
+}
+
+// User represents a person who can create and manage todos.
+// Demonstrates object types, enums, custom scalars, and nested fields.
 type User struct {
-	ID   string `json:"id"`
+	// Unique identifier for the user
+	ID string `json:"id"`
+	// Full name of the user
 	Name string `json:"name"`
+	// Email address (unique)
+	Email string `json:"email"`
+	// User's role in the system
+	Role UserRole `json:"role"`
+	// When the user account was created
+	CreatedAt time.Time `json:"createdAt"`
+	// Optional profile website
+	Website *string `json:"website,omitempty"`
+	// User's avatar URL (deprecated - use avatarUrl instead)
+	Avatar *string `json:"avatar,omitempty"`
+	// Todos assigned to or created by this user.
+	// Demonstrates field arguments with default values and pagination.
+	Todos []*Todo `json:"todos"`
+	// Count of completed todos for this user
+	CompletedCount int32 `json:"completedCount"`
+}
+
+func (User) IsNode() {}
+
+// Globally unique identifier in format 'TypeName:localId'
+func (this User) GetID() string { return this.ID }
+
+func (User) IsSearchResult() {}
+
+// TodoPriority defines the importance level of a todo item.
+type TodoPriority string
+
+const (
+	// Low priority - can be done anytime
+	TodoPriorityLow TodoPriority = "LOW"
+	// Normal priority - standard task
+	TodoPriorityNormal TodoPriority = "NORMAL"
+	// High priority - should be done soon
+	TodoPriorityHigh TodoPriority = "HIGH"
+	// Urgent - needs immediate attention
+	TodoPriorityUrgent TodoPriority = "URGENT"
+)
+
+var AllTodoPriority = []TodoPriority{
+	TodoPriorityLow,
+	TodoPriorityNormal,
+	TodoPriorityHigh,
+	TodoPriorityUrgent,
+}
+
+func (e TodoPriority) IsValid() bool {
+	switch e {
+	case TodoPriorityLow, TodoPriorityNormal, TodoPriorityHigh, TodoPriorityUrgent:
+		return true
+	}
+	return false
+}
+
+func (e TodoPriority) String() string {
+	return string(e)
+}
+
+func (e *TodoPriority) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = TodoPriority(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid TodoPriority", str)
+	}
+	return nil
+}
+
+func (e TodoPriority) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *TodoPriority) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e TodoPriority) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// TodoStatus represents the current state of a todo item.
+type TodoStatus string
+
+const (
+	// Todo is pending - not yet started
+	TodoStatusPending TodoStatus = "PENDING"
+	// Todo is currently being worked on
+	TodoStatusInProgress TodoStatus = "IN_PROGRESS"
+	// Todo has been completed
+	TodoStatusCompleted TodoStatus = "COMPLETED"
+	// Todo is on hold (deprecated - use PENDING with notes instead)
+	TodoStatusOnHold TodoStatus = "ON_HOLD"
+)
+
+var AllTodoStatus = []TodoStatus{
+	TodoStatusPending,
+	TodoStatusInProgress,
+	TodoStatusCompleted,
+	TodoStatusOnHold,
+}
+
+func (e TodoStatus) IsValid() bool {
+	switch e {
+	case TodoStatusPending, TodoStatusInProgress, TodoStatusCompleted, TodoStatusOnHold:
+		return true
+	}
+	return false
+}
+
+func (e TodoStatus) String() string {
+	return string(e)
+}
+
+func (e *TodoStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = TodoStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid TodoStatus", str)
+	}
+	return nil
+}
+
+func (e TodoStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *TodoStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e TodoStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// UserRole defines the permission level of a user in the system.
+type UserRole string
+
+const (
+	// Administrator with full access to all todos
+	UserRoleAdmin UserRole = "ADMIN"
+	// Regular user - can manage own todos
+	UserRoleUser UserRole = "USER"
+	// Guest user with read-only access
+	UserRoleGuest UserRole = "GUEST"
+)
+
+var AllUserRole = []UserRole{
+	UserRoleAdmin,
+	UserRoleUser,
+	UserRoleGuest,
+}
+
+func (e UserRole) IsValid() bool {
+	switch e {
+	case UserRoleAdmin, UserRoleUser, UserRoleGuest:
+		return true
+	}
+	return false
+}
+
+func (e UserRole) String() string {
+	return string(e)
+}
+
+func (e *UserRole) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = UserRole(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid UserRole", str)
+	}
+	return nil
+}
+
+func (e UserRole) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *UserRole) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e UserRole) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }
