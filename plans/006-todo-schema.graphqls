@@ -1,0 +1,620 @@
+# ============================================================================
+# GQLT Mock Server - Comprehensive Todo List Schema
+# ============================================================================
+# This schema demonstrates all GraphQL features through a cohesive todo list
+# application with users, todos, attachments (files and links), and real-time updates.
+# ============================================================================
+
+# ============================================================================
+# CUSTOM SCALARS
+# ============================================================================
+
+"""
+DateTime is a custom scalar representing a date and time in ISO 8601 format.
+Example: "2025-10-12T14:30:00Z"
+"""
+scalar DateTime
+
+"""
+URL is a custom scalar representing a valid HTTP/HTTPS URL.
+Example: "https://example.com"
+"""
+scalar URL
+
+"""
+Upload is a special scalar for file uploads.
+Used in mutations to accept file uploads from clients.
+"""
+scalar Upload
+
+# ============================================================================
+# DIRECTIVES
+# ============================================================================
+
+"""
+Marks a field or enum value as deprecated, providing a reason for deprecation.
+This directive is used to inform clients that a field should no longer be used.
+"""
+directive @deprecated(
+  reason: String = "No longer supported"
+) on FIELD_DEFINITION | ENUM_VALUE
+
+# ============================================================================
+# ENUMS
+# ============================================================================
+
+"""
+TodoStatus represents the current state of a todo item.
+"""
+enum TodoStatus {
+  "Todo is pending - not yet started"
+  PENDING
+  
+  "Todo is currently being worked on"
+  IN_PROGRESS
+  
+  "Todo has been completed"
+  COMPLETED
+  
+  "Todo is on hold (deprecated - use PENDING with notes instead)"
+  ON_HOLD @deprecated(reason: "Use PENDING with a note instead")
+}
+
+"""
+TodoPriority defines the importance level of a todo item.
+"""
+enum TodoPriority {
+  "Low priority - can be done anytime"
+  LOW
+  
+  "Normal priority - standard task"
+  NORMAL
+  
+  "High priority - should be done soon"
+  HIGH
+  
+  "Urgent - needs immediate attention"
+  URGENT
+}
+
+"""
+UserRole defines the permission level of a user in the system.
+"""
+enum UserRole {
+  "Administrator with full access to all todos"
+  ADMIN
+  
+  "Regular user - can manage own todos"
+  USER
+  
+  "Guest user with read-only access"
+  GUEST
+}
+
+# ============================================================================
+# INTERFACES
+# ============================================================================
+
+"""
+Attachment is an interface for items that can be attached to todos.
+Demonstrates GraphQL interfaces with multiple implementations.
+"""
+interface Attachment {
+  "Unique identifier for the attachment"
+  id: ID!
+  
+  "Display title for the attachment"
+  title: String!
+  
+  "When the attachment was added"
+  createdAt: DateTime!
+}
+
+"""
+Node is a common interface for types that have a unique identifier.
+Demonstrates the Relay Node interface pattern.
+"""
+interface Node {
+  "Unique identifier"
+  id: ID!
+}
+
+# ============================================================================
+# TYPES - ATTACHMENTS
+# ============================================================================
+
+"""
+FileAttachment represents an uploaded file attached to a todo.
+Implements the Attachment interface. Demonstrates file upload handling.
+"""
+type FileAttachment implements Attachment {
+  "Unique identifier for the file attachment"
+  id: ID!
+  
+  "Display title/name of the file"
+  title: String!
+  
+  "When the file was uploaded"
+  createdAt: DateTime!
+  
+  "Original filename"
+  filename: String!
+  
+  "MIME type of the file"
+  mimeType: String!
+  
+  "File size in bytes"
+  size: Int!
+}
+
+"""
+LinkAttachment represents a URL link attached to a todo.
+Implements the Attachment interface. Demonstrates interface implementation.
+"""
+type LinkAttachment implements Attachment {
+  "Unique identifier for the link attachment"
+  id: ID!
+  
+  "Display title for the link"
+  title: String!
+  
+  "When the link was added"
+  createdAt: DateTime!
+  
+  "The actual URL"
+  url: URL!
+  
+  "Optional description of the link"
+  description: String
+}
+
+# ============================================================================
+# TYPES - CORE ENTITIES
+# ============================================================================
+
+"""
+User represents a person who can create and manage todos.
+Demonstrates object types, enums, custom scalars, and nested fields.
+"""
+type User implements Node {
+  "Unique identifier for the user"
+  id: ID!
+  
+  "Full name of the user"
+  name: String!
+  
+  "Email address (unique)"
+  email: String!
+  
+  "User's role in the system"
+  role: UserRole!
+  
+  "When the user account was created"
+  createdAt: DateTime!
+  
+  "Optional profile website"
+  website: URL
+  
+  "User's avatar URL (deprecated - use avatarUrl instead)"
+  avatar: String @deprecated(reason: "Use avatarUrl field instead")
+  
+  """
+  Todos assigned to or created by this user.
+  Demonstrates field arguments with default values and pagination.
+  """
+  todos(
+    "Filter by status"
+    status: TodoStatus
+    
+    "Maximum number of todos to return (default: 50)"
+    limit: Int = 50
+    
+    "Number of todos to skip for pagination (default: 0)"
+    offset: Int = 0
+  ): [Todo!]!
+  
+  "Count of completed todos for this user"
+  completedCount: Int!
+}
+
+"""
+Todo represents a task item in the todo list.
+Demonstrates complex object relationships, interfaces (attachments), and unions.
+"""
+type Todo implements Node {
+  "Unique identifier for the todo"
+  id: ID!
+  
+  "Title/description of the todo"
+  title: String!
+  
+  "Detailed notes about the todo"
+  notes: String
+  
+  "Current status of the todo"
+  status: TodoStatus!
+  
+  "Priority level of the todo"
+  priority: TodoPriority!
+  
+  "User who created this todo"
+  createdBy: User!
+  
+  "User currently assigned to this todo"
+  assignedTo: User
+  
+  "When the todo was created"
+  createdAt: DateTime!
+  
+  "When the todo was last updated"
+  updatedAt: DateTime!
+  
+  "Optional due date for completion"
+  dueDate: DateTime
+  
+  """
+  Attachments on this todo (files and links).
+  Demonstrates interface types - can be FileAttachment or LinkAttachment.
+  """
+  attachments: [Attachment!]!
+  
+  "Tags for categorization"
+  tags: [String!]!
+}
+
+# ============================================================================
+# UNIONS
+# ============================================================================
+
+"""
+SearchResult is a union of different types that can appear in search results.
+Demonstrates union types for polymorphic queries.
+"""
+union SearchResult = User | Todo
+
+# ============================================================================
+# INPUT TYPES
+# ============================================================================
+
+"""
+CreateTodoInput contains all fields needed to create a new todo.
+Demonstrates input types for complex mutation arguments.
+"""
+input CreateTodoInput {
+  "Title of the todo (required)"
+  title: String!
+  
+  "Detailed notes (optional)"
+  notes: String
+  
+  "Priority level (defaults to NORMAL if not provided)"
+  priority: TodoPriority
+  
+  "User to assign this todo to (optional)"
+  assignedToId: ID
+  
+  "Optional due date"
+  dueDate: DateTime
+  
+  "Optional tags for categorization"
+  tags: [String!]
+}
+
+"""
+UpdateTodoInput contains optional fields for updating an existing todo.
+All fields are optional to support partial updates.
+"""
+input UpdateTodoInput {
+  "Updated title (optional)"
+  title: String
+  
+  "Updated notes (optional)"
+  notes: String
+  
+  "Updated status (optional)"
+  status: TodoStatus
+  
+  "Updated priority (optional)"
+  priority: TodoPriority
+  
+  "Updated assignee (optional)"
+  assignedToId: ID
+  
+  "Updated due date (optional)"
+  dueDate: DateTime
+  
+  "Updated tags (optional)"
+  tags: [String!]
+}
+
+"""
+CreateUserInput contains all fields needed to create a new user.
+Demonstrates input types with enum fields.
+"""
+input CreateUserInput {
+  "Full name of the user (required)"
+  name: String!
+  
+  "Email address (required, must be unique)"
+  email: String!
+  
+  "Role assignment (defaults to USER if not provided)"
+  role: UserRole
+  
+  "Optional website URL"
+  website: URL
+}
+
+"""
+TodoFilters provides optional criteria for filtering todo queries.
+Demonstrates input types for complex filtering.
+"""
+input TodoFilters {
+  "Filter by status"
+  status: TodoStatus
+  
+  "Filter by priority"
+  priority: TodoPriority
+  
+  "Filter by assigned user ID"
+  assignedToId: ID
+  
+  "Filter by creator user ID"
+  createdById: ID
+  
+  "Filter by tag (must have this tag)"
+  tag: String
+}
+
+# ============================================================================
+# QUERY ROOT TYPE
+# ============================================================================
+
+"""
+Query defines all read operations available in the API.
+"""
+type Query {
+  # ------------------------------------------------------------------
+  # Simple Queries
+  # ------------------------------------------------------------------
+  
+  "Returns a greeting message - useful for health checks"
+  hello: String!
+  
+  """
+  Echoes back the provided message.
+  Demonstrates simple string arguments and returns.
+  """
+  echo(message: String!): String!
+  
+  # ------------------------------------------------------------------
+  # User Queries
+  # ------------------------------------------------------------------
+  
+  """
+  Retrieves a single user by ID.
+  Returns null if user is not found.
+  """
+  user(id: ID!): User
+  
+  """
+  Retrieves a list of all users.
+  Demonstrates object queries with pagination.
+  """
+  users(
+    "Maximum number of users to return (default: 100)"
+    limit: Int = 100
+    
+    "Number of users to skip for pagination (default: 0)"
+    offset: Int = 0
+  ): [User!]!
+  
+  # ------------------------------------------------------------------
+  # Todo Queries
+  # ------------------------------------------------------------------
+  
+  """
+  Retrieves a single todo by ID.
+  Returns null if todo is not found.
+  """
+  todo(id: ID!): Todo
+  
+  """
+  Retrieves todos with optional filtering and pagination.
+  Demonstrates input types, default values, and complex filtering.
+  """
+  todos(
+    "Optional filters to apply"
+    filters: TodoFilters
+    
+    "Maximum number of todos to return (default: 50)"
+    limit: Int = 50
+    
+    "Number of todos to skip for pagination (default: 0)"
+    offset: Int = 0
+  ): [Todo!]!
+  
+  # ------------------------------------------------------------------
+  # Search Queries
+  # ------------------------------------------------------------------
+  
+  """
+  Searches across users and todos.
+  Demonstrates union types and polymorphic results.
+  """
+  search(
+    "Search term to match against"
+    term: String!
+    
+    "Maximum number of results to return (default: 20)"
+    limit: Int = 20
+  ): [SearchResult!]!
+  
+  # ------------------------------------------------------------------
+  # Utility Queries
+  # ------------------------------------------------------------------
+  
+  """
+  Returns the current server time.
+  Demonstrates custom scalar types.
+  """
+  currentTime: DateTime!
+  
+  """
+  Returns server version information.
+  Deprecated - use serverInfo query instead.
+  """
+  version: String! @deprecated(reason: "Use serverInfo query instead")
+}
+
+# ============================================================================
+# MUTATION ROOT TYPE
+# ============================================================================
+
+"""
+Mutation defines all write operations available in the API.
+"""
+type Mutation {
+  # ------------------------------------------------------------------
+  # User Mutations
+  # ------------------------------------------------------------------
+  
+  """
+  Creates a new user.
+  Demonstrates mutations with input types.
+  """
+  createUser(
+    "User creation data"
+    input: CreateUserInput!
+  ): User!
+  
+  # ------------------------------------------------------------------
+  # Todo Mutations
+  # ------------------------------------------------------------------
+  
+  """
+  Creates a new todo item.
+  Demonstrates input types and automatic field population (createdBy, createdAt).
+  """
+  createTodo(
+    "Todo creation data"
+    input: CreateTodoInput!
+  ): Todo!
+  
+  """
+  Updates an existing todo with partial data.
+  Demonstrates input types for partial updates.
+  """
+  updateTodo(
+    "ID of the todo to update"
+    id: ID!
+    
+    "Fields to update (all optional)"
+    input: UpdateTodoInput!
+  ): Todo!
+  
+  """
+  Deletes a todo item.
+  Demonstrates simple mutations returning Boolean.
+  """
+  deleteTodo(
+    "ID of the todo to delete"
+    id: ID!
+  ): Boolean!
+  
+  """
+  Marks a todo as completed.
+  Demonstrates enum mutations.
+  """
+  completeTodo(
+    "ID of the todo to complete"
+    id: ID!
+  ): Todo!
+  
+  # ------------------------------------------------------------------
+  # Attachment Mutations
+  # ------------------------------------------------------------------
+  
+  """
+  Uploads a file and attaches it to a todo.
+  Demonstrates the Upload scalar and interface types.
+  """
+  addFileAttachment(
+    "ID of the todo to attach the file to"
+    todoId: ID!
+    
+    "Title for the attachment"
+    title: String!
+    
+    "File to upload"
+    file: Upload!
+  ): FileAttachment!
+  
+  """
+  Adds a link attachment to a todo.
+  Demonstrates interface implementations.
+  """
+  addLinkAttachment(
+    "ID of the todo to attach the link to"
+    todoId: ID!
+    
+    "Title for the link"
+    title: String!
+    
+    "URL of the link"
+    url: URL!
+    
+    "Optional description"
+    description: String
+  ): LinkAttachment!
+  
+  """
+  Removes an attachment from a todo.
+  Demonstrates interface types in mutations.
+  """
+  removeAttachment(
+    "ID of the todo"
+    todoId: ID!
+    
+    "ID of the attachment to remove"
+    attachmentId: ID!
+  ): Boolean!
+}
+
+# ============================================================================
+# SUBSCRIPTION ROOT TYPE
+# ============================================================================
+
+"""
+Subscription defines all real-time streaming operations.
+Subscriptions use WebSocket or SSE for continuous data flow.
+"""
+type Subscription {
+  """
+  Emits an incrementing counter every second: 1, 2, 3, ...
+  Useful for testing basic subscription functionality.
+  """
+  counter: Int!
+  
+  """
+  Emits todo objects whenever todos are created, updated, or deleted.
+  Demonstrates real-time notifications for entity changes.
+  """
+  todoEvents: Todo!
+  
+  """
+  Emits the current timestamp at a configurable interval.
+  Demonstrates subscriptions with arguments and custom scalars.
+  """
+  tick(
+    "Interval in seconds between emissions (default: 1)"
+    interval: Int
+  ): DateTime!
+  
+  """
+  Emits user events when users are created or modified.
+  Demonstrates multiple subscription types.
+  """
+  userEvents: User!
+}
+

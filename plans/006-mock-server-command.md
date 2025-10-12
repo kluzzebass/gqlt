@@ -52,9 +52,72 @@ Create a `gqlt serve` subcommand that runs a simple mock GraphQL server with:
 
 ## SCHEMA DESIGN
 
-### Simple but comprehensive schema:
+### Todo List Application Schema
+
+**Concept:** A practical todo list application that demonstrates all GraphQL features.
+Each todo can have attachments (files or links via interface), assigned users, priority,
+and status. This makes the schema cohesive while covering all GraphQL capabilities.
+
+**Key Features:**
+- **Users** with roles (ADMIN, USER, GUEST)
+- **Todos** with status (PENDING, IN_PROGRESS, COMPLETED), priority, assignees, due dates, and tags
+- **Attachments** (interface) with two implementations:
+  - **FileAttachment** - uploaded files (demonstrates Upload scalar)
+  - **LinkAttachment** - URL links (demonstrates interface)
+- **Search** across users and todos (demonstrates unions)
+- **Subscriptions** for real-time todo and user events
+
+**Complete Schema:** See `plans/006-todo-schema.graphqls` for the full documented schema.
+
+### Schema Highlights:
+
+The complete schema is in `plans/006-todo-schema.graphqls`. Key type relationships:
+
+```
+User (implements Node)
+  ├── role: UserRole (enum)
+  └── todos: [Todo!]! (with filtering)
+
+Todo (implements Node)
+  ├── status: TodoStatus (enum)
+  ├── priority: TodoPriority (enum)
+  ├── createdBy: User
+  ├── assignedTo: User
+  ├── attachments: [Attachment!]! (interface)
+  │   ├── FileAttachment (implements Attachment) - for uploads
+  │   └── LinkAttachment (implements Attachment) - for URLs
+  ├── dueDate: DateTime (custom scalar)
+  └── tags: [String!]!
+
+SearchResult (union) = User | Todo
+
+Mutations:
+  - User CRUD (createUser)
+  - Todo CRUD (createTodo, updateTodo, deleteTodo, completeTodo)
+  - Attachments (addFileAttachment, addLinkAttachment, removeAttachment)
+
+Subscriptions:
+  - counter (testing)
+  - todoEvents (real-time todo changes)
+  - userEvents (real-time user changes)
+  - tick(interval) (configurable timer)
+```
+
+**GraphQL Features Demonstrated:**
+- Custom Scalars: DateTime, URL, Upload
+- Enums: TodoStatus, TodoPriority, UserRole
+- Interfaces: Attachment (FileAttachment, LinkAttachment), Node
+- Unions: SearchResult
+- Input Types: CreateTodoInput, UpdateTodoInput, CreateUserInput, TodoFilters
+- Directives: @deprecated
+- Default Values: On all pagination and interval arguments
+- Field Arguments: todos(filters, limit, offset), User.todos(status, limit, offset)
+
+**Note:** The complete, fully-documented schema (435+ lines) has been extracted to
+`plans/006-todo-schema.graphqls` for easier reference and potential direct use in implementation.
 
 ```graphql
+# Quick reference - see plans/006-todo-schema.graphqls for complete schema
 # ============================================================================
 # CUSTOM SCALARS
 # ============================================================================
