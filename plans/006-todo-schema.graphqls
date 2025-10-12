@@ -111,11 +111,14 @@ interface Attachment {
 }
 
 """
-Node is a common interface for types that have a unique identifier.
-Demonstrates the Relay Node interface pattern.
+Node is a common interface for types that have a globally unique identifier.
+Implements the Relay Node interface pattern for refetchability and caching.
+
+IDs follow the format "TypeName:localId" (e.g., "User:1", "Todo:42") to enable
+global lookups without knowing the object type beforehand.
 """
 interface Node {
-  "Unique identifier"
+  "Globally unique identifier in format 'TypeName:localId'"
   id: ID!
 }
 
@@ -308,25 +311,25 @@ to support partial updates.
 input UpdateTodoInput {
   "ID of the todo to update (required)"
   id: ID!
-  
+
   "Updated title (optional)"
   title: String
-  
+
   "Updated notes (optional)"
   notes: String
-  
+
   "Updated status (optional)"
   status: TodoStatus
-  
+
   "Updated priority (optional)"
   priority: TodoPriority
-  
+
   "Updated assignee (optional)"
   assignedToId: ID
-  
+
   "Updated due date (optional)"
   dueDate: DateTime
-  
+
   "Updated tags (optional)"
   tags: [String!]
 }
@@ -378,6 +381,17 @@ input TodoFilters {
 Query defines all read operations available in the API.
 """
 type Query {
+  # ------------------------------------------------------------------
+  # Relay Node Interface
+  # ------------------------------------------------------------------
+
+  """
+  Fetches any object implementing the Node interface by its global ID.
+  Implements the Relay Node pattern for global object refetching.
+  ID format: "TypeName:localId" (e.g., "User:1", "Todo:42")
+  """
+  node(id: ID!): Node
+
   # ------------------------------------------------------------------
   # Simple Queries
   # ------------------------------------------------------------------
@@ -501,21 +515,13 @@ type Mutation {
 
   """
   Updates an existing todo with partial data.
-  Demonstrates input types for partial updates and bulk operations.
+  Demonstrates input types for partial updates.
+  ID is included in input to enable potential bulk operations in the future.
   """
   updateTodo(
     "Todo update data (includes ID and fields to update)"
     input: UpdateTodoInput!
   ): Todo!
-  
-  """
-  Updates multiple todos at once.
-  Demonstrates bulk operations enabled by including ID in input type.
-  """
-  updateTodos(
-    "List of todo updates to apply"
-    inputs: [UpdateTodoInput!]!
-  ): [Todo!]!
 
   """
   Deletes a todo item.
