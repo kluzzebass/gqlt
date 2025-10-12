@@ -534,14 +534,56 @@ How to test:
 
 Create the gqlgen configuration file and run code generation.
 
-- Create `internal/mockserver/gqlgen.yml` with configuration
-- Configure schema path, resolver path, model path
-- Run `gqlgen generate` to create scaffolding
-- Review generated `generated.go`, `models_gen.go`, `resolver.go`
+CRITICAL: gqlgen is very particular about directory structure and configuration.
+Incorrect paths will cause silent failures or generate code in wrong locations.
+
+- Create `internal/mockserver/gqlgen.yml` with exact configuration:
+  ```yaml
+  # Schema location (must match actual file path)
+  schema:
+    - schema.graphqls
+  
+  # Where to generate the GraphQL server code
+  exec:
+    filename: generated.go
+    package: mockserver
+  
+  # Where to generate the resolver stubs
+  resolver:
+    filename: resolver.go
+    package: mockserver
+    type: Resolver
+  
+  # Where to generate the models
+  model:
+    filename: models_gen.go
+    package: mockserver
+  
+  # Autobind tells gqlgen to use Go types that match GraphQL type names
+  autobind: []
+  
+  # Custom scalar mappings
+  models:
+    DateTime:
+      model: time.Time
+    URL:
+      model: string
+    Upload:
+      model: github.com/99designs/gqlgen/graphql.Upload
+  ```
+
+- Run `cd internal/mockserver && gqlgen generate`
+- Verify generated files are in `internal/mockserver/` (NOT in root or wrong directory)
+- Review `generated.go` - contains GraphQL execution engine
+- Review `models_gen.go` - contains Go structs for GraphQL types
+- Review `resolver.go` - contains resolver stub methods
 
 How to test:
-- Generated files exist in `internal/mockserver/`
-- Code compiles: `go build ./internal/mockserver`
+- CRITICAL: All files must be in `internal/mockserver/`, not scattered elsewhere
+- `ls internal/mockserver/` shows: `gqlgen.yml`, `schema.graphqls`, `generated.go`, `models_gen.go`, `resolver.go`
+- Code compiles: `cd internal/mockserver && go build`
+- No errors about missing types or packages
+- Resolver methods exist with correct signatures (check `resolver.go`)
 
 ### [ ] 4) Implement in-memory data store
 
@@ -877,6 +919,16 @@ The mock server implementation is complete when:
 This is intentionally simple - just enough to test all GraphQL features. Not meant to be a full-featured mock server like graphql-faker or similar tools. The goal is a batteries-included testing server that just works out of the box.
 
 The implementation uses gqlgen for code generation, which provides automatic introspection, type safety, and WebSocket subscriptions. We only need to implement resolvers and add SSE transport support.
+
+**IMPORTANT gqlgen Gotchas:**
+1. Directory structure MUST match gqlgen.yml configuration exactly
+2. gqlgen may silently fail or generate in wrong locations if paths are incorrect
+3. Always run `gqlgen generate` from the directory containing gqlgen.yml
+4. Schema file must be relative to gqlgen.yml location
+5. Generated files will overwrite existing files - never edit generated.go or models_gen.go
+6. Only edit resolver.go and add new files (store.go, etc.)
+7. Re-run `gqlgen generate` after schema changes to update generated code
+8. Package names in gqlgen.yml must match actual Go package declarations
 
 Status: Planning - Ready for implementation
 
