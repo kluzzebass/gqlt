@@ -53,129 +53,437 @@ Create a `gqlt serve` subcommand that runs a simple mock GraphQL server with:
 ### Simple but comprehensive schema:
 
 ```graphql
+# ============================================================================
+# CUSTOM SCALARS
+# ============================================================================
+
+"""
+DateTime is a custom scalar representing a date and time in ISO 8601 format.
+Example: "2025-10-12T14:30:00Z"
+"""
 scalar DateTime
+
+"""
+URL is a custom scalar representing a valid HTTP/HTTPS URL.
+Example: "https://example.com"
+"""
 scalar URL
 
+# ============================================================================
+# DIRECTIVES
+# ============================================================================
+
+"""
+Marks a field or enum value as deprecated, providing a reason for deprecation.
+This directive is used to inform clients that a field should no longer be used.
+"""
 directive @deprecated(
   reason: String = "No longer supported"
 ) on FIELD_DEFINITION | ENUM_VALUE
 
+# ============================================================================
+# ENUMS
+# ============================================================================
+
+"""
+Status represents the current state of a user account.
+"""
 enum Status {
+  "User account is active and can perform operations"
   ACTIVE
+  
+  "User account is temporarily disabled"
   INACTIVE
+  
+  "User account is awaiting activation or approval"
   PENDING
+  
+  "User account has been marked as deleted (deprecated, use INACTIVE instead)"
   DELETED @deprecated(reason: "Use INACTIVE instead")
 }
 
+"""
+UserRole defines the permission level of a user in the system.
+"""
 enum UserRole {
+  "Administrator with full access"
   ADMIN
+  
+  "Regular user with standard permissions"
   USER
+  
+  "Guest user with limited read-only access"
   GUEST
 }
 
+# ============================================================================
+# TYPES
+# ============================================================================
+
+"""
+User represents a person who can access the system.
+This type demonstrates object types, custom scalars, enums, deprecated fields,
+and field-level arguments with default values.
+"""
 type User {
+  "Unique identifier for the user"
   id: ID!
+  
+  "Full name of the user"
   name: String!
+  
+  "Email address (must be unique)"
   email: String!
+  
+  "Current status of the user account"
   status: Status!
+  
+  "Permission level assigned to the user"
   role: UserRole!
+  
+  "Timestamp when the user account was created"
   createdAt: DateTime!
+  
+  "Optional personal or professional website URL"
   website: URL
+  
+  "Biographical information (deprecated in favor of structured profile)"
   bio: String @deprecated(reason: "Use profile.bio instead")
-  posts(limit: Int = 10, offset: Int = 0): [Post!]!
+  
+  """
+  Posts created by this user.
+  Demonstrates field arguments with default values and pagination.
+  """
+  posts(
+    "Maximum number of posts to return (default: 10)"
+    limit: Int = 10
+    
+    "Number of posts to skip for pagination (default: 0)"
+    offset: Int = 0
+  ): [Post!]!
 }
 
+"""
+Post represents a blog post or article written by a user.
+Demonstrates relationships between types.
+"""
 type Post {
+  "Unique identifier for the post"
   id: ID!
+  
+  "Title of the post"
   title: String!
+  
+  "Full content of the post (can be markdown)"
   content: String!
+  
+  "The user who authored this post"
   author: User!
+  
+  "Whether the post is publicly visible"
   published: Boolean!
 }
 
+# ============================================================================
+# INTERFACES
+# ============================================================================
+
+"""
+Node is a common interface for types that have a unique identifier.
+Demonstrates GraphQL interfaces.
+"""
 interface Node {
+  "Unique identifier"
   id: ID!
 }
 
+# ============================================================================
+# INTERFACE IMPLEMENTATIONS
+# ============================================================================
+
+"""
+Product represents a physical or digital product for sale.
+Implements the Node interface.
+"""
 type Product implements Node {
+  "Unique identifier for the product"
   id: ID!
+  
+  "Name of the product"
   name: String!
+  
+  "Price in USD"
   price: Float!
 }
 
+"""
+Service represents a billable service offering.
+Implements the Node interface.
+"""
 type Service implements Node {
+  "Unique identifier for the service"
   id: ID!
+  
+  "Name of the service"
   name: String!
+  
+  "Cost per hour in USD"
   hourlyRate: Float!
 }
 
+# ============================================================================
+# UNIONS
+# ============================================================================
+
+"""
+SearchResult is a union type that can be one of several different types.
+Demonstrates union types for polymorphic results.
+"""
 union SearchResult = User | Post | Product | Service
 
+# ============================================================================
+# INPUT TYPES
+# ============================================================================
+
+"""
+CreateUserInput contains all fields needed to create a new user.
+Demonstrates input types for structured mutation arguments.
+"""
 input CreateUserInput {
+  "Full name of the user (required)"
   name: String!
+  
+  "Email address (required, must be unique)"
   email: String!
+  
+  "Optional role assignment (defaults to USER if not provided)"
   role: UserRole
+  
+  "Optional website URL"
   website: URL
 }
 
+"""
+UpdateUserInput contains optional fields for updating an existing user.
+All fields are optional to support partial updates.
+"""
 input UpdateUserInput {
+  "Updated name (optional)"
   name: String
+  
+  "Updated email address (optional)"
   email: String
+  
+  "Updated status (optional)"
   status: Status
+  
+  "Updated role (optional)"
   role: UserRole
+  
+  "Updated website URL (optional)"
   website: URL
 }
 
+"""
+SearchFilters provides optional criteria for filtering user queries.
+Demonstrates input types for filtering and search operations.
+"""
 input SearchFilters {
+  "Filter users by status"
   status: Status
+  
+  "Filter users by role"
   role: UserRole
 }
 
+# ============================================================================
+# QUERY ROOT TYPE
+# ============================================================================
+
+"""
+Query defines all read operations available in the API.
+"""
 type Query {
-  # Simple queries
+  # ------------------------------------------------------------------
+  # Simple Queries
+  # ------------------------------------------------------------------
+  
+  "Returns a greeting message - useful for health checks"
   hello: String!
+  
+  """
+  Echoes back the provided message.
+  Demonstrates simple string arguments and returns.
+  """
   echo(message: String!): String!
   
-  # Object queries
+  # ------------------------------------------------------------------
+  # Object Queries
+  # ------------------------------------------------------------------
+  
+  """
+  Retrieves a single user by ID.
+  Returns null if user is not found.
+  """
   user(id: ID!): User
-  users(filters: SearchFilters, limit: Int = 100, offset: Int = 0): [User!]!
   
-  # Search with union
-  search(term: String!, limit: Int = 10): [SearchResult!]!
+  """
+  Retrieves a list of users with optional filtering and pagination.
+  Demonstrates input types, default values, and filtering.
+  """
+  users(
+    "Optional filters to apply"
+    filters: SearchFilters
+    
+    "Maximum number of users to return (default: 100)"
+    limit: Int = 100
+    
+    "Number of users to skip for pagination (default: 0)"
+    offset: Int = 0
+  ): [User!]!
   
-  # Testing different types
+  # ------------------------------------------------------------------
+  # Union Type Queries
+  # ------------------------------------------------------------------
+  
+  """
+  Searches across multiple types (User, Post, Product, Service).
+  Demonstrates union types and polymorphic results.
+  """
+  search(
+    "Search term to match against"
+    term: String!
+    
+    "Maximum number of results to return (default: 10)"
+    limit: Int = 10
+  ): [SearchResult!]!
+  
+  # ------------------------------------------------------------------
+  # Custom Scalar Queries
+  # ------------------------------------------------------------------
+  
+  """
+  Returns the current server time.
+  Demonstrates custom scalar types.
+  """
   currentTime: DateTime!
   
-  # Deprecated field for testing
+  # ------------------------------------------------------------------
+  # Deprecated Fields
+  # ------------------------------------------------------------------
+  
+  """
+  Returns the server version string.
+  Deprecated - use serverInfo.version instead.
+  """
   version: String! @deprecated(reason: "Use serverInfo.version instead")
 }
 
+# ============================================================================
+# MUTATION ROOT TYPE
+# ============================================================================
+
+"""
+Mutation defines all write operations available in the API.
+"""
 type Mutation {
-  # Simple mutation (backward compatible)
-  createUser(name: String!, email: String!): User!
+  # ------------------------------------------------------------------
+  # Simple Mutations
+  # ------------------------------------------------------------------
   
-  # Mutation with input type
-  createUserWithInput(input: CreateUserInput!): User!
+  """
+  Creates a new user with simple arguments.
+  Demonstrates basic mutation with direct arguments (backward compatible).
+  """
+  createUser(
+    name: String!
+    email: String!
+  ): User!
   
-  # Mutation with input type for updates
-  updateUser(id: ID!, input: UpdateUserInput!): User!
+  # ------------------------------------------------------------------
+  # Input Type Mutations
+  # ------------------------------------------------------------------
   
-  # Mutation with enum
-  updateUserStatus(id: ID!, status: Status!): User!
+  """
+  Creates a new user using an input type.
+  Demonstrates structured mutation inputs for complex operations.
+  """
+  createUserWithInput(
+    "User creation data"
+    input: CreateUserInput!
+  ): User!
   
-  # Mutation with file upload
-  uploadFile(file: Upload!): String!
+  """
+  Updates an existing user with partial data.
+  Demonstrates input types for updates with optional fields.
+  """
+  updateUser(
+    "ID of the user to update"
+    id: ID!
+    
+    "Fields to update (all optional)"
+    input: UpdateUserInput!
+  ): User!
+  
+  # ------------------------------------------------------------------
+  # Enum Mutations
+  # ------------------------------------------------------------------
+  
+  """
+  Updates only the status of a user.
+  Demonstrates enum types in mutations.
+  """
+  updateUserStatus(
+    "ID of the user to update"
+    id: ID!
+    
+    "New status value"
+    status: Status!
+  ): User!
+  
+  # ------------------------------------------------------------------
+  # File Upload Mutations
+  # ------------------------------------------------------------------
+  
+  """
+  Uploads a file and returns the filename.
+  Demonstrates the Upload scalar type for file handling.
+  """
+  uploadFile(
+    "File to upload"
+    file: Upload!
+  ): String!
 }
 
+# ============================================================================
+# SUBSCRIPTION ROOT TYPE
+# ============================================================================
+
+"""
+Subscription defines all real-time streaming operations.
+Subscriptions use WebSocket or SSE for continuous data flow.
+"""
 type Subscription {
-  # Emit a counter every second
+  """
+  Emits an incrementing counter every second: 1, 2, 3, ...
+  Useful for testing basic subscription functionality.
+  """
   counter: Int!
   
-  # Emit user events (created, updated, deleted)
+  """
+  Emits user objects whenever users are created, updated, or deleted.
+  Demonstrates real-time notifications for entity changes.
+  """
   userEvents: User!
   
-  # Emit timestamp every N seconds
-  tick(interval: Int): DateTime!
+  """
+  Emits the current timestamp at a configurable interval.
+  Demonstrates subscriptions with arguments and custom scalars.
+  """
+  tick(
+    "Interval in seconds between emissions (default: 1)"
+    interval: Int
+  ): DateTime!
 }
 ```
 
