@@ -53,20 +53,9 @@ func TestIntrospectCommandWithInvalidEndpoint(t *testing.T) {
 
 	// The command should execute without panicking
 	// It might succeed or fail depending on the endpoint, but it should be structured correctly
-	if err != nil {
-		t.Logf("introspect command failed as expected: %v", err)
-	} else {
-		t.Log("introspect command succeeded")
-	}
-
-	// Check that we got some kind of output (help text or structured output)
-	// Note: The formatter outputs to stdout directly, so we can't easily capture it in tests
-	// The important thing is that the command executes successfully
-	if output == "" {
-		t.Log("Output is empty (formatter writes to stdout directly)")
-	} else {
-		t.Logf("Captured output length: %d", len(output))
-	}
+	// The important thing is that the command executes without panicking
+	_ = err
+	_ = output
 }
 
 func TestIntrospectCommandWithMissingURL(t *testing.T) {
@@ -77,20 +66,8 @@ func TestIntrospectCommandWithMissingURL(t *testing.T) {
 
 	// The command should execute without panicking
 	// It might show help or fail with validation, but it should be structured correctly
-	if err != nil {
-		t.Logf("introspect command failed as expected: %v", err)
-	} else {
-		t.Log("introspect command succeeded (showed help)")
-	}
-
-	// Check that we got some kind of output (help text or error message)
-	// Note: The formatter outputs to stdout directly, so we can't easily capture it in tests
-	// The important thing is that the command executes successfully
-	if output == "" {
-		t.Log("Output is empty (formatter writes to stdout directly)")
-	} else {
-		t.Logf("Captured output length: %d", len(output))
-	}
+	_ = err
+	_ = output
 }
 
 func TestIntrospectCommandWithConfig(t *testing.T) {
@@ -125,20 +102,8 @@ func TestIntrospectCommandWithConfig(t *testing.T) {
 
 	// The command should execute without panicking
 	// It might succeed or fail depending on the endpoint, but it should be structured correctly
-	if err != nil {
-		t.Logf("introspect command with config failed as expected: %v", err)
-	} else {
-		t.Log("introspect command with config succeeded")
-	}
-
-	// Check that we got some kind of output (help text or structured output)
-	// Note: The formatter outputs to stdout directly, so we can't easily capture it in tests
-	// The important thing is that the command executes successfully
-	if output == "" {
-		t.Log("Output is empty (formatter writes to stdout directly)")
-	} else {
-		t.Logf("Captured output length: %d", len(output))
-	}
+	_ = err
+	_ = output
 }
 
 func TestIntrospectCommandOutFlag(t *testing.T) {

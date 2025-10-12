@@ -98,9 +98,11 @@ type ExecuteQueryInput struct {
 	Query         string                 `json:"query" jsonschema:"The GraphQL query string"`
 	Variables     map[string]interface{} `json:"variables,omitempty" jsonschema:"Variables to pass to the query"`
 	OperationName string                 `json:"operationName,omitempty" jsonschema:"The operation name to execute"`
-	Endpoint      string                 `json:"endpoint" jsonschema:"GraphQL endpoint URL"`
+	Endpoint      string                 `json:"endpoint" jsonschema:"GraphQL endpoint URL (ws:// or wss:// for subscriptions)"`
 	Headers       map[string]string      `json:"headers,omitempty" jsonschema:"HTTP headers to include"`
 	Files         map[string]string      `json:"files,omitempty" jsonschema:"File uploads (variable name to local file path mapping, e.g. {'avatar': '/path/to/photo.jpg'})"`
+	Timeout       string                 `json:"timeout,omitempty" jsonschema:"Subscription timeout duration (e.g., '30s', '1m') - only for subscriptions, default: 30s"`
+	MaxMessages   int                    `json:"maxMessages,omitempty" jsonschema:"Maximum number of subscription messages to collect - only for subscriptions, default: unlimited"`
 }
 
 // ExecuteQueryOutput defines the output schema for the execute_query tool
@@ -155,6 +157,24 @@ func (s *SDKServer) handleExecuteQuery(ctx context.Context, req *mcp.CallToolReq
 	ExecuteQueryOutput,
 	error,
 ) {
+	// Detect operation type
+	opInfo, err := DetectOperationType(input.Query, input.OperationName)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{
+					Text: fmt.Sprintf("Failed to parse operation: %v", err),
+				},
+			},
+			IsError: true,
+		}, ExecuteQueryOutput{}, nil
+	}
+
+	// If it's a subscription, handle it differently
+	if opInfo.Type == OperationTypeSubscription {
+		return s.handleSubscription(ctx, input)
+	}
+
 	// Create a new client for this specific endpoint
 	client := NewClient(input.Endpoint, nil)
 
@@ -166,23 +186,23 @@ func (s *SDKServer) handleExecuteQuery(ctx context.Context, req *mcp.CallToolReq
 	// Execute the query with or without files
 	start := time.Now()
 	var result *Response
-	var err error
+	var execErr error
 
 	if len(input.Files) > 0 {
 		// Use ExecuteWithFiles for file uploads
-		result, err = client.ExecuteWithFiles(input.Query, input.Variables, input.OperationName, input.Files)
+		result, execErr = client.ExecuteWithFiles(input.Query, input.Variables, input.OperationName, input.Files)
 	} else {
 		// Use regular Execute for queries without files
-		result, err = client.Execute(input.Query, input.Variables, input.OperationName)
+		result, execErr = client.Execute(input.Query, input.Variables, input.OperationName)
 	}
 
 	elapsed := time.Since(start)
 
-	if err != nil {
+	if execErr != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
 				&mcp.TextContent{
-					Text: fmt.Sprintf("Query execution failed: %v", err),
+					Text: fmt.Sprintf("Query execution failed: %v", execErr),
 				},
 			},
 			IsError: true,
@@ -194,6 +214,134 @@ func (s *SDKServer) handleExecuteQuery(ctx context.Context, req *mcp.CallToolReq
 		Errors:    result.Errors,
 		ElapsedMs: elapsed.Milliseconds(),
 	}, nil
+}
+
+// handleSubscription handles GraphQL subscriptions with timeout and message limits
+func (s *SDKServer) handleSubscription(ctx context.Context, input ExecuteQueryInput) (
+	*mcp.CallToolResult,
+	ExecuteQueryOutput,
+	error,
+) {
+	// Parse timeout duration (default: 30s)
+	timeout := 30 * time.Second
+	if input.Timeout != "" {
+		parsedTimeout, err := time.ParseDuration(input.Timeout)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{
+						Text: fmt.Sprintf("Invalid timeout format: %v", err),
+					},
+				},
+				IsError: true,
+			}, ExecuteQueryOutput{}, nil
+		}
+		timeout = parsedTimeout
+	}
+
+	// Create timeout context (inherits cancellation from parent)
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Create client and subscribe
+	// Note: Client.Subscribe() will handle WebSocket/SSE protocol detection and fallback
+	client := NewClient(input.Endpoint, input.Headers)
+	messages, errors, err := client.Subscribe(timeoutCtx, input.Query, input.Variables, input.OperationName)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{
+					Text: fmt.Sprintf("Failed to start subscription: %v", err),
+				},
+			},
+			IsError: true,
+		}, ExecuteQueryOutput{}, nil
+	}
+
+	// Collect messages until stopped
+	var collectedMessages []interface{}
+	stoppedReason := ""
+
+	for {
+		select {
+		case <-timeoutCtx.Done():
+			// Timeout or cancellation
+			if ctx.Err() == context.Canceled {
+				stoppedReason = "cancelled_by_user"
+			} else {
+				stoppedReason = "timeout_reached"
+			}
+			// Return collected messages
+			return nil, ExecuteQueryOutput{
+				Data: map[string]interface{}{
+					"messages":      collectedMessages,
+					"count":         len(collectedMessages),
+					"stoppedReason": stoppedReason,
+				},
+			}, nil
+
+		case msg, ok := <-messages:
+			if !ok {
+				// Subscription completed normally
+				return nil, ExecuteQueryOutput{
+					Data: map[string]interface{}{
+						"messages":      collectedMessages,
+						"count":         len(collectedMessages),
+						"stoppedReason": "subscription_completed",
+					},
+				}, nil
+			}
+
+			// Add message to collection
+			messageData := map[string]interface{}{
+				"data": msg.Data,
+			}
+			if msg.Errors != nil {
+				messageData["errors"] = msg.Errors
+			}
+			collectedMessages = append(collectedMessages, messageData)
+
+			// Check max messages limit
+			if input.MaxMessages > 0 && len(collectedMessages) >= input.MaxMessages {
+				return nil, ExecuteQueryOutput{
+					Data: map[string]interface{}{
+						"messages":      collectedMessages,
+						"count":         len(collectedMessages),
+						"stoppedReason": "max_messages_reached",
+					},
+				}, nil
+			}
+
+		case err, ok := <-errors:
+			if !ok {
+				// Error channel closed
+				return nil, ExecuteQueryOutput{
+					Data: map[string]interface{}{
+						"messages":      collectedMessages,
+						"count":         len(collectedMessages),
+						"stoppedReason": "error_occurred",
+					},
+					Errors: "subscription error channel closed",
+				}, nil
+			}
+
+			// Subscription error occurred
+			return &mcp.CallToolResult{
+					Content: []mcp.Content{
+						&mcp.TextContent{
+							Text: fmt.Sprintf("Subscription error: %v", err),
+						},
+					},
+					IsError: true,
+				}, ExecuteQueryOutput{
+					Data: map[string]interface{}{
+						"messages":      collectedMessages,
+						"count":         len(collectedMessages),
+						"stoppedReason": "error",
+					},
+				}, nil
+		}
+	}
 }
 
 func (s *SDKServer) handleDescribeType(ctx context.Context, req *mcp.CallToolRequest, input DescribeTypeInput) (

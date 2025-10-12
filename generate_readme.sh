@@ -75,6 +75,15 @@ gqlt run --query "{ users { id name } }"
 
 # Check version
 gqlt version
+
+# GraphQL subscriptions (WebSocket)
+gqlt run --url wss://api.example.com/graphql --query 'subscription { events { id type data } }'
+
+# Limit subscription messages
+gqlt run --url wss://api.example.com/graphql \
+  --query 'subscription { updates }' \
+  --max-messages 10 \
+  --timeout 30s
 ```
 
 **MCP Server Usage:**
@@ -157,6 +166,15 @@ gqlt introspect --format json --quiet | \
 user_id=$(gqlt run --query "{ users { id } }" --format json --quiet | jq -r '.data.users[0].id')
 gqlt run --query "query(\$id: ID!) { user(id: \$id) { name email } }" \
   --vars "{\"id\": \"$user_id\"}" --format json --quiet
+
+# GraphQL subscriptions (streamed output)
+gqlt run --url wss://api.example.com/graphql \
+  --query 'subscription { events { id type data } }' | jq .
+
+# Limit subscription duration and message count
+gqlt run --url wss://api.example.com/graphql \
+  --query 'subscription { updates }' \
+  --max-messages 10 --timeout 1m | jq -c '.data.updates'
 ```
 
 ### Mode 2: MCP Server for AI Agents
@@ -217,6 +235,24 @@ The `execute_query` tool supports file uploads for mutations with Upload scalar 
   }
 }
 ```
+
+**Subscription Support:**
+The `execute_query` tool supports GraphQL subscriptions via WebSocket. Use `timeout` and `maxMessages` to control execution:
+
+```json
+{
+  "query": "subscription { events { id type data } }",
+  "endpoint": "wss://api.example.com/graphql",
+  "timeout": "30s",
+  "maxMessages": 10
+}
+```
+
+Subscriptions will:
+- Automatically convert `https://` URLs to `wss://` and `http://` to `ws://`
+- Stream messages until timeout, maxMessages limit, or Cursor cancellation
+- Return each message as a complete GraphQL response
+- Clean up WebSocket connection on completion or error
 
 **Tool Parameters:**
 - Schema-related tools (`describe_type` and `list_types`) support `noCache` parameter to force fresh schema introspection
@@ -350,12 +386,12 @@ cat >> README.md << 'EOF'
 gqlt is designed to be a focused, composable tool. The following are intentional limitations:
 
 **GraphQL Subscriptions:**
-- gqlt does not support GraphQL subscriptions over WebSockets
-- Subscriptions require persistent connections incompatible with:
-  - CLI's request/response model
-  - MCP's synchronous tool call pattern
-  - Unix philosophy of composable, discrete operations
-- For subscription support, use a full-featured GraphQL client library
+- Full WebSocket subscription support via graphql-transport-ws protocol
+- CLI: Streams messages to stdout (one JSON per line) until Ctrl+C or completion
+- MCP: Collects messages with timeout/max-messages limits, respects Cancel button
+- Library: Channel-based API for testing subscriptions
+- Auto-detects subscription operations and routes to WebSocket
+- Works with mixed operation documents (queries + mutations + subscriptions)
 
 **Response Filtering:**
 - gqlt outputs raw GraphQL responses without built-in filtering

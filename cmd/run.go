@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/kluzzebass/gqlt"
 	"github.com/spf13/cobra"
@@ -43,19 +48,21 @@ gqlt run --query "mutation($files: [Upload!]!) { uploadFiles(files: $files) }" -
 }
 
 var (
-	url       string
-	query     string
-	queryFile string
-	operation string
-	vars      string
-	varsFile  string
-	headers   []string
-	files     []string
-	filesList string
-	username  string
-	password  string
-	token     string
-	apiKey    string
+	url         string
+	query       string
+	queryFile   string
+	operation   string
+	vars        string
+	varsFile    string
+	headers     []string
+	files       []string
+	filesList   string
+	username    string
+	password    string
+	token       string
+	apiKey      string
+	timeout     string
+	maxMessages int
 )
 
 func init() {
@@ -75,6 +82,8 @@ func init() {
 	runCmd.Flags().StringVarP(&password, "password", "p", "", "Password for basic authentication")
 	runCmd.Flags().StringVarP(&token, "token", "t", "", "Bearer token for authentication")
 	runCmd.Flags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication (sets X-API-Key header)")
+	runCmd.Flags().StringVar(&timeout, "timeout", "", "Subscription timeout (e.g. 30s, 5m)")
+	runCmd.Flags().IntVar(&maxMessages, "max-messages", 0, "Maximum subscription messages to receive (0 = unlimited)")
 }
 
 func runGraphQL(cmd *cobra.Command, args []string) error {
@@ -142,7 +151,19 @@ func runGraphQL(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Step 10: Run GraphQL call
+	// Step 9.5: Detect operation type
+	opInfo, err := gqlt.DetectOperationType(queryStr, operation)
+	if err != nil {
+		formatter := gqlt.NewFormatter(outputFormat)
+		return formatter.FormatStructuredError(fmt.Errorf("failed to detect operation type: %w", err), "QUERY_PARSE_ERROR", quietMode)
+	}
+
+	// If it's a subscription, route to subscription handler
+	if opInfo.Type == gqlt.OperationTypeSubscription {
+		return runSubscription(queryStr, varsMap, operation, url, headersMap, timeout, maxMessages)
+	}
+
+	// Step 10: Run GraphQL call (queries and mutations)
 	// Create GraphQL client
 	client := gqlt.NewClient(url, headersMap)
 
@@ -242,18 +263,102 @@ func mergeConfigWithFlags(cfg *gqlt.Config) {
 		url = current.Endpoint
 	}
 
+	// Add token to headers if provided
+	if token != "" {
+		headers = append(headers, "Authorization: Bearer "+token)
+	}
+
 	// Merge headers from config
 	for k, v := range current.Headers {
 		// Only add if not already specified via CLI
 		found := false
 		for _, h := range headers {
-			if strings.HasPrefix(h, k+"=") {
+			if strings.HasPrefix(h, k+":") {
 				found = true
 				break
 			}
 		}
 		if !found {
-			headers = append(headers, k+"="+v)
+			headers = append(headers, k+": "+v)
+		}
+	}
+}
+
+// runSubscription handles GraphQL subscription operations via SSE or WebSocket
+func runSubscription(query string, variables map[string]interface{}, operationName string, url string, headers map[string]string, timeout string, maxMessages int) error {
+	// Create GraphQL client with original URL (client will choose SSE vs WebSocket)
+	client := gqlt.NewClient(url, headers)
+
+	// Create context with optional timeout
+	ctx := context.Background()
+	var cancel context.CancelFunc
+
+	if timeout != "" {
+		duration, err := time.ParseDuration(timeout)
+		if err != nil {
+			formatter := gqlt.NewFormatter(outputFormat)
+			return formatter.FormatStructuredError(fmt.Errorf("invalid timeout format: %w", err), "INVALID_TIMEOUT", quietMode)
+		}
+		ctx, cancel = context.WithTimeout(ctx, duration)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
+	}
+	defer cancel()
+
+	// Set up signal handling for Ctrl+C
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		cancel()
+	}()
+
+	// Subscribe
+	messages, errors, err := client.Subscribe(ctx, query, variables, operationName)
+	if err != nil {
+		formatter := gqlt.NewFormatter(outputFormat)
+		return formatter.FormatStructuredError(fmt.Errorf("failed to start subscription: %w", err), "SUBSCRIPTION_ERROR", quietMode)
+	}
+
+	// Track message count
+	messageCount := 0
+
+	// Stream messages to stdout (one JSON per line)
+	for {
+		select {
+		case msg, ok := <-messages:
+			if !ok {
+				// Channel closed - subscription completed
+				return nil
+			}
+			// Output message as compact JSON
+			response := &gqlt.Response{
+				Data:   msg.Data,
+				Errors: msg.Errors,
+			}
+			encoder := json.NewEncoder(os.Stdout)
+			if err := encoder.Encode(response); err != nil {
+				return fmt.Errorf("failed to encode message: %w", err)
+			}
+
+			// Check if we've reached max messages
+			messageCount++
+			if maxMessages > 0 && messageCount >= maxMessages {
+				return nil
+			}
+
+		case err, ok := <-errors:
+			if !ok {
+				// Error channel closed
+				return nil
+			}
+			// Return error
+			formatter := gqlt.NewFormatter(outputFormat)
+			return formatter.FormatStructuredError(err, "SUBSCRIPTION_ERROR", quietMode)
+
+		case <-ctx.Done():
+			// Context cancelled (Ctrl+C)
+			return nil
 		}
 	}
 }

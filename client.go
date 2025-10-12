@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Client represents a GraphQL client that can execute queries, mutations, and subscriptions
@@ -395,6 +396,78 @@ func (c *Client) Introspect() (*Response, error) {
 	return &Response{
 		Data: introspectionData,
 	}, nil
+}
+
+// Subscribe establishes a GraphQL subscription over WebSocket and returns channels for messages and errors.
+// The subscription runs until the context is cancelled, an error occurs, or the server closes the connection.
+//
+// Example:
+//
+//	client := gqlt.NewClient("wss://api.example.com/graphql", nil)
+//	messages, errors, err := client.Subscribe(ctx,
+//	    `subscription { userCreated { id name } }`,
+//	    nil,
+//	    "UserCreated",
+//	)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	for msg := range messages {
+//	    fmt.Printf("Received: %+v\n", msg)
+//	}
+func (c *Client) Subscribe(ctx context.Context, query string, variables map[string]interface{}, operationName string) (<-chan *SubscriptionMessage, <-chan error, error) {
+	// Try WebSocket first (Hot Chocolate default), then fall back to SSE
+	if strings.HasPrefix(c.endpoint, "ws://") || strings.HasPrefix(c.endpoint, "wss://") {
+		// Explicit WebSocket URL
+		subClient := NewSubscriptionClient(c.endpoint, c.headers)
+
+		// Connect to WebSocket
+		if err := subClient.Connect(ctx); err != nil {
+			return nil, nil, fmt.Errorf("failed to connect for subscription: %w", err)
+		}
+
+		// Subscribe
+		messages, errs, err := subClient.Subscribe(ctx, query, variables, operationName)
+		if err != nil {
+			subClient.Close()
+			return nil, nil, err
+		}
+
+		// Return channels
+		return messages, errs, nil
+	} else if strings.HasPrefix(c.endpoint, "http://") || strings.HasPrefix(c.endpoint, "https://") {
+		// HTTP/HTTPS endpoint - try WebSocket first, then SSE
+
+		// Convert HTTP to WebSocket URL
+		wsURL := c.endpoint
+		if strings.HasPrefix(c.endpoint, "http://") {
+			wsURL = "ws://" + strings.TrimPrefix(c.endpoint, "http://")
+		} else if strings.HasPrefix(c.endpoint, "https://") {
+			wsURL = "wss://" + strings.TrimPrefix(c.endpoint, "https://")
+		}
+
+		subClient := NewSubscriptionClient(wsURL, c.headers)
+
+		// Try to connect to WebSocket
+		if err := subClient.Connect(ctx); err != nil {
+			// WebSocket failed, fall back to SSE
+			sseClient := NewSSESubscriptionClient(c.endpoint, c.headers)
+			return sseClient.Subscribe(ctx, query, variables, operationName)
+		}
+
+		// WebSocket connected successfully
+		messages, errs, err := subClient.Subscribe(ctx, query, variables, operationName)
+		if err != nil {
+			subClient.Close()
+			return nil, nil, err
+		}
+
+		// Return channels
+		return messages, errs, nil
+	}
+
+	return nil, nil, fmt.Errorf("unsupported endpoint scheme: %s", c.endpoint)
 }
 
 // basicAuthTransport implements HTTP transport with basic authentication

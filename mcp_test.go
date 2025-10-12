@@ -2,6 +2,8 @@ package gqlt
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"slices"
 	"strings"
@@ -639,7 +641,14 @@ func TestSDKServer_handleExecuteQuery_BackwardCompatibility(t *testing.T) {
 	}
 
 	if result != nil {
-		t.Error("Result should be nil for successful execution")
+		t.Errorf("Result should be nil for successful execution, got: %+v", result)
+		if result.IsError {
+			for _, content := range result.Content {
+				if tc, ok := content.(*mcp.TextContent); ok {
+					t.Logf("Error content: %s", tc.Text)
+				}
+			}
+		}
 	}
 
 	if output.Data == nil {
@@ -648,4 +657,69 @@ func TestSDKServer_handleExecuteQuery_BackwardCompatibility(t *testing.T) {
 
 	// Verify backward compatibility - queries without files still work
 	t.Log("Backward compatibility confirmed: execute_query works without Files parameter")
+}
+
+func TestSDKServer_handleExecuteQuery_Subscription(t *testing.T) {
+	// Create a simple HTTP test server that doesn't support subscriptions
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// This handler will return HTML, not a WebSocket upgrade
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("<html><body>Not a subscription endpoint</body></html>"))
+	}))
+	defer mockServer.Close()
+
+	// Create SDK server
+	server, err := NewSDKServer()
+	if err != nil {
+		t.Fatalf("Failed to create SDK server: %v", err)
+	}
+
+	// Test that subscription queries are routed to handleSubscription
+	// Note: We can't fully test SSE/WebSocket connections in unit tests,
+	// but we can verify the routing logic works
+	input := ExecuteQueryInput{
+		Endpoint:    mockServer.URL,
+		Query:       "subscription { testSubscription { id } }",
+		Timeout:     "2s",
+		MaxMessages: 10,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// This should detect it's a subscription and route to handleSubscription
+	// which will attempt to connect via WebSocket/SSE and fail quickly
+	// since the mock server doesn't support subscriptions
+	result, output, err := server.handleExecuteQuery(ctx, &mcp.CallToolRequest{}, input)
+
+	// MCP tools return errors via CallToolResult, not as Go errors
+	if err != nil {
+		t.Fatalf("Unexpected Go error: %v", err)
+	}
+
+	// We expect a tool result with IsError=true because the mock server doesn't support subscriptions
+	if result == nil {
+		t.Fatal("Expected non-nil CallToolResult")
+	}
+
+	if !result.IsError {
+		t.Error("Expected IsError=true when connecting to non-subscription endpoint")
+		t.Logf("Result: %+v", result)
+		t.Logf("Output: %+v", output)
+	} else {
+		// Verify the error message indicates subscription failure
+		if len(result.Content) > 0 {
+			if textContent, ok := result.Content[0].(*mcp.TextContent); ok {
+				if strings.Contains(textContent.Text, "subscription") ||
+					strings.Contains(textContent.Text, "SSE") ||
+					strings.Contains(textContent.Text, "WebSocket") ||
+					strings.Contains(textContent.Text, "connect") {
+					t.Logf("Subscription routing confirmed - error message: %s", textContent.Text)
+				} else {
+					t.Logf("Got error message: %s", textContent.Text)
+				}
+			}
+		}
+	}
 }
