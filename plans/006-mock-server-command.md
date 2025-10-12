@@ -491,7 +491,7 @@ type Subscription {
 
 ## IMPLEMENTATION STEPS
 
-### [ ] 0) Planning document and alignment
+### [x] 0) Planning document and alignment
 
 This plan outlines the implementation of a comprehensive mock GraphQL server using `gqlgen`.
 The server will demonstrate all GraphQL features and support both WebSocket and SSE transports
@@ -506,7 +506,9 @@ for subscriptions, making it perfect for testing gqlt itself and other GraphQL c
 - Rationale: gqlgen provides automatic introspection, WebSocket subscriptions, and generates
   type-safe Go code from schema, reducing implementation time by ~80%
 
-### [ ] 1) Add gqlgen dependency and initialize structure
+Status: Complete - Plan finalized with comprehensive schema, proper step structure, and gqlgen gotchas documented.
+
+### [x] 1) Add gqlgen dependency and initialize structure
 
 Add the gqlgen library and create the directory structure for the mock server.
 
@@ -517,6 +519,8 @@ Add the gqlgen library and create the directory structure for the mock server.
 How to test:
 - Run `go mod tidy` and verify no errors
 - Verify `internal/mockserver/` directory exists
+
+Status: Complete - Added gqlgen v0.17.81 dependency and created internal/mockserver/ directory.
 
 ### [ ] 2) Create GraphQL schema file
 
@@ -665,15 +669,20 @@ How to test:
 
 Create the Cobra CLI command for starting the server.
 
+NOTE: The server's listening address MUST be configurable via flags since common ports
+(8080, 4000, etc.) are often already in use during development.
+
 - Create `cmd/serve.go`
 - Add flags: `--port` (default: 4000), `--host` (default: localhost)
 - Add flags: `--quiet`, `--cors`
 - Register command in `cmd/root.go`
 - Add Examples section to command
+- Pass host and port to the server initialization
 
 How to test:
 - Run `gqlt serve --help`, verify all flags are listed
 - Verify command is registered: `gqlt --help` shows serve
+- Test with custom port: `gqlt serve --port 8090`
 
 ### [ ] 10) Implement HTTP server with gqlgen handler
 

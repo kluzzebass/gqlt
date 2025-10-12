@@ -1,0 +1,162 @@
+---
+description: Working with gqlgen GraphQL server code generation
+alwaysApply: false
+---
+
+## Overview
+
+gqlgen is a schema-first, code-generation-based GraphQL server library for Go. It generates type-safe Go code from GraphQL schema definitions.
+
+**Key Principle:** Schema drives everything. Edit schema first, generate code second, implement resolvers third.
+
+## Critical gqlgen Behaviors
+
+### Silent Failures and Path Sensitivity
+
+1. **Directory structure MUST match gqlgen.yml configuration exactly**
+2. **gqlgen may silently fail or generate in wrong locations if paths are incorrect**
+3. **Always run generation from the directory containing gqlgen.yml**
+4. **Schema file paths must be relative to gqlgen.yml location**
+5. **Package names in gqlgen.yml must match actual Go package declarations**
+6. **The `--config` option is required even when running from the config directory**
+
+### File Management
+
+1. **NEVER edit `generated.go`** - This file is completely regenerated on every run
+2. **NEVER edit `models_gen.go`** - This file is completely regenerated on every run
+3. **NEVER edit function signatures in `schema.resolvers.go`** - gqlgen manages these
+4. **DO edit function bodies in `schema.resolvers.go`** - This is where you implement logic
+5. **DO edit `resolver.go`** - Safe to modify as long as `Resolver` struct exists
+6. **Generated files will overwrite existing files** - Back up important changes before regenerating
+
+## Standard Workflow
+
+When making changes to the mock server:
+
+### Step 1: Edit the Schema
+
+Edit `schema.graphqls` to add, remove, or modify queries, mutations, subscriptions, or types.
+
+### Step 2: Regenerate Code
+
+Run the generation command from the directory containing `gqlgen.yml`:
+
+```bash
+cd internal/mockserver
+go run github.com/99designs/gqlgen@latest generate --config gqlgen.yml --verbose
+```
+
+Or use the justfile recipe (which does the above):
+
+```bash
+just generate-mockserver
+```
+
+This does two things:
+1. Creates/updates `generated.go` with all schema support code (DO NOT TOUCH!)
+2. Creates/updates `schema.resolvers.go` with resolver stubs (DO NOT TOUCH SIGNATURES!)
+
+### Step 3: Implement Resolvers
+
+Fill in the resolver stubs in `schema.resolvers.go` with the needed logic.
+
+**IMPORTANT:** Only edit function bodies, never function signatures!
+
+## Schema Change Scenarios
+
+### Minor Changes (Adding/Removing Parameters)
+
+When you add, remove, or change parameters to a query, mutation, or subscription:
+- gqlgen updates the resolver function signatures automatically
+- You MUST update the function bodies to match the new signatures
+- Old implementations may break and need adjustment
+
+### Major Changes (Renaming Fields)
+
+When you rename queries, mutations, or fields:
+- gqlgen won't know what to do with the old resolver
+- It will **comment out** the old resolver at the end of the file
+- It will generate **new stub functions** for the renamed fields
+- **It is YOUR responsibility** to move or reimplement the logic from the commented code
+
+### Field Removal
+
+When you remove fields from the schema:
+- gqlgen **removes the resolver function** from active code
+- The old implementation is **preserved in a commented block** at the bottom
+- A **WARNING comment** is added explaining the preservation
+- You have one last chance to recover the logic before it's permanently lost
+
+## Resolver Struct Pattern
+
+The `Resolver` struct in `resolver.go` is for dependency injection:
+
+```go
+type Resolver struct{
+    todos []*model.Todo  // In-memory data
+    db    *Database      // Database connection
+    // Add any dependencies here
+}
+```
+
+**Advice:**
+- Add fields for data stores, services, etc.
+- Avoid adding member functions - the Resolver is used as a base type
+- All resolver functions are methods on typed wrappers (mutationResolver, queryResolver, etc.)
+- Member functions on Resolver won't be accessible from resolver methods
+
+## Tool Declaration in go.mod
+
+gqlgen should be declared as a tool in go.mod (Go 1.25+):
+
+```go
+tool github.com/99designs/gqlgen
+```
+
+Or for multiple tools:
+
+```go
+tool (
+    github.com/99designs/gqlgen
+    github.com/another/tool
+)
+```
+
+**Do NOT create a tools.go file** - use the `tool` directive in go.mod instead.
+
+## Common Mistakes
+
+1. Running `gqlgen generate` from wrong directory
+2. Editing generated.go or models_gen.go
+3. Editing function signatures in schema.resolvers.go
+4. Not running `--config gqlgen.yml` even from the config directory
+5. Mapping custom scalars to plain Go types without proper handlers (e.g., `URL: string`)
+6. Not checking commented-out code after schema changes
+7. Assuming gqlgen will tell you about configuration errors (it often fails silently)
+
+## Justfile Recipe
+
+```makefile
+# Generate mock server GraphQL code
+generate-mockserver:
+	@echo "Generating mock server GraphQL code..."
+	@cd internal/mockserver && go run github.com/99designs/gqlgen@latest generate --config gqlgen.yml --verbose
+	@echo "Mock server code generated!"
+```
+
+Key points:
+- `cd` to the directory containing gqlgen.yml
+- Include `--config gqlgen.yml` even though we're in that directory
+- Use `--verbose` for helpful debugging output
+- Use `@latest` to ensure consistent version
+
+## Verification Checklist
+
+After running generation:
+
+- [ ] All files are in expected locations (not scattered elsewhere)
+- [ ] `ls internal/mockserver/graph/` shows: `generated.go`, `models_gen.go`, `resolver.go`, `schema.resolvers.go`, `schema.graphqls`
+- [ ] Code compiles: `cd internal/mockserver/graph && go build`
+- [ ] No errors about missing types or packages
+- [ ] Resolver methods exist with correct signatures in `schema.resolvers.go`
+- [ ] Check commented section at bottom of `schema.resolvers.go` for any preserved code

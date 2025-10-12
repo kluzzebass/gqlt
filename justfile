@@ -289,6 +289,12 @@ readme:
 	@./generate_readme.sh
 	@echo "Comprehensive README.md generated!"
 
+# Generate mock server GraphQL code
+generate-mockserver:
+	@echo "Generating mock server GraphQL code..."
+	@cd internal/mockserver && go run github.com/99designs/gqlgen@latest generate --config gqlgen.yml --verbose
+	@echo "Mock server code generated!"
+
 # Show project info
 info:
     @echo "gqlt - GraphQL CLI Tool"
