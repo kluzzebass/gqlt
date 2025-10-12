@@ -53,16 +53,18 @@ gqlt version
 ```bash
 # Start MCP server for AI agents
 gqlt mcp
+```
 
-# Add to Cursor's mcp.json or Claude Desktop config:
-# {
-#   "mcpServers": {
-#     "gqlt": {
-#       "command": "gqlt",
-#       "args": ["mcp"]
-#     }
-#   }
-# }
+Add to Cursor's `mcp.json` or Claude Desktop config:
+```json
+{
+  "mcpServers": {
+    "gqlt": {
+      "command": "gqlt",
+      "args": ["mcp"]
+    }
+  }
+}
 ```
 
 **Library Usage:**
