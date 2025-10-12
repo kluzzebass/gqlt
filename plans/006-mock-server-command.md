@@ -16,16 +16,37 @@ A simple mock GraphQL server would be valuable for:
 - Quick local development without backend
 - Demonstrating all GraphQL features (queries, mutations, subscriptions, types, etc.)
 
+**Implementation Approach:** Use `gqlgen` (https://gqlgen.com/) - a Go library that generates
+type-safe GraphQL server code from schema definitions. This eliminates the need to build a
+GraphQL execution engine from scratch and provides automatic introspection, WebSocket subscriptions,
+and SDL support out of the box.
+
+**Complexity Estimate:**
+- **~500-800 lines of code** (resolvers, store, command, SSE wrapper)
+- **~300-400 lines** (tests)
+- **Time: 4-8 hours** of focused work (instead of multiple days)
+
+**What gqlgen Provides for Free:**
+- ✅ Schema parsing and validation
+- ✅ Query/mutation execution engine
+- ✅ Full introspection support
+- ✅ WebSocket subscriptions (`graphql-transport-ws`)
+- ✅ Type-safe Go code generation
+- ✅ Automatic resolver scaffolding
+
 ## OBJECTIVE
 
 Create a `gqlt serve` subcommand that runs a simple mock GraphQL server with:
-- Fixed schema with example types (scalars, objects, enums, unions, interfaces)
-- Simple query handlers
-- Simple mutation handlers
+- Fixed schema with all GraphQL features:
+  - Types: scalars, objects, enums, unions, interfaces, input types
+  - Directives: `@deprecated` with custom reasons
+  - Default values on field arguments
+- Simple query handlers (with optional input type filters and pagination)
+- Simple mutation handlers (with both simple args and input types)
 - Subscription that emits data periodically
-- Full introspection support
-- Optional SDL endpoint
-- Optional WebSocket support for subscriptions
+- Full introspection support (standard `__schema` and `__type` queries)
+- SDL endpoint at GET /graphql/schema.graphql
+- Multi-transport subscription support (WebSocket and SSE)
 
 ## SCHEMA DESIGN
 
@@ -35,10 +56,15 @@ Create a `gqlt serve` subcommand that runs a simple mock GraphQL server with:
 scalar DateTime
 scalar URL
 
+directive @deprecated(
+  reason: String = "No longer supported"
+) on FIELD_DEFINITION | ENUM_VALUE
+
 enum Status {
   ACTIVE
   INACTIVE
   PENDING
+  DELETED @deprecated(reason: "Use INACTIVE instead")
 }
 
 enum UserRole {
@@ -55,6 +81,8 @@ type User {
   role: UserRole!
   createdAt: DateTime!
   website: URL
+  bio: String @deprecated(reason: "Use profile.bio instead")
+  posts(limit: Int = 10, offset: Int = 0): [Post!]!
 }
 
 type Post {
@@ -83,6 +111,26 @@ type Service implements Node {
 
 union SearchResult = User | Post | Product | Service
 
+input CreateUserInput {
+  name: String!
+  email: String!
+  role: UserRole
+  website: URL
+}
+
+input UpdateUserInput {
+  name: String
+  email: String
+  status: Status
+  role: UserRole
+  website: URL
+}
+
+input SearchFilters {
+  status: Status
+  role: UserRole
+}
+
 type Query {
   # Simple queries
   hello: String!
@@ -90,18 +138,27 @@ type Query {
   
   # Object queries
   user(id: ID!): User
-  users: [User!]!
+  users(filters: SearchFilters, limit: Int = 100, offset: Int = 0): [User!]!
   
   # Search with union
-  search(term: String!): [SearchResult!]!
+  search(term: String!, limit: Int = 10): [SearchResult!]!
   
   # Testing different types
   currentTime: DateTime!
+  
+  # Deprecated field for testing
+  version: String! @deprecated(reason: "Use serverInfo.version instead")
 }
 
 type Mutation {
-  # Simple mutation
+  # Simple mutation (backward compatible)
   createUser(name: String!, email: String!): User!
+  
+  # Mutation with input type
+  createUserWithInput(input: CreateUserInput!): User!
+  
+  # Mutation with input type for updates
+  updateUser(id: ID!, input: UpdateUserInput!): User!
   
   # Mutation with enum
   updateUserStatus(id: ID!, status: Status!): User!
@@ -124,7 +181,15 @@ type Subscription {
 
 ## IMPLEMENTATION STEPS
 
-### Phase 1: Command Structure
+### Phase 1: gqlgen Setup
+- [ ] Add `github.com/99designs/gqlgen` dependency to go.mod
+- [ ] Create `internal/mockserver/` directory structure
+- [ ] Create `internal/mockserver/schema.graphqls` with the complete schema
+- [ ] Create `internal/mockserver/gqlgen.yml` configuration
+- [ ] Run `gqlgen generate` to create resolvers and models
+- [ ] Review generated code (`generated.go`, `models_gen.go`, `resolver.go`)
+
+### Phase 2: Command Structure
 - [ ] Create `cmd/serve.go` with Cobra command
 - [ ] Add flags:
   - [ ] `--port` (default: 4000)
@@ -133,56 +198,75 @@ type Subscription {
   - [ ] `--cors` (enable CORS for web clients)
 - [ ] Register command in root
 
-### Phase 2: HTTP Server Setup
-- [ ] Create actual HTTP server (not httptest)
-- [ ] Serve GraphQL at `/graphql`
-- [ ] Serve SDL at `/graphql/schema.graphql`
+### Phase 3: HTTP Server Setup
+- [ ] Create HTTP server using gqlgen's handler
+- [ ] Serve GraphQL at `/graphql` (queries, mutations, subscriptions)
+- [ ] Enable GraphQL Playground at `/` (optional, for debugging)
 - [ ] Add graceful shutdown on signals (SIGINT, SIGTERM)
 - [ ] Add startup message with server URL
+- [ ] Configure CORS middleware if `--cors` flag is set
 
-### Phase 3: Schema & Introspection
-- [ ] Define the fixed schema (as shown above)
-- [ ] Generate introspection JSON from schema
-- [ ] Handle introspection queries
-- [ ] Serve SDL at GET /graphql/schema.graphql
+### Phase 4: In-Memory Data Store
+- [ ] Create `internal/mockserver/store.go` with simple in-memory storage
+- [ ] Define User struct matching generated model
+- [ ] Pre-seed with 3 sample users
+- [ ] Add methods: GetUser, GetUsers, CreateUser, UpdateUser
+- [ ] Use sync.RWMutex for thread-safe access
 
-### Phase 4: Query Handlers
-- [ ] Implement `hello` - returns "Hello, GraphQL!"
-- [ ] Implement `echo` - returns the input message
-- [ ] Implement `user(id)` - returns mock user by ID
-- [ ] Implement `users` - returns list of mock users
-- [ ] Implement `search` - returns union results
-- [ ] Implement `currentTime` - returns current timestamp
+### Phase 5: Resolver Implementation - Queries
+- [ ] Implement `hello` resolver - returns "Hello, GraphQL!"
+- [ ] Implement `echo` resolver - returns the input message
+- [ ] Implement `user(id)` resolver - fetches from store
+- [ ] Implement `users(filters)` resolver - filters by status/role if provided
+- [ ] Implement `search` resolver - returns union of different types
+- [ ] Implement `currentTime` resolver - returns current timestamp
+- [ ] Implement `version` resolver - returns mock version string
 
-### Phase 5: Mutation Handlers
-- [ ] Implement `createUser` - creates mock user (in-memory)
-- [ ] Implement `updateUserStatus` - updates user status
-- [ ] Implement `uploadFile` - accepts file upload, returns filename
+### Phase 6: Resolver Implementation - Mutations
+- [ ] Implement `createUser` resolver - simple args version
+- [ ] Implement `createUserWithInput` resolver - input type version
+- [ ] Implement `updateUser` resolver - updates via input type
+- [ ] Implement `updateUserStatus` resolver - status update only
+- [ ] Implement `uploadFile` resolver - saves file info, returns filename
 
-### Phase 6: WebSocket & Subscription Handlers
-- [ ] Add WebSocket upgrade handler at `/graphql`
-- [ ] Implement graphql-transport-ws protocol
-- [ ] Implement `counter` subscription - emit 1, 2, 3, ... every second
-- [ ] Implement `userEvents` subscription - emit mock user events
-- [ ] Implement `tick(interval)` subscription - emit timestamp every N seconds
-- [ ] Handle subscription cancellation
-- [ ] Clean up subscriptions on disconnect
+### Phase 7: Resolver Implementation - Subscriptions
+gqlgen provides WebSocket subscriptions via `graphql-transport-ws` out of the box.
 
-### Phase 7: In-Memory State
-- [ ] Simple in-memory store for users
-- [ ] Start with 3 pre-seeded users
-- [ ] Mutations modify the in-memory state
-- [ ] Subscriptions can emit when state changes
+- [ ] Implement `counter` subscription - channel that emits 1, 2, 3...
+- [ ] Implement `userEvents` subscription - channel that emits on user changes
+- [ ] Implement `tick(interval)` subscription - configurable interval timer
+- [ ] Use Go channels for all subscriptions
+- [ ] Handle context cancellation properly
 
-### Phase 8: Testing
+### Phase 8: SSE Support (Additional Transport)
+gqlgen natively supports WebSocket. For SSE support:
+
+- [ ] Add custom SSE handler for POST `/graphql` with `Accept: text/event-stream`
+- [ ] Implement `graphql-sse` protocol wrapper around gqlgen subscriptions
+- [ ] Reuse existing subscription resolvers
+- [ ] Send `event: next`, `event: complete` messages
+- [ ] Support `graphql-preflight: 1` header
+
+### Phase 9: Field Resolvers
+- [ ] Implement `User.posts` resolver - returns mock posts for user
+- [ ] Implement union type resolvers for SearchResult
+- [ ] Ensure all fields return appropriate mock data
+
+### Phase 10: Testing
 - [ ] Test starting server and making HTTP requests
+- [ ] Test introspection queries (`__schema`, `__type`)
+- [ ] Test SDL endpoint at GET /graphql/schema.graphql
 - [ ] Test queries return expected data
 - [ ] Test mutations modify state
-- [ ] Test subscriptions emit periodic messages
+- [ ] Test subscriptions via WebSocket (graphql-transport-ws)
+- [ ] Test subscriptions via SSE (graphql-sse)
+- [ ] Test subscription cancellation and cleanup
 - [ ] Test graceful shutdown
 - [ ] Test CORS headers if enabled
+- [ ] Integration test: use gqlt client to connect to mock server
+- [ ] Integration test: use gqlt introspect/describe against mock server
 
-### Phase 9: Documentation
+### Phase 11: Documentation
 - [ ] Add serve command to README
 - [ ] Document all available queries/mutations/subscriptions
 - [ ] Add examples for testing with gqlt itself
@@ -207,28 +291,52 @@ gqlt serve --quiet
 
 ### Testing the Server
 ```bash
-# In another terminal - test queries
-gqlt run --url http://localhost:4000/graphql --query '{ hello }'
-gqlt run --url http://localhost:4000/graphql --query '{ users { id name } }'
+# In another terminal - test introspection
+gqlt introspect --url http://localhost:4000/graphql
+gqlt describe User --url http://localhost:4000/graphql
+gqlt list-types --url http://localhost:4000/graphql
 
-# Test mutations
+# Test queries
+gqlt run --url http://localhost:4000/graphql --query '{ hello }'
+gqlt run --url http://localhost:4000/graphql --query '{ users { id name role } }'
+
+# Test queries with input type filters
+gqlt run --url http://localhost:4000/graphql \
+  --query '{ users(filters: {status: ACTIVE, role: ADMIN}) { id name status role } }'
+
+# Test mutations (simple args)
 gqlt run --url http://localhost:4000/graphql \
   --query 'mutation { createUser(name: "Alice", email: "alice@example.com") { id name } }'
 
-# Test subscriptions
+# Test mutations with input types
 gqlt run --url http://localhost:4000/graphql \
-  --query 'subscription { counter }'
+  --query 'mutation { createUserWithInput(input: {name: "Bob", email: "bob@example.com", role: ADMIN}) { id name role } }'
 
-# With jq filtering
 gqlt run --url http://localhost:4000/graphql \
-  --query 'subscription { tick(interval: 2) }' | jq -r '.data.tick'
+  --query 'mutation { updateUser(id: "1", input: {status: INACTIVE, website: "https://example.com"}) { id status website } }'
+
+# Test subscriptions (will use WebSocket by default, with SSE fallback)
+gqlt run --url http://localhost:4000/graphql \
+  --query 'subscription { counter }' \
+  --timeout 10s
+
+# Test with message limit
+gqlt run --url http://localhost:4000/graphql \
+  --query 'subscription { tick(interval: 2) }' \
+  --max-messages 5 | jq -r '.data.tick'
+
+# Test subscription with custom interval
+gqlt run --url http://localhost:4000/graphql \
+  --query 'subscription { tick(interval: 1) }' \
+  --timeout 5s --max-messages 3
 ```
 
 ### Use Cases
-- **Testing gqlt itself:** Perfect for integration tests
+- **Testing gqlt itself:** Perfect for integration tests with both WebSocket and SSE transports
 - **Testing other GraphQL clients:** Simple endpoint for client development
-- **Learning GraphQL:** All features demonstrated
+- **Learning GraphQL:** All features demonstrated including real-time subscriptions
 - **Demos:** Quick GraphQL server for presentations
+- **Protocol Testing:** Verify client behavior with both WebSocket and SSE protocols
 
 ## ARCHITECTURE
 
