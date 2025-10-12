@@ -6,7 +6,9 @@ Goal: Add a simple mock GraphQL server for testing and development
 
 **Date:** 2025-10-12
 
-**Execution Mode:** TBD
+**Execution Mode:** supervised
+
+Progress legend: [x] Completed, [ ] Pending
 
 ## CONTEXT
 
@@ -489,96 +491,215 @@ type Subscription {
 
 ## IMPLEMENTATION STEPS
 
-### Phase 1: gqlgen Setup
-- [ ] Add `github.com/99designs/gqlgen` dependency to go.mod
-- [ ] Create `internal/mockserver/` directory structure
-- [ ] Create `internal/mockserver/schema.graphqls` with the complete schema
-- [ ] Create `internal/mockserver/gqlgen.yml` configuration
-- [ ] Run `gqlgen generate` to create resolvers and models
-- [ ] Review generated code (`generated.go`, `models_gen.go`, `resolver.go`)
+### [ ] 0) Planning document and alignment
 
-### Phase 2: Command Structure
-- [ ] Create `cmd/serve.go` with Cobra command
-- [ ] Add flags:
-  - [ ] `--port` (default: 4000)
-  - [ ] `--host` (default: localhost)
-  - [ ] `--quiet` (suppress startup messages)
-  - [ ] `--cors` (enable CORS for web clients)
-- [ ] Register command in root
+This plan outlines the implementation of a comprehensive mock GraphQL server using `gqlgen`.
+The server will demonstrate all GraphQL features and support both WebSocket and SSE transports
+for subscriptions, making it perfect for testing gqlt itself and other GraphQL clients.
 
-### Phase 3: HTTP Server Setup
-- [ ] Create HTTP server using gqlgen's handler
-- [ ] Serve GraphQL at `/graphql` (queries, mutations, subscriptions)
-- [ ] Enable GraphQL Playground at `/` (optional, for debugging)
-- [ ] Add graceful shutdown on signals (SIGINT, SIGTERM)
-- [ ] Add startup message with server URL
-- [ ] Configure CORS middleware if `--cors` flag is set
+**Architecture Decision: Use gqlgen**
+- Chosen: gqlgen for code generation and type safety
+- Rejected alternatives:
+  - Building from scratch: Too time-consuming (days vs hours)
+  - graphql-go/graphql: Runtime-based, less type-safe, more manual work
+  - Thunder: Less mature, smaller community
+- Rationale: gqlgen provides automatic introspection, WebSocket subscriptions, and generates
+  type-safe Go code from schema, reducing implementation time by ~80%
 
-### Phase 4: In-Memory Data Store
-- [ ] Create `internal/mockserver/store.go` with simple in-memory storage
-- [ ] Define User struct matching generated model
-- [ ] Pre-seed with 3 sample users
-- [ ] Add methods: GetUser, GetUsers, CreateUser, UpdateUser
-- [ ] Use sync.RWMutex for thread-safe access
+### [ ] 1) Add gqlgen dependency and initialize structure
 
-### Phase 5: Resolver Implementation - Queries
-- [ ] Implement `hello` resolver - returns "Hello, GraphQL!"
-- [ ] Implement `echo` resolver - returns the input message
-- [ ] Implement `user(id)` resolver - fetches from store
-- [ ] Implement `users(filters)` resolver - filters by status/role if provided
-- [ ] Implement `search` resolver - returns union of different types
-- [ ] Implement `currentTime` resolver - returns current timestamp
-- [ ] Implement `version` resolver - returns mock version string
+Add the gqlgen library and create the directory structure for the mock server.
 
-### Phase 6: Resolver Implementation - Mutations
-- [ ] Implement `createUser` resolver - simple args version
-- [ ] Implement `createUserWithInput` resolver - input type version
-- [ ] Implement `updateUser` resolver - updates via input type
-- [ ] Implement `updateUserStatus` resolver - status update only
-- [ ] Implement `uploadFile` resolver - saves file info, returns filename
+- Add `github.com/99designs/gqlgen` to go.mod
+- Create `internal/mockserver/` directory
+- Create subdirectories for organization (if needed)
 
-### Phase 7: Resolver Implementation - Subscriptions
-gqlgen provides WebSocket subscriptions via `graphql-transport-ws` out of the box.
+How to test:
+- Run `go mod tidy` and verify no errors
+- Verify `internal/mockserver/` directory exists
 
-- [ ] Implement `counter` subscription - channel that emits 1, 2, 3...
-- [ ] Implement `userEvents` subscription - channel that emits on user changes
-- [ ] Implement `tick(interval)` subscription - configurable interval timer
-- [ ] Use Go channels for all subscriptions
-- [ ] Handle context cancellation properly
+### [ ] 2) Create GraphQL schema file
 
-### Phase 8: SSE Support (Additional Transport)
-gqlgen natively supports WebSocket. For SSE support:
+Create the complete GraphQL schema with comprehensive documentation.
 
-- [ ] Add custom SSE handler for POST `/graphql` with `Accept: text/event-stream`
-- [ ] Implement `graphql-sse` protocol wrapper around gqlgen subscriptions
-- [ ] Reuse existing subscription resolvers
-- [ ] Send `event: next`, `event: complete` messages
-- [ ] Support `graphql-preflight: 1` header
+- Create `internal/mockserver/schema.graphqls`
+- Copy the fully documented schema from this plan (lines 55-488)
+- Ensure all types, fields, and arguments are documented
 
-### Phase 9: Field Resolvers
-- [ ] Implement `User.posts` resolver - returns mock posts for user
-- [ ] Implement union type resolvers for SearchResult
-- [ ] Ensure all fields return appropriate mock data
+How to test:
+- File exists at `internal/mockserver/schema.graphqls`
+- File contains ~435 lines of schema with documentation
 
-### Phase 10: Testing
-- [ ] Test starting server and making HTTP requests
-- [ ] Test introspection queries (`__schema`, `__type`)
-- [ ] Test SDL endpoint at GET /graphql/schema.graphql
-- [ ] Test queries return expected data
-- [ ] Test mutations modify state
-- [ ] Test subscriptions via WebSocket (graphql-transport-ws)
-- [ ] Test subscriptions via SSE (graphql-sse)
-- [ ] Test subscription cancellation and cleanup
-- [ ] Test graceful shutdown
-- [ ] Test CORS headers if enabled
-- [ ] Integration test: use gqlt client to connect to mock server
-- [ ] Integration test: use gqlt introspect/describe against mock server
+### [ ] 3) Configure gqlgen code generation
 
-### Phase 11: Documentation
-- [ ] Add serve command to README
-- [ ] Document all available queries/mutations/subscriptions
-- [ ] Add examples for testing with gqlt itself
-- [ ] Document use cases (testing, learning, demos)
+Create the gqlgen configuration file and run code generation.
+
+- Create `internal/mockserver/gqlgen.yml` with configuration
+- Configure schema path, resolver path, model path
+- Run `gqlgen generate` to create scaffolding
+- Review generated `generated.go`, `models_gen.go`, `resolver.go`
+
+How to test:
+- Generated files exist in `internal/mockserver/`
+- Code compiles: `go build ./internal/mockserver`
+
+### [ ] 4) Implement in-memory data store
+
+Create thread-safe in-memory storage for users and other entities.
+
+- Create `internal/mockserver/store.go`
+- Define `Store` struct with `sync.RWMutex`
+- Implement methods: `GetUser`, `GetUsers`, `CreateUser`, `UpdateUser`
+- Pre-seed with 3 sample users with different roles and statuses
+
+How to test:
+- Unit test: Create store, verify pre-seeded users exist
+- Unit test: Create user, retrieve it, verify fields match
+- Unit test: Concurrent access (multiple goroutines)
+
+### [ ] 5) Implement query resolvers
+
+Implement all query field resolvers.
+
+- Implement `Query.hello` -> "Hello, GraphQL!"
+- Implement `Query.echo` -> return input message
+- Implement `Query.user` -> fetch from store by ID
+- Implement `Query.users` -> fetch all, apply filters if provided
+- Implement `Query.search` -> return mock union results
+- Implement `Query.currentTime` -> return `time.Now()`
+- Implement `Query.version` -> return "1.0.0" (deprecated field)
+
+How to test:
+- Test each resolver independently
+- Verify filtering works for `users(filters: {...})`
+- Verify union types are correctly returned for `search`
+
+### [ ] 6) Implement mutation resolvers
+
+Implement all mutation field resolvers.
+
+- Implement `Mutation.createUser` -> simple args version
+- Implement `Mutation.createUserWithInput` -> input type version
+- Implement `Mutation.updateUser` -> partial updates via input type
+- Implement `Mutation.updateUserStatus` -> status-only update
+- Implement `Mutation.uploadFile` -> save file info, return filename
+
+How to test:
+- Test creating user, verify it appears in store
+- Test updating user, verify changes persist
+- Test both createUser variants produce same result
+- Test file upload with mock file
+
+### [ ] 7) Implement field resolvers
+
+Implement nested field resolvers for complex types.
+
+- Implement `User.posts` -> return mock posts for user (with pagination)
+- Implement union type resolvers for `SearchResult`
+- Ensure all custom scalars (DateTime, URL) are handled
+
+How to test:
+- Query user with posts, verify pagination works
+- Query search, verify union type resolution
+- Verify DateTime returns ISO 8601 format
+- Verify URL validates format
+
+### [ ] 8) Implement WebSocket subscription resolvers
+
+Implement real-time subscriptions using Go channels.
+
+- Implement `Subscription.counter` -> emit 1, 2, 3... every second
+- Implement `Subscription.userEvents` -> emit on user changes
+- Implement `Subscription.tick` -> emit timestamp every N seconds
+- Handle context cancellation for all subscriptions
+- Use Go channels to stream data
+
+How to test:
+- Subscribe to counter, verify sequential numbers
+- Subscribe to tick with custom interval, verify timing
+- Cancel subscription mid-stream, verify cleanup
+
+### [ ] 9) Create serve command
+
+Create the Cobra CLI command for starting the server.
+
+- Create `cmd/serve.go`
+- Add flags: `--port` (default: 4000), `--host` (default: localhost)
+- Add flags: `--quiet`, `--cors`
+- Register command in `cmd/root.go`
+- Add Examples section to command
+
+How to test:
+- Run `gqlt serve --help`, verify all flags are listed
+- Verify command is registered: `gqlt --help` shows serve
+
+### [ ] 10) Implement HTTP server with gqlgen handler
+
+Create the HTTP server using gqlgen's generated handler.
+
+- Create server initialization function
+- Mount gqlgen handler at POST `/graphql`
+- Mount GET `/graphql` for GraphQL Playground (optional)
+- Add graceful shutdown on SIGINT/SIGTERM
+- Add startup message with server URL
+- Implement CORS middleware (if `--cors` flag set)
+
+How to test:
+- Start server, verify it listens on configured port
+- Send POST request to `/graphql`, verify response
+- Send SIGINT, verify graceful shutdown
+- Test CORS headers if flag is enabled
+
+### [ ] 11) Implement SSE transport for subscriptions
+
+Add Server-Sent Events support as alternative to WebSocket.
+
+- Create `internal/mockserver/sse.go`
+- Implement SSE handler for POST `/graphql` with `Accept: text/event-stream`
+- Wrap gqlgen subscriptions to work with SSE
+- Send `event: next` with GraphQL data
+- Send `event: complete` on subscription end
+- Support `graphql-preflight: 1` header
+- Handle client disconnection
+
+How to test:
+- Subscribe via SSE using `curl` with `Accept: text/event-stream`
+- Verify `event: next` messages arrive
+- Verify `event: complete` is sent on completion
+- Test client disconnect, verify cleanup
+
+### [ ] 12) Add comprehensive integration tests
+
+Test the complete server with real GraphQL queries.
+
+- Test introspection queries (`__schema`, `__type`)
+- Test SDL endpoint at GET `/graphql/schema.graphql`
+- Test all queries return expected data
+- Test mutations modify state correctly
+- Test WebSocket subscriptions (`graphql-transport-ws`)
+- Test SSE subscriptions (`graphql-sse`)
+- Test subscription cancellation and cleanup
+- Integration test: Use gqlt CLI to connect to mock server
+- Integration test: Use gqlt introspect/describe commands
+
+How to test:
+- Run integration test suite
+- All tests pass
+- No memory leaks or goroutine leaks
+
+### [ ] 13) Update documentation
+
+Add mock server documentation to README and examples.
+
+- Add `gqlt serve` section to README
+- Document all queries, mutations, and subscriptions
+- Add examples using gqlt client against mock server
+- Document use cases (testing, learning, demos)
+- Add section about self-testing (gqlt testing gqlt)
+
+How to test:
+- README includes serve command documentation
+- Examples are runnable and produce expected output
 
 ## USAGE EXAMPLES
 
@@ -736,9 +857,26 @@ These can be added later if needed:
 - Error simulation
 - Rate limiting
 
+## SUCCESS CRITERIA
+
+The mock server implementation is complete when:
+
+1. `gqlt serve` command starts a working GraphQL server on http://localhost:4000/graphql
+2. All GraphQL features are demonstrated: scalars, objects, enums, unions, interfaces, input types, directives
+3. Full introspection support - `gqlt introspect` works against the mock server
+4. SDL endpoint at GET /graphql/schema.graphql serves the complete schema
+5. All queries, mutations, and subscriptions work as documented
+6. Both WebSocket (graphql-transport-ws) and SSE (graphql-sse) transports work for subscriptions
+7. File upload support works via Upload scalar
+8. In-memory state persists across operations within a session
+9. Comprehensive integration tests pass using gqlt client
+10. Documentation includes complete examples of using gqlt to test gqlt
+
 ## NOTES
 
 This is intentionally simple - just enough to test all GraphQL features. Not meant to be a full-featured mock server like graphql-faker or similar tools. The goal is a batteries-included testing server that just works out of the box.
+
+The implementation uses gqlgen for code generation, which provides automatic introspection, type safety, and WebSocket subscriptions. We only need to implement resolvers and add SSE transport support.
 
 Status: Planning - Ready for implementation
 
