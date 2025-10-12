@@ -229,19 +229,28 @@ How to test:
 Status: Complete - Generated all code successfully. 22 resolver stubs created for comprehensive schema.
 Added custom scalar mappings for DateTime, URL, and Upload to gqlgen.yml.
 
-### [ ] 4) Implement in-memory data store
+### [x] 4) Implement in-memory data store
 
 Create thread-safe in-memory storage for users and other entities.
 
-- Create `internal/mockserver/store.go`
+- Create `internal/mockserver/graph/store.go`
 - Define `Store` struct with `sync.RWMutex`
-- Implement methods: `GetUser`, `GetUsers`, `CreateUser`, `UpdateUser`
-- Pre-seed with 3 sample users with different roles and statuses
+- Implement maps for: users, todos, fileAttachments, linkAttachments
+- Implement methods: GetUser, GetUsers, CreateUser, GetTodo, GetTodos, CreateTodo, UpdateTodo, DeleteTodo
+- Implement attachment methods: GetFileAttachment, GetLinkAttachment, CreateFileAttachment, CreateLinkAttachment
+- Pre-seed with 3 sample users (Admin, User, Guest roles)
+- Use global ID format "TypeName:localId" for Relay Node pattern
+- Update Resolver struct to use Store instead of direct todos slice
 
 How to test:
 - Unit test: Create store, verify pre-seeded users exist
 - Unit test: Create user, retrieve it, verify fields match
 - Unit test: Concurrent access (multiple goroutines)
+- Unit test: Create, update, delete todo
+- All tests pass
+
+Status: Complete - Created comprehensive thread-safe store with all CRUD operations.
+6 tests pass including concurrent access test. Global IDs properly formatted.
 
 ### [ ] 5) Implement query resolvers
 
