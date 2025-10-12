@@ -7,6 +7,7 @@ package graph
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql"
@@ -55,52 +56,177 @@ func (r *mutationResolver) RemoveAttachment(ctx context.Context, todoID string, 
 
 // Node is the resolver for the node field.
 func (r *queryResolver) Node(ctx context.Context, id string) (model.Node, error) {
-	panic(fmt.Errorf("not implemented: Node - node"))
+	// Parse global ID format "TypeName:localId"
+	parts := strings.Split(id, ":")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid node ID format: %s", id)
+	}
+	
+	typeName := parts[0]
+	
+	// Route to correct store based on type
+	switch typeName {
+	case "User":
+		return r.store.GetUser(id)
+	case "Todo":
+		return r.store.GetTodo(id)
+	case "FileAttachment":
+		return r.store.GetFileAttachment(id)
+	case "LinkAttachment":
+		return r.store.GetLinkAttachment(id)
+	default:
+		return nil, fmt.Errorf("unknown node type: %s", typeName)
+	}
 }
 
 // Hello is the resolver for the hello field.
 func (r *queryResolver) Hello(ctx context.Context) (string, error) {
-	panic(fmt.Errorf("not implemented: Hello - hello"))
+	return "Hello, GraphQL!", nil
 }
 
 // Echo is the resolver for the echo field.
 func (r *queryResolver) Echo(ctx context.Context, message string) (string, error) {
-	panic(fmt.Errorf("not implemented: Echo - echo"))
+	return message, nil
 }
 
 // User is the resolver for the user field.
 func (r *queryResolver) User(ctx context.Context, id string) (*model.User, error) {
-	panic(fmt.Errorf("not implemented: User - user"))
+	return r.store.GetUser(id)
 }
 
 // Users is the resolver for the users field.
 func (r *queryResolver) Users(ctx context.Context, limit *int32, offset *int32) ([]*model.User, error) {
-	panic(fmt.Errorf("not implemented: Users - users"))
+	users := r.store.GetUsers()
+	
+	// Apply offset
+	start := 0
+	if offset != nil && *offset > 0 {
+		start = int(*offset)
+		if start >= len(users) {
+			return []*model.User{}, nil
+		}
+	}
+	
+	// Apply limit
+	end := len(users)
+	if limit != nil && *limit > 0 {
+		end = start + int(*limit)
+		if end > len(users) {
+			end = len(users)
+		}
+	}
+	
+	return users[start:end], nil
 }
 
 // Todo is the resolver for the todo field.
 func (r *queryResolver) Todo(ctx context.Context, id string) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: Todo - todo"))
+	return r.store.GetTodo(id)
 }
 
 // Todos is the resolver for the todos field.
 func (r *queryResolver) Todos(ctx context.Context, filters *model.TodoFilters, limit *int32, offset *int32) ([]*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: Todos - todos"))
+	allTodos := r.store.GetTodos()
+	
+	// Apply filters if provided
+	var filteredTodos []*model.Todo
+	if filters != nil {
+		for _, todo := range allTodos {
+			match := true
+			
+			if filters.Status != nil && todo.Status != *filters.Status {
+				match = false
+			}
+			if filters.Priority != nil && todo.Priority != *filters.Priority {
+				match = false
+			}
+			if filters.AssignedToID != nil && (todo.AssignedTo == nil || todo.AssignedTo.ID != *filters.AssignedToID) {
+				match = false
+			}
+			if filters.CreatedByID != nil && todo.CreatedBy.ID != *filters.CreatedByID {
+				match = false
+			}
+			if filters.Tag != nil {
+				tagMatch := false
+				for _, tag := range todo.Tags {
+					if tag == *filters.Tag {
+						tagMatch = true
+						break
+					}
+				}
+				if !tagMatch {
+					match = false
+				}
+			}
+			
+			if match {
+				filteredTodos = append(filteredTodos, todo)
+			}
+		}
+	} else {
+		filteredTodos = allTodos
+	}
+	
+	// Apply offset
+	start := 0
+	if offset != nil && *offset > 0 {
+		start = int(*offset)
+		if start >= len(filteredTodos) {
+			return []*model.Todo{}, nil
+		}
+	}
+	
+	// Apply limit
+	end := len(filteredTodos)
+	if limit != nil && *limit > 0 {
+		end = start + int(*limit)
+		if end > len(filteredTodos) {
+			end = len(filteredTodos)
+		}
+	}
+	
+	return filteredTodos[start:end], nil
 }
 
 // Search is the resolver for the search field.
 func (r *queryResolver) Search(ctx context.Context, term string, limit *int32) ([]model.SearchResult, error) {
-	panic(fmt.Errorf("not implemented: Search - search"))
+	var results []model.SearchResult
+	lowerTerm := strings.ToLower(term)
+	
+	// Search users
+	for _, user := range r.store.GetUsers() {
+		if strings.Contains(strings.ToLower(user.Name), lowerTerm) ||
+		   strings.Contains(strings.ToLower(user.Email), lowerTerm) {
+			results = append(results, user)
+		}
+	}
+	
+	// Search todos
+	for _, todo := range r.store.GetTodos() {
+		if strings.Contains(strings.ToLower(todo.Title), lowerTerm) ||
+		   (todo.Notes != nil && strings.Contains(strings.ToLower(*todo.Notes), lowerTerm)) {
+			results = append(results, todo)
+		}
+	}
+	
+	// Apply limit
+	maxResults := len(results)
+	if limit != nil && *limit > 0 && int(*limit) < maxResults {
+		maxResults = int(*limit)
+	}
+	
+	return results[:maxResults], nil
 }
 
 // CurrentTime is the resolver for the currentTime field.
 func (r *queryResolver) CurrentTime(ctx context.Context) (*time.Time, error) {
-	panic(fmt.Errorf("not implemented: CurrentTime - currentTime"))
+	now := time.Now()
+	return &now, nil
 }
 
 // Version is the resolver for the version field.
 func (r *queryResolver) Version(ctx context.Context) (string, error) {
-	panic(fmt.Errorf("not implemented: Version - version"))
+	return "1.0.0", nil
 }
 
 // Counter is the resolver for the counter field.

@@ -28,12 +28,12 @@ type Store struct {
 // NewStore creates a new Store with pre-seeded data
 func NewStore() *Store {
 	s := &Store{
-		users:           make(map[string]*model.User),
-		todos:           make(map[string]*model.Todo),
-		fileAttachments: make(map[string]*model.FileAttachment),
-		linkAttachments: make(map[string]*model.LinkAttachment),
-		nextUserID:      1,
-		nextTodoID:      1,
+		users:                make(map[string]*model.User),
+		todos:                make(map[string]*model.Todo),
+		fileAttachments:      make(map[string]*model.FileAttachment),
+		linkAttachments:      make(map[string]*model.LinkAttachment),
+		nextUserID:           1,
+		nextTodoID:           1,
 		nextFileAttachmentID: 1,
 		nextLinkAttachmentID: 1,
 	}
@@ -307,4 +307,3 @@ func (s *Store) CreateLinkAttachment(title, url string, description *string) *mo
 func strPtr(s string) *string {
 	return &s
 }
-

@@ -252,22 +252,29 @@ How to test:
 Status: Complete - Created comprehensive thread-safe store with all CRUD operations.
 6 tests pass including concurrent access test. Global IDs properly formatted.
 
-### [ ] 5) Implement query resolvers
+### [x] 5) Implement query resolvers
 
 Implement all query field resolvers.
 
+- Implement `Query.node` -> parse global ID, route to correct store (Relay pattern)
 - Implement `Query.hello` -> "Hello, GraphQL!"
 - Implement `Query.echo` -> return input message
 - Implement `Query.user` -> fetch from store by ID
-- Implement `Query.users` -> fetch all, apply filters if provided
-- Implement `Query.search` -> return mock union results
+- Implement `Query.users` -> fetch all with pagination (limit, offset)
+- Implement `Query.todo` -> fetch from store by ID
+- Implement `Query.todos` -> fetch all with filtering and pagination
+- Implement `Query.search` -> search users and todos, return union results
 - Implement `Query.currentTime` -> return `time.Now()`
 - Implement `Query.version` -> return "1.0.0" (deprecated field)
 
 How to test:
 - Test each resolver independently
-- Verify filtering works for `users(filters: {...})`
+- Verify pagination works for `users(limit, offset)`
+- Verify filtering works for `todos(filters: {...})`
 - Verify union types are correctly returned for `search`
+- Verify Relay node() query works with global IDs
+
+Status: Complete - All 10 query resolvers implemented with pagination, filtering, and Relay Node support.
 
 ### [ ] 6) Implement mutation resolvers
 
