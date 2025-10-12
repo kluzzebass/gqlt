@@ -128,9 +128,10 @@ interface Node {
 
 """
 FileAttachment represents an uploaded file attached to a todo.
-Implements the Attachment interface. Demonstrates file upload handling.
+Implements both Attachment and Node interfaces.
+Demonstrates file upload handling and multiple interface implementation.
 """
-type FileAttachment implements Attachment {
+type FileAttachment implements Attachment & Node {
   "Unique identifier for the file attachment"
   id: ID!
 
@@ -152,9 +153,10 @@ type FileAttachment implements Attachment {
 
 """
 LinkAttachment represents a URL link attached to a todo.
-Implements the Attachment interface. Demonstrates interface implementation.
+Implements both Attachment and Node interfaces.
+Demonstrates multiple interface implementation.
 """
-type LinkAttachment implements Attachment {
+type LinkAttachment implements Attachment & Node {
   "Unique identifier for the link attachment"
   id: ID!
 
