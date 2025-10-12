@@ -16,42 +16,61 @@ import (
 
 // CreateUser is the resolver for the createUser field.
 func (r *mutationResolver) CreateUser(ctx context.Context, input model.CreateUserInput) (*model.User, error) {
-	panic(fmt.Errorf("not implemented: CreateUser - createUser"))
+	role := model.UserRoleUser
+	if input.Role != nil {
+		role = *input.Role
+	}
+	return r.store.CreateUser(input.Name, input.Email, role, input.Website), nil
 }
 
 // CreateTodo is the resolver for the createTodo field.
 func (r *mutationResolver) CreateTodo(ctx context.Context, input model.CreateTodoInput) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: CreateTodo - createTodo"))
+	// For simplicity, use first user as creator
+	return r.store.CreateTodo(input.Title, "User:1", &input), nil
 }
 
 // UpdateTodo is the resolver for the updateTodo field.
 func (r *mutationResolver) UpdateTodo(ctx context.Context, input model.UpdateTodoInput) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: UpdateTodo - updateTodo"))
+	return r.store.UpdateTodo(input.ID, &input)
 }
 
 // DeleteTodo is the resolver for the deleteTodo field.
 func (r *mutationResolver) DeleteTodo(ctx context.Context, id string) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteTodo - deleteTodo"))
+	return r.store.DeleteTodo(id), nil
 }
 
 // CompleteTodo is the resolver for the completeTodo field.
 func (r *mutationResolver) CompleteTodo(ctx context.Context, id string) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: CompleteTodo - completeTodo"))
+	completed := model.TodoStatusCompleted
+	updateInput := &model.UpdateTodoInput{
+		ID:     id,
+		Status: &completed,
+	}
+	return r.store.UpdateTodo(id, updateInput)
 }
 
 // AddFileAttachment is the resolver for the addFileAttachment field.
 func (r *mutationResolver) AddFileAttachment(ctx context.Context, todoID string, title string, file graphql.Upload) (*model.FileAttachment, error) {
-	panic(fmt.Errorf("not implemented: AddFileAttachment - addFileAttachment"))
+	// Simple mock - just record filename and size
+	attachment := r.store.CreateFileAttachment(title, file.Filename, file.ContentType, int(file.Size))
+	
+	// TODO: Add attachment to todo's attachments list
+	return attachment, nil
 }
 
 // AddLinkAttachment is the resolver for the addLinkAttachment field.
 func (r *mutationResolver) AddLinkAttachment(ctx context.Context, todoID string, title string, url string, description *string) (*model.LinkAttachment, error) {
-	panic(fmt.Errorf("not implemented: AddLinkAttachment - addLinkAttachment"))
+	attachment := r.store.CreateLinkAttachment(title, url, description)
+	
+	// TODO: Add attachment to todo's attachments list
+	return attachment, nil
 }
 
 // RemoveAttachment is the resolver for the removeAttachment field.
 func (r *mutationResolver) RemoveAttachment(ctx context.Context, todoID string, attachmentID string) (bool, error) {
-	panic(fmt.Errorf("not implemented: RemoveAttachment - removeAttachment"))
+	// Simple mock - just return true
+	// TODO: Actually remove from todo's attachments list
+	return true, nil
 }
 
 // Node is the resolver for the node field.

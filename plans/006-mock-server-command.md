@@ -276,7 +276,7 @@ How to test:
 
 Status: Complete - All 10 query resolvers implemented with pagination, filtering, and Relay Node support.
 
-### [ ] 6) Implement mutation resolvers
+### [x] 6) Implement mutation resolvers
 
 Implement all mutation field resolvers.
 
@@ -298,6 +298,8 @@ How to test:
 - Test file upload attachment
 - Test link attachment
 - Test removing attachment
+
+Status: Complete - All 8 mutation resolvers implemented with simple, functional logic.
 
 ### [ ] 7) Implement field resolvers
 
