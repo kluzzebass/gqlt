@@ -51,25 +51,19 @@ func (r *mutationResolver) CompleteTodo(ctx context.Context, id string) (*model.
 
 // AddFileAttachment is the resolver for the addFileAttachment field.
 func (r *mutationResolver) AddFileAttachment(ctx context.Context, todoID string, title string, file graphql.Upload) (*model.FileAttachment, error) {
-	// Simple mock - just record filename and size
-	attachment := r.store.CreateFileAttachment(title, file.Filename, file.ContentType, int(file.Size))
-	
-	// TODO: Add attachment to todo's attachments list
-	return attachment, nil
+	// Simple mock - just record the file metadata
+	return r.store.CreateFileAttachment(title, file.Filename, file.ContentType, int(file.Size)), nil
 }
 
 // AddLinkAttachment is the resolver for the addLinkAttachment field.
 func (r *mutationResolver) AddLinkAttachment(ctx context.Context, todoID string, title string, url string, description *string) (*model.LinkAttachment, error) {
-	attachment := r.store.CreateLinkAttachment(title, url, description)
-	
-	// TODO: Add attachment to todo's attachments list
-	return attachment, nil
+	// Simple mock - just create the link attachment
+	return r.store.CreateLinkAttachment(title, url, description), nil
 }
 
 // RemoveAttachment is the resolver for the removeAttachment field.
 func (r *mutationResolver) RemoveAttachment(ctx context.Context, todoID string, attachmentID string) (bool, error) {
-	// Simple mock - just return true
-	// TODO: Actually remove from todo's attachments list
+	// Simple mock - just return success
 	return true, nil
 }
 
