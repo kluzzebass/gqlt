@@ -156,19 +156,22 @@ How to test:
 
 Status: Complete - Added gqlgen v0.17.81 dependency and created internal/mockserver/ directory.
 
-### [ ] 2) Create GraphQL schema file
+### [x] 2) Create GraphQL schema file
 
 Create the complete GraphQL schema with comprehensive documentation.
 
-- Create `internal/mockserver/schema.graphqls`
-- Copy the fully documented schema from this plan (lines 55-488)
+- Create `internal/mockserver/graph/schema.graphqls`
+- Copy the fully documented schema from `plans/006-todo-schema.graphqls`
 - Ensure all types, fields, and arguments are documented
 
 How to test:
-- File exists at `internal/mockserver/schema.graphqls`
-- File contains ~435 lines of schema with documentation
+- File exists at `internal/mockserver/graph/schema.graphqls`
+- File contains ~626 lines of schema with documentation
+- Schema includes all GraphQL features: scalars, enums, interfaces, unions, input types, directives
 
-### [ ] 3) Configure gqlgen code generation
+Status: Complete - Copied comprehensive todo-list schema from plans/006-todo-schema.graphqls.
+
+### [x] 3) Configure gqlgen code generation
 
 Create the gqlgen configuration file and run code generation.
 
@@ -217,11 +220,14 @@ Incorrect paths will cause silent failures or generate code in wrong locations.
 - Review `resolver.go` - contains resolver stub methods
 
 How to test:
-- CRITICAL: All files must be in `internal/mockserver/`, not scattered elsewhere
-- `ls internal/mockserver/` shows: `gqlgen.yml`, `schema.graphqls`, `generated.go`, `models_gen.go`, `resolver.go`
+- CRITICAL: All files must be in `internal/mockserver/graph/`, not scattered elsewhere
+- `ls internal/mockserver/graph/` shows: `generated.go`, `models_gen.go`, `resolver.go`, `schema.resolvers.go`, `schema.graphqls`
 - Code compiles: `cd internal/mockserver && go build`
 - No errors about missing types or packages
-- Resolver methods exist with correct signatures (check `resolver.go`)
+- Resolver methods exist with correct signatures (check `schema.resolvers.go`)
+
+Status: Complete - Generated all code successfully. 22 resolver stubs created for comprehensive schema.
+Added custom scalar mappings for DateTime, URL, and Upload to gqlgen.yml.
 
 ### [ ] 4) Implement in-memory data store
 
