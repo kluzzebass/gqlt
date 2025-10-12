@@ -280,17 +280,24 @@ Status: Complete - All 10 query resolvers implemented with pagination, filtering
 
 Implement all mutation field resolvers.
 
-- Implement `Mutation.createUser` -> simple args version
-- Implement `Mutation.createUserWithInput` -> input type version
-- Implement `Mutation.updateUser` -> partial updates via input type
-- Implement `Mutation.updateUserStatus` -> status-only update
-- Implement `Mutation.uploadFile` -> save file info, return filename
+- Implement `Mutation.createUser` -> create user with input type
+- Implement `Mutation.createTodo` -> create todo with input type
+- Implement `Mutation.updateTodo` -> update todo via input type (with ID in input)
+- Implement `Mutation.deleteTodo` -> delete todo by ID
+- Implement `Mutation.completeTodo` -> mark todo as completed
+- Implement `Mutation.addFileAttachment` -> upload file and attach to todo
+- Implement `Mutation.addLinkAttachment` -> add link attachment to todo
+- Implement `Mutation.removeAttachment` -> remove attachment from todo
 
 How to test:
-- Test creating user, verify it appears in store
-- Test updating user, verify changes persist
-- Test both createUser variants produce same result
-- Test file upload with mock file
+- Test creating user, verify it appears in store with global ID
+- Test creating todo, verify createdBy and timestamps set
+- Test updating todo, verify changes persist and updatedAt changes
+- Test deleting todo, verify it's removed from store
+- Test completing todo, verify status changes to COMPLETED
+- Test file upload attachment
+- Test link attachment
+- Test removing attachment
 
 ### [ ] 7) Implement field resolvers
 

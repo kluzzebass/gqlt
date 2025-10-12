@@ -61,9 +61,9 @@ func (r *queryResolver) Node(ctx context.Context, id string) (model.Node, error)
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("invalid node ID format: %s", id)
 	}
-	
+
 	typeName := parts[0]
-	
+
 	// Route to correct store based on type
 	switch typeName {
 	case "User":
@@ -97,7 +97,7 @@ func (r *queryResolver) User(ctx context.Context, id string) (*model.User, error
 // Users is the resolver for the users field.
 func (r *queryResolver) Users(ctx context.Context, limit *int32, offset *int32) ([]*model.User, error) {
 	users := r.store.GetUsers()
-	
+
 	// Apply offset
 	start := 0
 	if offset != nil && *offset > 0 {
@@ -106,7 +106,7 @@ func (r *queryResolver) Users(ctx context.Context, limit *int32, offset *int32) 
 			return []*model.User{}, nil
 		}
 	}
-	
+
 	// Apply limit
 	end := len(users)
 	if limit != nil && *limit > 0 {
@@ -115,7 +115,7 @@ func (r *queryResolver) Users(ctx context.Context, limit *int32, offset *int32) 
 			end = len(users)
 		}
 	}
-	
+
 	return users[start:end], nil
 }
 
@@ -127,13 +127,13 @@ func (r *queryResolver) Todo(ctx context.Context, id string) (*model.Todo, error
 // Todos is the resolver for the todos field.
 func (r *queryResolver) Todos(ctx context.Context, filters *model.TodoFilters, limit *int32, offset *int32) ([]*model.Todo, error) {
 	allTodos := r.store.GetTodos()
-	
+
 	// Apply filters if provided
 	var filteredTodos []*model.Todo
 	if filters != nil {
 		for _, todo := range allTodos {
 			match := true
-			
+
 			if filters.Status != nil && todo.Status != *filters.Status {
 				match = false
 			}
@@ -158,7 +158,7 @@ func (r *queryResolver) Todos(ctx context.Context, filters *model.TodoFilters, l
 					match = false
 				}
 			}
-			
+
 			if match {
 				filteredTodos = append(filteredTodos, todo)
 			}
@@ -166,7 +166,7 @@ func (r *queryResolver) Todos(ctx context.Context, filters *model.TodoFilters, l
 	} else {
 		filteredTodos = allTodos
 	}
-	
+
 	// Apply offset
 	start := 0
 	if offset != nil && *offset > 0 {
@@ -175,7 +175,7 @@ func (r *queryResolver) Todos(ctx context.Context, filters *model.TodoFilters, l
 			return []*model.Todo{}, nil
 		}
 	}
-	
+
 	// Apply limit
 	end := len(filteredTodos)
 	if limit != nil && *limit > 0 {
@@ -184,7 +184,7 @@ func (r *queryResolver) Todos(ctx context.Context, filters *model.TodoFilters, l
 			end = len(filteredTodos)
 		}
 	}
-	
+
 	return filteredTodos[start:end], nil
 }
 
@@ -192,29 +192,29 @@ func (r *queryResolver) Todos(ctx context.Context, filters *model.TodoFilters, l
 func (r *queryResolver) Search(ctx context.Context, term string, limit *int32) ([]model.SearchResult, error) {
 	var results []model.SearchResult
 	lowerTerm := strings.ToLower(term)
-	
+
 	// Search users
 	for _, user := range r.store.GetUsers() {
 		if strings.Contains(strings.ToLower(user.Name), lowerTerm) ||
-		   strings.Contains(strings.ToLower(user.Email), lowerTerm) {
+			strings.Contains(strings.ToLower(user.Email), lowerTerm) {
 			results = append(results, user)
 		}
 	}
-	
+
 	// Search todos
 	for _, todo := range r.store.GetTodos() {
 		if strings.Contains(strings.ToLower(todo.Title), lowerTerm) ||
-		   (todo.Notes != nil && strings.Contains(strings.ToLower(*todo.Notes), lowerTerm)) {
+			(todo.Notes != nil && strings.Contains(strings.ToLower(*todo.Notes), lowerTerm)) {
 			results = append(results, todo)
 		}
 	}
-	
+
 	// Apply limit
 	maxResults := len(results)
 	if limit != nil && *limit > 0 && int(*limit) < maxResults {
 		maxResults = int(*limit)
 	}
-	
+
 	return results[:maxResults], nil
 }
 
