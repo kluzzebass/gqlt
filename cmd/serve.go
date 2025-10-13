@@ -38,14 +38,17 @@ The server includes:
 - Relay Node pattern for global object identification
 
 The server is pre-seeded with sample data and ready to use immediately.`,
-	Example: `  # Start server on default address
+	Example: `  # Start server on default address (localhost:8090)
   gqlt serve
 
-  # Start on custom port
+  # Start on custom port (binds to all interfaces, IPv6 with IPv4 fallback)
   gqlt serve --listen :3000
 
-  # Start on specific host and port
+  # Start on all IPv4 interfaces
   gqlt serve --listen 0.0.0.0:3000
+
+  # Start on localhost only (IPv4)
+  gqlt serve --listen 127.0.0.1:3000
 
   # Start without playground
   gqlt serve --no-playground
