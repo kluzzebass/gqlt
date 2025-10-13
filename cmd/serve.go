@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	servePort       string
+	serveListen     string
 	servePlayground bool
 )
 
@@ -38,11 +38,14 @@ The server includes:
 - Relay Node pattern for global object identification
 
 The server is pre-seeded with sample data and ready to use immediately.`,
-	Example: `  # Start server on default port 8090
+	Example: `  # Start server on default address
   gqlt serve
 
   # Start on custom port
-  gqlt serve --port 3000
+  gqlt serve --listen :3000
+
+  # Start on specific host and port
+  gqlt serve --listen 0.0.0.0:3000
 
   # Start without playground
   gqlt serve --no-playground
@@ -60,7 +63,7 @@ The server is pre-seeded with sample data and ready to use immediately.`,
 func init() {
 	rootCmd.AddCommand(serveCmd)
 
-	serveCmd.Flags().StringVarP(&servePort, "port", "p", "8090", "Port to listen on")
+	serveCmd.Flags().StringVarP(&serveListen, "listen", "l", "localhost:8090", "Address to listen on (host:port)")
 	serveCmd.Flags().BoolVar(&servePlayground, "playground", true, "Enable GraphQL Playground")
 }
 
@@ -95,14 +98,14 @@ func serve(cmd *cobra.Command, args []string) error {
 
 	if servePlayground {
 		http.Handle("/", playground.Handler("GraphQL Playground", "/graphql"))
-		log.Printf("GraphQL Playground available at http://localhost:%s/", servePort)
+		log.Printf("GraphQL Playground available at http://%s/", serveListen)
 	}
 
-	log.Printf("GraphQL endpoint: http://localhost:%s/graphql", servePort)
-	log.Printf("Starting mock GraphQL server on port %s...", servePort)
+	log.Printf("GraphQL endpoint: http://%s/graphql", serveListen)
+	log.Printf("Starting mock GraphQL server on %s...", serveListen)
 
 	// Start server
-	if err := http.ListenAndServe(":"+servePort, nil); err != nil {
+	if err := http.ListenAndServe(serveListen, nil); err != nil {
 		return fmt.Errorf("failed to start server: %w", err)
 	}
 
