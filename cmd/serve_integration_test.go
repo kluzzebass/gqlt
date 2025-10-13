@@ -393,7 +393,7 @@ func TestServeCommand_Integration(t *testing.T) {
 		if !ok {
 			t.Fatalf("Expected todos array")
 		}
-		
+
 		// Verify all returned todos are PENDING
 		for _, todoInterface := range todos {
 			todo := todoInterface.(map[string]interface{})
@@ -484,4 +484,3 @@ func executeHTTPQuery(t *testing.T, url, query string, variables map[string]inte
 
 	return data
 }
-
