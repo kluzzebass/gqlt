@@ -96,12 +96,18 @@ func serve(cmd *cobra.Command, args []string) error {
 	// Setup HTTP handlers
 	http.Handle("/graphql", srv)
 
-	if servePlayground {
-		http.Handle("/", playground.Handler("GraphQL Playground", "/graphql"))
-		log.Printf("GraphQL Playground available at http://%s/", serveListen)
+	// Format display address for logging
+	displayAddr := serveListen
+	if displayAddr[0] == ':' {
+		displayAddr = "localhost" + displayAddr
 	}
 
-	log.Printf("GraphQL endpoint: http://%s/graphql", serveListen)
+	if servePlayground {
+		http.Handle("/", playground.Handler("GraphQL Playground", "/graphql"))
+		log.Printf("GraphQL Playground available at http://%s/", displayAddr)
+	}
+
+	log.Printf("GraphQL endpoint: http://%s/graphql", displayAddr)
 	log.Printf("Starting mock GraphQL server on %s...", serveListen)
 
 	// Start server
