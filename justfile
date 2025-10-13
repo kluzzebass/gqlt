@@ -175,21 +175,21 @@ complete-release type="patch" notes="":
     @just check-version
     @just bump-{{type}}
     @version=$(cat VERSION) && \
-    echo "Version bumped to $version"
-    @echo "Step 2: Building and packaging..."
-    @just package
-    @echo "Step 3: Committing VERSION file..."
-    @git add VERSION && \
+    echo "Version bumped to $version" && \
+    echo "Step 2: Building and packaging..." && \
+    just package && \
+    echo "Step 3: Committing VERSION file..." && \
+    git add VERSION && \
     git commit -m "Bump version to $version" && \
-    echo "VERSION file committed"
-    @echo "Step 4: Creating git tag..."
-    @git tag v$version && \
-    echo "Git tag v$version created"
-    @echo "Step 5: Pushing tag..."
-    @git push origin v$version && \
-    echo "Tag pushed to origin"
-    @echo "Step 6: Creating GitHub release..."
-    @if [ -n "{{notes}}" ]; then \
+    echo "VERSION file committed" && \
+    echo "Step 4: Creating git tag..." && \
+    git tag v$version && \
+    echo "Git tag v$version created" && \
+    echo "Step 5: Pushing tag..." && \
+    git push origin v$version && \
+    echo "Tag pushed to origin" && \
+    echo "Step 6: Creating GitHub release..." && \
+    if [ -n "{{notes}}" ]; then \
         echo "{{notes}}" > /tmp/release-notes-$version.md; \
     else \
         just release-notes > /tmp/release-notes-$version.md; \
@@ -199,8 +199,8 @@ complete-release type="patch" notes="":
         dist/gqlt-$version-*.tar.gz \
         dist/gqlt-$version-*.zip && \
     rm /tmp/release-notes-$version.md && \
-    echo "GitHub release v$version created successfully!"
-    @echo "Complete release v$version finished!"
+    echo "GitHub release v$version created successfully!" && \
+    echo "Complete release v$version finished!"
 
 # Show release notes template
 release-notes:
