@@ -49,11 +49,11 @@ The server is pre-seeded with sample data and ready to use immediately.`,
 
   # Test with queries
   gqlt serve &
-  gqlt run --url http://localhost:8090/query --query '{ users { id name email } }'
+  gqlt run --url http://localhost:8090/graphql --query '{ users { id name email } }'
   
   # Test subscriptions
   gqlt serve &
-  gqlt run --url http://localhost:8090/query --query 'subscription { counter }' --timeout 10s`,
+  gqlt run --url http://localhost:8090/graphql --query 'subscription { counter }' --timeout 10s`,
 	RunE: serve,
 }
 
@@ -92,14 +92,14 @@ func serve(cmd *cobra.Command, args []string) error {
 	})
 
 	// Setup HTTP handlers
-	http.Handle("/query", srv)
+	http.Handle("/graphql", srv)
 
 	if servePlayground {
-		http.Handle("/", playground.Handler("GraphQL Playground", "/query"))
+		http.Handle("/", playground.Handler("GraphQL Playground", "/graphql"))
 		log.Printf("GraphQL Playground available at http://localhost:%s/", servePort)
 	}
 
-	log.Printf("GraphQL endpoint: http://localhost:%s/query", servePort)
+	log.Printf("GraphQL endpoint: http://localhost:%s/graphql", servePort)
 	log.Printf("Starting mock GraphQL server on port %s...", servePort)
 
 	// Start server
