@@ -8,6 +8,79 @@ import (
 	"github.com/kluzzebass/gqlt/internal/mockserver/graph/model"
 )
 
+// EntityStore provides generic CRUD operations for entities using generics
+type EntityStore[T any] struct {
+	mu       sync.RWMutex
+	entities map[string]T
+	nextID   int
+	typeName string
+}
+
+// NewEntityStore creates a new entity store
+func NewEntityStore[T any](typeName string) *EntityStore[T] {
+	return &EntityStore[T]{
+		entities: make(map[string]T),
+		nextID:   1,
+		typeName: typeName,
+	}
+}
+
+// Get retrieves an entity by global ID
+func (es *EntityStore[T]) Get(id string) (T, bool) {
+	es.mu.RLock()
+	defer es.mu.RUnlock()
+
+	entity, exists := es.entities[id]
+	return entity, exists
+}
+
+// GetAll returns all entities
+func (es *EntityStore[T]) GetAll() []T {
+	es.mu.RLock()
+	defer es.mu.RUnlock()
+
+	result := make([]T, 0, len(es.entities))
+	for _, entity := range es.entities {
+		result = append(result, entity)
+	}
+	return result
+}
+
+// Create adds a new entity with an auto-generated ID
+func (es *EntityStore[T]) Create(entity T) (string, T) {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+
+	id := fmt.Sprintf("%s:%d", es.typeName, es.nextID)
+	es.nextID++
+	es.entities[id] = entity
+	return id, entity
+}
+
+// Update modifies an existing entity
+func (es *EntityStore[T]) Update(id string, entity T) bool {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+
+	if _, exists := es.entities[id]; !exists {
+		return false
+	}
+	es.entities[id] = entity
+	return true
+}
+
+// Delete removes an entity
+func (es *EntityStore[T]) Delete(id string) bool {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+
+	if _, exists := es.entities[id]; !exists {
+		return false
+	}
+	delete(es.entities, id)
+	return true
+}
+
 // SubscriberManager manages subscriptions for a specific event type using generics
 type SubscriberManager[T any] struct {
 	mu               sync.RWMutex
@@ -61,20 +134,14 @@ func (sm *SubscriberManager[T]) Broadcast(event T) {
 type Store struct {
 	mu sync.RWMutex
 
-	// Entity stores with global ID format "TypeName:localId"
-	users           map[string]*model.User
-	todos           map[string]*model.Todo
-	fileAttachments map[string]*model.FileAttachment
-	linkAttachments map[string]*model.LinkAttachment
+	// Entity stores using generics
+	users           *EntityStore[*model.User]
+	todos           *EntityStore[*model.Todo]
+	fileAttachments *EntityStore[*model.FileAttachment]
+	linkAttachments *EntityStore[*model.LinkAttachment]
 
 	// Todo-attachment relationships (todoID -> []attachmentID)
 	todoAttachments map[string][]string
-
-	// ID counters
-	nextUserID           int
-	nextTodoID           int
-	nextFileAttachmentID int
-	nextLinkAttachmentID int
 
 	// Subscription management using generics
 	todoSubscribers *SubscriberManager[*model.Todo]
@@ -84,17 +151,13 @@ type Store struct {
 // NewStore creates a new Store with pre-seeded data
 func NewStore() *Store {
 	s := &Store{
-		users:                make(map[string]*model.User),
-		todos:                make(map[string]*model.Todo),
-		fileAttachments:      make(map[string]*model.FileAttachment),
-		linkAttachments:      make(map[string]*model.LinkAttachment),
-		todoAttachments:      make(map[string][]string),
-		nextUserID:           1,
-		nextTodoID:           1,
-		nextFileAttachmentID: 1,
-		nextLinkAttachmentID: 1,
-		todoSubscribers:      NewSubscriberManager[*model.Todo](),
-		userSubscribers:      NewSubscriberManager[*model.User](),
+		users:           NewEntityStore[*model.User]("User"),
+		todos:           NewEntityStore[*model.Todo]("Todo"),
+		fileAttachments: NewEntityStore[*model.FileAttachment]("FileAttachment"),
+		linkAttachments: NewEntityStore[*model.LinkAttachment]("LinkAttachment"),
+		todoAttachments: make(map[string][]string),
+		todoSubscribers: NewSubscriberManager[*model.Todo](),
+		userSubscribers: NewSubscriberManager[*model.User](),
 	}
 
 	// Pre-seed with 3 sample users
@@ -127,10 +190,7 @@ func (s *Store) seedUsers() {
 
 // GetUser retrieves a user by global ID
 func (s *Store) GetUser(id string) (*model.User, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	user, exists := s.users[id]
+	user, exists := s.users.Get(id)
 	if !exists {
 		return nil, nil // Not found
 	}
@@ -139,26 +199,12 @@ func (s *Store) GetUser(id string) (*model.User, error) {
 
 // GetUsers returns all users
 func (s *Store) GetUsers() []*model.User {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	users := make([]*model.User, 0, len(s.users))
-	for _, user := range s.users {
-		users = append(users, user)
-	}
-	return users
+	return s.users.GetAll()
 }
 
 // CreateUser adds a new user to the store
 func (s *Store) CreateUser(name, email string, role model.UserRole, website *string) *model.User {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	id := fmt.Sprintf("User:%d", s.nextUserID)
-	s.nextUserID++
-
 	user := &model.User{
-		ID:        id,
 		Name:      name,
 		Email:     email,
 		Role:      role,
@@ -166,18 +212,16 @@ func (s *Store) CreateUser(name, email string, role model.UserRole, website *str
 		Website:   website,
 	}
 
-	s.users[id] = user
-	return user
+	id, createdUser := s.users.Create(user)
+	createdUser.ID = id
+	return createdUser
 }
 
 // === Todo Methods ===
 
 // GetTodo retrieves a todo by global ID
 func (s *Store) GetTodo(id string) (*model.Todo, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	todo, exists := s.todos[id]
+	todo, exists := s.todos.Get(id)
 	if !exists {
 		return nil, nil // Not found
 	}
@@ -186,27 +230,13 @@ func (s *Store) GetTodo(id string) (*model.Todo, error) {
 
 // GetTodos returns all todos
 func (s *Store) GetTodos() []*model.Todo {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	todos := make([]*model.Todo, 0, len(s.todos))
-	for _, todo := range s.todos {
-		todos = append(todos, todo)
-	}
-	return todos
+	return s.todos.GetAll()
 }
 
 // CreateTodo adds a new todo to the store
 func (s *Store) CreateTodo(title string, createdByID string, input *model.CreateTodoInput) *model.Todo {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	id := fmt.Sprintf("Todo:%d", s.nextTodoID)
-	s.nextTodoID++
-
 	now := time.Now()
 	todo := &model.Todo{
-		ID:        id,
 		Title:     title,
 		Notes:     input.Notes,
 		Status:    model.TodoStatusPending,
@@ -226,16 +256,14 @@ func (s *Store) CreateTodo(title string, createdByID string, input *model.Create
 		todo.DueDate = input.DueDate
 	}
 
-	s.todos[id] = todo
-	return todo
+	id, createdTodo := s.todos.Create(todo)
+	createdTodo.ID = id
+	return createdTodo
 }
 
 // UpdateTodo updates an existing todo
 func (s *Store) UpdateTodo(id string, input *model.UpdateTodoInput) (*model.Todo, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	todo, exists := s.todos[id]
+	todo, exists := s.todos.Get(id)
 	if !exists {
 		return nil, fmt.Errorf("todo not found: %s", id)
 	}
@@ -261,30 +289,20 @@ func (s *Store) UpdateTodo(id string, input *model.UpdateTodoInput) (*model.Todo
 	}
 
 	todo.UpdatedAt = time.Now()
+	s.todos.Update(id, todo)
 	return todo, nil
 }
 
 // DeleteTodo removes a todo from the store
 func (s *Store) DeleteTodo(id string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, exists := s.todos[id]; !exists {
-		return false
-	}
-
-	delete(s.todos, id)
-	return true
+	return s.todos.Delete(id)
 }
 
 // === Attachment Methods ===
 
 // GetFileAttachment retrieves a file attachment by global ID
 func (s *Store) GetFileAttachment(id string) (*model.FileAttachment, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	attachment, exists := s.fileAttachments[id]
+	attachment, exists := s.fileAttachments.Get(id)
 	if !exists {
 		return nil, nil
 	}
@@ -293,10 +311,7 @@ func (s *Store) GetFileAttachment(id string) (*model.FileAttachment, error) {
 
 // GetLinkAttachment retrieves a link attachment by global ID
 func (s *Store) GetLinkAttachment(id string) (*model.LinkAttachment, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	attachment, exists := s.linkAttachments[id]
+	attachment, exists := s.linkAttachments.Get(id)
 	if !exists {
 		return nil, nil
 	}
@@ -305,14 +320,7 @@ func (s *Store) GetLinkAttachment(id string) (*model.LinkAttachment, error) {
 
 // CreateFileAttachment adds a new file attachment
 func (s *Store) CreateFileAttachment(title, filename, mimeType string, size int) *model.FileAttachment {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	id := fmt.Sprintf("FileAttachment:%d", s.nextFileAttachmentID)
-	s.nextFileAttachmentID++
-
 	attachment := &model.FileAttachment{
-		ID:        id,
 		Title:     title,
 		CreatedAt: time.Now(),
 		Filename:  filename,
@@ -320,28 +328,23 @@ func (s *Store) CreateFileAttachment(title, filename, mimeType string, size int)
 		Size:      int32(size),
 	}
 
-	s.fileAttachments[id] = attachment
-	return attachment
+	id, createdAttachment := s.fileAttachments.Create(attachment)
+	createdAttachment.ID = id
+	return createdAttachment
 }
 
 // CreateLinkAttachment adds a new link attachment
 func (s *Store) CreateLinkAttachment(title, url string, description *string) *model.LinkAttachment {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	id := fmt.Sprintf("LinkAttachment:%d", s.nextLinkAttachmentID)
-	s.nextLinkAttachmentID++
-
 	attachment := &model.LinkAttachment{
-		ID:          id,
 		Title:       title,
 		CreatedAt:   time.Now(),
 		URL:         url,
 		Description: description,
 	}
 
-	s.linkAttachments[id] = attachment
-	return attachment
+	id, createdAttachment := s.linkAttachments.Create(attachment)
+	createdAttachment.ID = id
+	return createdAttachment
 }
 
 // AddAttachmentToTodo links an attachment to a todo
