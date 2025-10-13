@@ -68,8 +68,7 @@ func serve(cmd *cobra.Command, args []string) error {
 	// Create GraphQL server
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: graph.NewResolver()}))
 
-	// Add transports - order matters for subscription support
-	// Per gqlgen docs: SSE first, then WebSocket, then HTTP transports
+	// Add transports for subscriptions and queries
 	srv.AddTransport(transport.SSE{})
 	srv.AddTransport(transport.Websocket{
 		KeepAlivePingInterval: 10 * time.Second,
@@ -109,4 +108,3 @@ func serve(cmd *cobra.Command, args []string) error {
 
 	return nil
 }
-

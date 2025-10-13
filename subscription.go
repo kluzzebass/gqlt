@@ -13,10 +13,11 @@ import (
 
 // SubscriptionClient handles GraphQL subscriptions over WebSocket
 type SubscriptionClient struct {
-	url     string
-	headers map[string]string
-	conn    *websocket.Conn
-	mu      sync.Mutex
+	url        string
+	headers    map[string]string
+	conn       *websocket.Conn
+	protocol   string // negotiated subprotocol
+	mu         sync.Mutex
 }
 
 // GraphQL WebSocket Protocol Messages (graphql-transport-ws)
@@ -69,12 +70,18 @@ func (c *SubscriptionClient) Connect(ctx context.Context) error {
 	}
 
 	// Establish WebSocket connection
-	conn, _, err := websocket.Dial(ctx, c.url, opts)
+	conn, resp, err := websocket.Dial(ctx, c.url, opts)
 	if err != nil {
 		return fmt.Errorf("failed to connect to WebSocket: %w", err)
 	}
 
 	c.conn = conn
+	c.protocol = conn.Subprotocol()
+	
+	// If server didn't specify, check response header
+	if c.protocol == "" {
+		c.protocol = resp.Header.Get("Sec-WebSocket-Protocol")
+	}
 
 	// Send connection_init message
 	initMsg := wsMessage{
@@ -117,10 +124,17 @@ func (c *SubscriptionClient) Subscribe(ctx context.Context, query string, variab
 	// Generate subscription ID
 	subscriptionID := fmt.Sprintf("sub_%d", time.Now().UnixNano())
 
-	// Send subscribe message
+	// Determine message type based on protocol
+	// graphql-ws uses "start", graphql-transport-ws uses "subscribe"
+	messageType := MessageTypeSubscribe
+	if c.protocol == "graphql-ws" || c.protocol == "apollo-ws" {
+		messageType = "start"
+	}
+
+	// Send subscribe/start message
 	subscribeMsg := wsMessage{
 		ID:   subscriptionID,
-		Type: MessageTypeSubscribe,
+		Type: messageType,
 		Payload: map[string]interface{}{
 			"query": query,
 		},
@@ -182,7 +196,7 @@ func (c *SubscriptionClient) receiveMessages(ctx context.Context, subscriptionID
 
 			// Handle message based on type
 			switch msg.Type {
-			case MessageTypeNext:
+			case MessageTypeNext, "data": // "next" for graphql-transport-ws, "data" for graphql-ws
 				// Subscription data message
 				if msg.ID == subscriptionID {
 					if payload, ok := msg.Payload["data"].(map[string]interface{}); ok {
@@ -195,6 +209,10 @@ func (c *SubscriptionClient) receiveMessages(ctx context.Context, subscriptionID
 						messages <- subMsg
 					}
 				}
+
+			case "ka": // keep-alive for graphql-ws
+				// Ignore keep-alive messages
+				continue
 
 			case MessageTypeError:
 				// Subscription error
