@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +18,10 @@ import (
 
 // TestServeCommand_Integration tests the mock server end-to-end
 func TestServeCommand_Integration(t *testing.T) {
+	// Suppress server log output during tests
+	log.SetOutput(io.Discard)
+	defer log.SetOutput(os.Stderr)
+
 	// Start server in background
 	go func() {
 		cmd := rootCmd
@@ -81,11 +87,21 @@ func TestServeCommand_Integration(t *testing.T) {
 			t.Errorf("Expected 3 pre-seeded users, got %d", len(users))
 		}
 
-		// Check first user is Alice Admin
-		if user, ok := users[0].(map[string]interface{}); ok {
-			if user["name"] != "Alice Admin" || user["role"] != "ADMIN" {
-				t.Errorf("Expected Alice Admin with ADMIN role, got %v", user)
+		// Verify we have an admin user (order not guaranteed)
+		foundAdmin := false
+		for _, userInterface := range users {
+			if user, ok := userInterface.(map[string]interface{}); ok {
+				if user["role"] == "ADMIN" {
+					foundAdmin = true
+					if user["name"] != "Alice Admin" {
+						t.Errorf("Expected admin user to be Alice Admin, got %v", user["name"])
+					}
+					break
+				}
 			}
+		}
+		if !foundAdmin {
+			t.Error("Expected to find an ADMIN user in pre-seeded data")
 		}
 	})
 
