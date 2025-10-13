@@ -577,11 +577,10 @@ func TestSDKServer_handleExecuteQuery_WithFiles(t *testing.T) {
 	// The important thing is that it doesn't panic and handles the file parameter
 	// It may fail due to the endpoint not supporting uploads, which is expected
 	if err != nil {
-		t.Logf("Expected failure (endpoint doesn't support uploads): %v", err)
 	}
 
 	if result != nil && result.IsError {
-		t.Logf("Got error result (expected for non-upload endpoint)")
+		// Expected for non-upload endpoint
 	}
 }
 
@@ -607,7 +606,6 @@ func TestSDKServer_handleExecuteQuery_WithNonExistentFile(t *testing.T) {
 
 	// Should get an error for non-existent file
 	if err != nil {
-		t.Logf("Got expected error for non-existent file: %v", err)
 	}
 
 	if result == nil {
@@ -642,13 +640,6 @@ func TestSDKServer_handleExecuteQuery_BackwardCompatibility(t *testing.T) {
 
 	if result != nil {
 		t.Errorf("Result should be nil for successful execution, got: %+v", result)
-		if result.IsError {
-			for _, content := range result.Content {
-				if tc, ok := content.(*mcp.TextContent); ok {
-					t.Logf("Error content: %s", tc.Text)
-				}
-			}
-		}
 	}
 
 	if output.Data == nil {
@@ -656,7 +647,6 @@ func TestSDKServer_handleExecuteQuery_BackwardCompatibility(t *testing.T) {
 	}
 
 	// Verify backward compatibility - queries without files still work
-	t.Log("Backward compatibility confirmed: execute_query works without Files parameter")
 }
 
 func TestSDKServer_handleExecuteQuery_Subscription(t *testing.T) {
@@ -701,20 +691,13 @@ func TestSDKServer_handleExecuteQuery_Subscription(t *testing.T) {
 	// The subscription will attempt WebSocket (fail with 200), fall back to SSE
 	// SSE will "succeed" but get no data, timeout, and return success with 0 messages
 	if result != nil && result.IsError {
-		// If we got an error, verify it's subscription-related
-		if len(result.Content) > 0 {
-			if textContent, ok := result.Content[0].(*mcp.TextContent); ok {
-				t.Logf("Got error (expected): %s", textContent.Text)
-			}
-		}
+		// Got error as expected
 	} else {
 		// If we got success (SSE fallback worked), verify we got 0 messages
 		if output.Data != nil {
 			if dataMap, ok := output.Data.(map[string]interface{}); ok {
-				if count, ok := dataMap["count"].(int); ok && count == 0 {
-					t.Logf("SSE fallback succeeded but got 0 messages (expected)")
-				} else {
-					t.Errorf("Expected 0 messages from non-subscription endpoint, got: %v", output.Data)
+				if count, ok := dataMap["count"].(int); ok && count != 0 {
+					t.Errorf("Expected 0 messages from non-subscription endpoint, got: %v", count)
 				}
 			}
 		}

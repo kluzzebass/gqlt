@@ -452,13 +452,11 @@ func (c *Client) Subscribe(ctx context.Context, query string, variables map[stri
 		// Try to connect to WebSocket
 		if err := subClient.Connect(ctx); err != nil {
 			// WebSocket failed, fall back to SSE
-			fmt.Fprintf(os.Stderr, "DEBUG: WebSocket failed (%v), falling back to SSE\n", err)
 			sseClient := NewSSESubscriptionClient(c.endpoint, c.headers)
 			return sseClient.Subscribe(ctx, query, variables, operationName)
 		}
 
 		// WebSocket connected successfully
-		fmt.Fprintf(os.Stderr, "DEBUG: Using WebSocket (http:// converted to ws://)\n")
 		messages, errs, err := subClient.Subscribe(ctx, query, variables, operationName)
 		if err != nil {
 			subClient.Close()

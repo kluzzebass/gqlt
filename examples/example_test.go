@@ -32,7 +32,6 @@ func TestExamplesCompile(t *testing.T) {
 	}
 	defer server.Close()
 
-	t.Log("All examples compile successfully")
 }
 
 // TestMockServerBasic tests basic mock server functionality
