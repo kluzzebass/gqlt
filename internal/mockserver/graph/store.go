@@ -8,6 +8,55 @@ import (
 	"github.com/kluzzebass/gqlt/internal/mockserver/graph/model"
 )
 
+// SubscriberManager manages subscriptions for a specific event type using generics
+type SubscriberManager[T any] struct {
+	mu               sync.RWMutex
+	subscribers      map[int]chan T
+	nextSubscriberID int
+}
+
+// NewSubscriberManager creates a new subscriber manager
+func NewSubscriberManager[T any]() *SubscriberManager[T] {
+	return &SubscriberManager[T]{
+		subscribers:      make(map[int]chan T),
+		nextSubscriberID: 1,
+	}
+}
+
+// Subscribe registers a channel to receive events
+func (sm *SubscriberManager[T]) Subscribe(ch chan T) int {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	id := sm.nextSubscriberID
+	sm.nextSubscriberID++
+	sm.subscribers[id] = ch
+	return id
+}
+
+// Unsubscribe removes a subscriber
+func (sm *SubscriberManager[T]) Unsubscribe(id int) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	delete(sm.subscribers, id)
+}
+
+// Broadcast sends an event to all active subscribers (non-blocking)
+func (sm *SubscriberManager[T]) Broadcast(event T) {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+
+	for _, ch := range sm.subscribers {
+		select {
+		case ch <- event:
+			// Event sent successfully
+		default:
+			// Channel full or closed, skip this subscriber
+		}
+	}
+}
+
 // Store provides thread-safe in-memory storage for the mock server
 type Store struct {
 	mu sync.RWMutex
@@ -27,10 +76,9 @@ type Store struct {
 	nextFileAttachmentID int
 	nextLinkAttachmentID int
 
-	// Subscription management
-	todoSubscribers map[int]chan *model.Todo
-	userSubscribers map[int]chan *model.User
-	nextSubscriberID int
+	// Subscription management using generics
+	todoSubscribers *SubscriberManager[*model.Todo]
+	userSubscribers *SubscriberManager[*model.User]
 }
 
 // NewStore creates a new Store with pre-seeded data
@@ -45,9 +93,8 @@ func NewStore() *Store {
 		nextTodoID:           1,
 		nextFileAttachmentID: 1,
 		nextLinkAttachmentID: 1,
-		todoSubscribers:      make(map[int]chan *model.Todo),
-		userSubscribers:      make(map[int]chan *model.User),
-		nextSubscriberID:     1,
+		todoSubscribers:      NewSubscriberManager[*model.Todo](),
+		userSubscribers:      NewSubscriberManager[*model.User](),
 	}
 
 	// Pre-seed with 3 sample users
@@ -58,39 +105,22 @@ func NewStore() *Store {
 
 // seedUsers creates 3 initial users with different roles
 func (s *Store) seedUsers() {
+	// Create users using the store's CreateUser function to maintain consistency
+	s.CreateUser("Alice Admin", "alice@example.com", model.UserRoleAdmin, strPtr("https://alice.example.com"))
+	s.CreateUser("Bob User", "bob@example.com", model.UserRoleUser, nil)
+	s.CreateUser("Charlie Guest", "charlie@example.com", model.UserRoleGuest, nil)
+
+	// Adjust CreatedAt timestamps for seeded users to show historical data
 	now := time.Now()
-
-	users := []*model.User{
-		{
-			ID:        "User:1",
-			Name:      "Alice Admin",
-			Email:     "alice@example.com",
-			Role:      model.UserRoleAdmin,
-			CreatedAt: now.Add(-30 * 24 * time.Hour), // 30 days ago
-			Website:   strPtr("https://alice.example.com"),
-		},
-		{
-			ID:        "User:2",
-			Name:      "Bob User",
-			Email:     "bob@example.com",
-			Role:      model.UserRoleUser,
-			CreatedAt: now.Add(-15 * 24 * time.Hour), // 15 days ago
-			Website:   nil,
-		},
-		{
-			ID:        "User:3",
-			Name:      "Charlie Guest",
-			Email:     "charlie@example.com",
-			Role:      model.UserRoleGuest,
-			CreatedAt: now.Add(-7 * 24 * time.Hour), // 7 days ago
-			Website:   nil,
-		},
+	if user, _ := s.GetUser("User:1"); user != nil {
+		user.CreatedAt = now.Add(-30 * 24 * time.Hour) // 30 days ago
 	}
-
-	for _, user := range users {
-		s.users[user.ID] = user
+	if user, _ := s.GetUser("User:2"); user != nil {
+		user.CreatedAt = now.Add(-15 * 24 * time.Hour) // 15 days ago
 	}
-	s.nextUserID = 4
+	if user, _ := s.GetUser("User:3"); user != nil {
+		user.CreatedAt = now.Add(-7 * 24 * time.Hour) // 7 days ago
+	}
 }
 
 // === User Methods ===
@@ -344,75 +374,35 @@ func (s *Store) RemoveAttachmentFromTodo(todoID, attachmentID string) bool {
 // SubscribeToTodoEvents registers a channel to receive todo events.
 // Returns a subscriber ID that should be used to unsubscribe.
 func (s *Store) SubscribeToTodoEvents(ch chan *model.Todo) int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	
-	id := s.nextSubscriberID
-	s.nextSubscriberID++
-	s.todoSubscribers[id] = ch
-	return id
+	return s.todoSubscribers.Subscribe(ch)
 }
 
 // UnsubscribeFromTodoEvents removes a todo event subscriber.
 func (s *Store) UnsubscribeFromTodoEvents(id int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	
-	delete(s.todoSubscribers, id)
+	s.todoSubscribers.Unsubscribe(id)
 }
 
 // BroadcastTodoEvent sends a todo to all active subscribers.
 // This should be called after any create, update, or delete operation.
 func (s *Store) BroadcastTodoEvent(todo *model.Todo) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	
-	// Send to all subscribers (non-blocking)
-	for _, ch := range s.todoSubscribers {
-		select {
-		case ch <- todo:
-			// Event sent successfully
-		default:
-			// Channel full or closed, skip this subscriber
-		}
-	}
+	s.todoSubscribers.Broadcast(todo)
 }
 
 // SubscribeToUserEvents registers a channel to receive user events.
 // Returns a subscriber ID that should be used to unsubscribe.
 func (s *Store) SubscribeToUserEvents(ch chan *model.User) int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	
-	id := s.nextSubscriberID
-	s.nextSubscriberID++
-	s.userSubscribers[id] = ch
-	return id
+	return s.userSubscribers.Subscribe(ch)
 }
 
 // UnsubscribeFromUserEvents removes a user event subscriber.
 func (s *Store) UnsubscribeFromUserEvents(id int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	
-	delete(s.userSubscribers, id)
+	s.userSubscribers.Unsubscribe(id)
 }
 
 // BroadcastUserEvent sends a user to all active subscribers.
 // This should be called after any create or update operation.
 func (s *Store) BroadcastUserEvent(user *model.User) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	
-	// Send to all subscribers (non-blocking)
-	for _, ch := range s.userSubscribers {
-		select {
-		case ch <- user:
-			// Event sent successfully
-		default:
-			// Channel full or closed, skip this subscriber
-		}
-	}
+	s.userSubscribers.Broadcast(user)
 }
 
 // === Helper Functions ===

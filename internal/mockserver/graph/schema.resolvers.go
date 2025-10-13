@@ -284,23 +284,23 @@ func (r *subscriptionResolver) Counter(ctx context.Context) (<-chan int32, error
 func (r *subscriptionResolver) TodoEvents(ctx context.Context) (<-chan *model.Todo, error) {
 	// Create a buffered channel for receiving events from the store
 	eventCh := make(chan *model.Todo, 10)
-	
+
 	// Register this subscription with the store
 	subID := r.store.SubscribeToTodoEvents(eventCh)
-	
+
 	// Create the response channel
 	ch := make(chan *model.Todo)
-	
+
 	go func() {
 		defer close(ch)
 		defer r.store.UnsubscribeFromTodoEvents(subID)
-		
+
 		for {
 			select {
 			case <-ctx.Done():
 				// Client disconnected, clean up
 				return
-				
+
 			case todo, ok := <-eventCh:
 				if !ok {
 					// Event channel closed, stop subscription
@@ -316,7 +316,7 @@ func (r *subscriptionResolver) TodoEvents(ctx context.Context) (<-chan *model.To
 			}
 		}
 	}()
-	
+
 	return ch, nil
 }
 
@@ -352,23 +352,23 @@ func (r *subscriptionResolver) Tick(ctx context.Context, interval *int32) (<-cha
 func (r *subscriptionResolver) UserEvents(ctx context.Context) (<-chan *model.User, error) {
 	// Create a buffered channel for receiving events from the store
 	eventCh := make(chan *model.User, 10)
-	
+
 	// Register this subscription with the store
 	subID := r.store.SubscribeToUserEvents(eventCh)
-	
+
 	// Create the response channel
 	ch := make(chan *model.User)
-	
+
 	go func() {
 		defer close(ch)
 		defer r.store.UnsubscribeFromUserEvents(subID)
-		
+
 		for {
 			select {
 			case <-ctx.Done():
 				// Client disconnected, clean up
 				return
-				
+
 			case user, ok := <-eventCh:
 				if !ok {
 					// Event channel closed, stop subscription
@@ -384,7 +384,7 @@ func (r *subscriptionResolver) UserEvents(ctx context.Context) (<-chan *model.Us
 			}
 		}
 	}()
-	
+
 	return ch, nil
 }
 
