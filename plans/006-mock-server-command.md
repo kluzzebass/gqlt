@@ -407,11 +407,11 @@ How to test:
 - Test client disconnect, verify cleanup
 
 Status: Complete - SSE transport configured via gqlgen's `transport.SSE{}`.
-Works automatically with POST requests to `/query` with `Accept: text/event-stream`.
+Works automatically with POST requests to `/graphql` with `Accept: text/event-stream`.
 Tested with curl - subscriptions emit `event: next` with data correctly.
 Mutations trigger subscription events in real-time.
 
-### [ ] 12) Add comprehensive integration tests
+### [x] 12) Add comprehensive integration tests
 
 Test the complete server with real GraphQL queries.
 
@@ -430,7 +430,13 @@ How to test:
 - All tests pass
 - No memory leaks or goroutine leaks
 
-### [ ] 13) Update documentation
+Status: Complete - Created comprehensive integration test suite in cmd/serve_integration_test.go.
+17 test cases covering introspection, queries, mutations, subscriptions (WebSocket and SSE),
+pagination, filtering, Relay Node pattern, and union types. All tests passing in 5.5 seconds.
+Verified mock server functionality end-to-end via HTTP, WebSocket, and SSE transports.
+Also tested via MCP tools (list_types, describe_type, execute_query with subscriptions).
+
+### [x] 13) Update documentation
 
 Add mock server documentation to README and examples.
 
@@ -443,6 +449,13 @@ Add mock server documentation to README and examples.
 How to test:
 - README includes serve command documentation
 - Examples are runnable and produce expected output
+
+Status: Complete - Updated generate_readme.sh with comprehensive mock server section.
+Added 'Mock Server Usage' to Quick Start with gqlt serve examples.
+Added detailed 'Mock GraphQL Server' section with features, quick start, example usage,
+and schema highlights. Regenerated README.md successfully.
+Documentation includes queries, mutations, subscriptions, union types, Relay Node pattern,
+and file uploads. All command help text includes comprehensive examples.
 
 ## USAGE EXAMPLES
 
