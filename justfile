@@ -156,32 +156,6 @@ check-version:
     fi && \
     echo "Version '$version' is valid"
 
-# Create a new release (bump version, build, package)
-release type="patch":
-    @echo "Creating release..."
-    @just check-version
-    @just bump-{{type}}
-    @just package
-    @version=$(cat VERSION) && \
-    echo "Release v$version created successfully!" && \
-    echo "Next steps:" && \
-    echo "1. Test the binaries in dist/" && \
-    echo "2. Create a git tag: git tag v$version" && \
-    echo "3. Push the tag: git push origin v$version" && \
-    echo "4. Create a GitHub release with the archives from dist/"
-
-# Create a pre-release (bump version with pre-release suffix)
-prerelease type="patch" suffix="alpha":
-    @echo "Creating pre-release..."
-    @just check-version
-    @just bump-{{type}}
-    @current=$(cat VERSION) && \
-    new_version="$current-{{suffix}}" && \
-    echo "$new_version" > VERSION && \
-    echo "Pre-release version set to $new_version"
-    @just package
-    @version=$(cat VERSION) && \
-    echo "Pre-release v$version created successfully!"
 
 # Show current git status
 git-status:
@@ -193,72 +167,40 @@ git-tags:
     @echo "Git tags:"
     @git tag --sort=-version:refname
 
-# Create git tag for current version
-git-tag:
+
+# Complete release workflow - does everything properly
+complete-release type="patch" notes="":
+    @echo "Starting complete release workflow..."
+    @echo "Step 1: Bumping version..."
+    @just check-version
+    @just bump-{{type}}
     @version=$(cat VERSION) && \
-    echo "Creating git tag v$version..." && \
-    git tag v$version && \
-    echo "Tag v$version created"
-
-# Push git tag
-git-push-tag:
-    @version=$(cat VERSION) && \
-    echo "Pushing git tag v$version..." && \
-    git push origin v$version && \
-    echo "Tag v$version pushed"
-
-# Check if GitHub CLI is installed and authenticated
-_check-gh:
-    @if ! command -v gh >/dev/null 2>&1; then \
-        echo "Error: GitHub CLI (gh) is not installed."; \
-        echo "Please install it from: https://cli.github.com/"; \
-        exit 1; \
+    echo "Version bumped to $version"
+    @echo "Step 2: Building and packaging..."
+    @just package
+    @echo "Step 3: Committing VERSION file..."
+    @git add VERSION && \
+    git commit -m "Bump version to $version" && \
+    echo "VERSION file committed"
+    @echo "Step 4: Creating git tag..."
+    @git tag v$version && \
+    echo "Git tag v$version created"
+    @echo "Step 5: Pushing tag..."
+    @git push origin v$version && \
+    echo "Tag pushed to origin"
+    @echo "Step 6: Creating GitHub release..."
+    @if [ -n "{{notes}}" ]; then \
+        echo "{{notes}}" > /tmp/release-notes-$version.md; \
+    else \
+        just release-notes > /tmp/release-notes-$version.md; \
     fi && \
-    if ! gh auth status >/dev/null 2>&1; then \
-        echo "Error: GitHub CLI is not authenticated."; \
-        echo "Please run: gh auth login"; \
-        exit 1; \
-    fi && \
-    echo "GitHub CLI is ready"
-
-# Create GitHub release with distribution files
-github-release:
-    @just _check-gh && \
-    version=$(cat VERSION) && \
-    echo "Creating GitHub release v$version..." && \
-    just release-notes > /tmp/release-notes-$version.md && \
     gh release create v$version \
-        --title "Release v$version" \
         --notes-file /tmp/release-notes-$version.md \
         dist/gqlt-$version-*.tar.gz \
         dist/gqlt-$version-*.zip && \
     rm /tmp/release-notes-$version.md && \
     echo "GitHub release v$version created successfully!"
-
-# Create draft GitHub release for review
-github-release-draft:
-    @just _check-gh && \
-    version=$(cat VERSION) && \
-    echo "Creating draft GitHub release v$version..." && \
-    just release-notes > /tmp/release-notes-$version.md && \
-    gh release create v$version \
-        --draft \
-        --title "Release v$version" \
-        --notes-file /tmp/release-notes-$version.md \
-        dist/gqlt-$version-*.tar.gz \
-        dist/gqlt-$version-*.zip && \
-    rm /tmp/release-notes-$version.md && \
-    echo "Draft GitHub release v$version created successfully!"
-
-# Full release workflow
-full-release type="patch":
-    @echo "Starting full release workflow..."
-    @just release {{type}}
-    @version=$(cat VERSION) && \
-    just git-tag && \
-    just git-push-tag && \
-    just github-release && \
-    echo "Full release v$version completed!"
+    @echo "Complete release v$version finished!"
 
 # Show release notes template
 release-notes:
@@ -351,11 +293,7 @@ help-just:
     @echo "  clean                - Clean build artifacts"
     @echo ""
     @echo "Releases:"
-    @echo "  release TYPE         - Create release (patch/minor/major)"
-    @echo "  prerelease TYPE SUFFIX - Create pre-release"
-    @echo "  full-release TYPE    - Complete release workflow"
-    @echo "  github-release       - Create GitHub release with distribution files"
-    @echo "  github-release-draft - Create draft GitHub release for review"
+    @echo "  complete-release TYPE [NOTES] - Complete release workflow (bump, build, commit, tag, push, GitHub release)"
     @echo ""
     @echo "Git:"
     @echo "  git-status           - Show git status"
