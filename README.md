@@ -58,6 +58,20 @@ gqlt run --url wss://api.example.com/graphql \
   --timeout 30s
 ```
 
+**Mock Server Usage:**
+```bash
+# Start comprehensive mock GraphQL server for testing
+gqlt serve
+
+# Custom address
+gqlt serve --listen :3000
+
+# Test against the mock server
+gqlt serve &
+gqlt run --url http://localhost:8090/graphql --query '{ users { id name email role } }'
+gqlt run --url http://localhost:8090/graphql --query 'subscription { counter }' --timeout 5s
+```
+
 **MCP Server Usage:**
 ```bash
 # Start MCP server for AI agents
@@ -315,6 +329,77 @@ func TestYourGraphQLIntegration(t *testing.T) {
     }
 }
 ```
+
+## Mock GraphQL Server
+
+**gqlt** includes a comprehensive mock GraphQL server powered by `gqlgen` for testing and development:
+
+### Features
+- **Complete Schema**: Todo-list application with users, todos, attachments, and search
+- **All GraphQL Features**: Queries, mutations, subscriptions, unions, interfaces, custom scalars, directives
+- **Relay Node Pattern**: Global object identification with `node(id: "Type:ID")` queries
+- **Real-Time Subscriptions**: WebSocket and SSE support with event broadcasting
+- **File Uploads**: Multipart form-data for testing file upload mutations
+- **Pre-Seeded Data**: 3 sample users ready to use immediately
+- **Introspection Enabled**: Full schema introspection for tooling
+
+### Quick Start
+
+```bash
+# Start mock server (default: localhost:8090)
+gqlt serve
+
+# Custom address
+gqlt serve --listen :3000
+gqlt serve --listen 0.0.0.0:8080
+
+# Without GraphQL Playground
+gqlt serve --no-playground
+```
+
+### Example Usage
+
+```bash
+# Start server in background
+gqlt serve &
+
+# Query pre-seeded users
+gqlt run --url http://localhost:8090/graphql \
+  --query '{ users { id name email role } }'
+
+# Create a todo
+gqlt run --url http://localhost:8090/graphql \
+  --query 'mutation { createTodo(input: { title: "Test Todo" }) { id title status } }'
+
+# Subscribe to real-time todo events
+gqlt run --url http://localhost:8090/graphql \
+  --query 'subscription { todoEvents { id title status } }' \
+  --timeout 30s &
+
+# Trigger events by creating todos
+gqlt run --url http://localhost:8090/graphql \
+  --query 'mutation { createTodo(input: { title: "Event Test" }) { id } }'
+
+# Search across users and todos (union types)
+gqlt run --url http://localhost:8090/graphql \
+  --query '{ search(term: "admin") { ... on User { id name } ... on Todo { id title } } }'
+
+# Test Relay Node pattern
+gqlt run --url http://localhost:8090/graphql \
+  --query '{ node(id: "User:1") { id ... on User { name email } } }'
+```
+
+### Schema Highlights
+
+- **Queries**: `hello`, `echo`, `user`, `users`, `todo`, `todos`, `search`, `currentTime`, `version`, `node`
+- **Mutations**: `createUser`, `createTodo`, `updateTodo`, `deleteTodo`, `completeTodo`, `addFileAttachment`, `addLinkAttachment`, `removeAttachment`
+- **Subscriptions**: `counter`, `todoEvents`, `userEvents`, `tick`
+- **Types**: User, Todo, FileAttachment, LinkAttachment (with Node interface)
+- **Unions**: SearchResult (User | Todo | Post | Product | Service)
+- **Enums**: UserRole, TodoStatus, TodoPriority
+- **Custom Scalars**: DateTime, URL, Upload
+
+Access the GraphQL Playground at `http://localhost:8090/` to explore the complete schema interactively.
 
 ## Documentation
 
@@ -1141,15 +1226,85 @@ gqlt run --query "mutation($files: [Upload!]!) { uploadFiles(files: $files) }" -
   -F, --files-list string    File containing list of files to upload (one per line, format: name=path, supports # comments, ~ expansion, and relative paths)
   -H, --header stringArray   HTTP header (key=value, repeatable)
   -h, --help                 help for run
+      --max-messages int     Maximum subscription messages to receive (0 = unlimited)
   -o, --operation string     Operation name
   -p, --password string      Password for basic authentication
   -q, --query string         Inline GraphQL document
   -Q, --query-file string    Path to .graphql file
+      --timeout string       Subscription timeout (e.g. 30s, 5m)
   -t, --token string         Bearer token for authentication
   -u, --url string           GraphQL endpoint URL (required if not in config)
   -U, --username string      Username for basic authentication
   -v, --vars string          JSON object with variables
   -V, --vars-file string     Path to JSON file with variables
+```
+
+### Options inherited from parent commands
+
+```
+      --config-dir string   config directory (default is OS-specific)
+      --format string       Output format: json|table|yaml (default: json) (default "json")
+      --quiet               Quiet mode - suppress non-essential output for automation
+      --use-config string   use specific configuration by name (overrides current selection)
+```
+
+## Serve
+
+
+Start a mock GraphQL server for testing
+
+### Synopsis
+
+Start a mock GraphQL server with a comprehensive todo-list schema.
+
+The server includes:
+- Queries: users, todos, search, and more
+- Mutations: create/update/delete users and todos
+- Subscriptions: real-time events for todos and users
+- File uploads via multipart/form-data
+- WebSocket and SSE transport for subscriptions
+- GraphQL Playground for interactive testing
+- Relay Node pattern for global object identification
+
+The server is pre-seeded with sample data and ready to use immediately.
+
+```
+gqlt serve [flags]
+```
+
+### Examples
+
+```
+  # Start server on default address (localhost:8090)
+  gqlt serve
+
+  # Start on custom port (binds to all interfaces, IPv6 with IPv4 fallback)
+  gqlt serve --listen :3000
+
+  # Start on all IPv4 interfaces
+  gqlt serve --listen 0.0.0.0:3000
+
+  # Start on localhost only (IPv4)
+  gqlt serve --listen 127.0.0.1:3000
+
+  # Start without playground
+  gqlt serve --no-playground
+
+  # Test with queries
+  gqlt serve &
+  gqlt run --url http://localhost:8090/graphql --query '{ users { id name email } }'
+  
+  # Test subscriptions
+  gqlt serve &
+  gqlt run --url http://localhost:8090/graphql --query 'subscription { counter }' --timeout 10s
+```
+
+### Options
+
+```
+  -h, --help            help for serve
+  -l, --listen string   Address to listen on (host:port) (default "localhost:8090")
+      --playground      Enable GraphQL Playground (default true)
 ```
 
 ### Options inherited from parent commands

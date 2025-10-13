@@ -37,6 +37,9 @@ func TestExamplesCompile(t *testing.T) {
 
 // TestMockServerBasic tests basic mock server functionality
 func TestMockServerBasic(t *testing.T) {
+	// This test demonstrates using the simple mock server
+	// For a comprehensive mock server, use `gqlt serve`
+
 	// Create mock server
 	mock := NewMockGraphQLServer()
 	defer mock.Close()
